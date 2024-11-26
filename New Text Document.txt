@@ -1,0 +1,4 @@
+conda activate mtgo_project
+
+
+conda install numpy pandas spyder
