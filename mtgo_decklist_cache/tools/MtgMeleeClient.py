@@ -49,7 +49,9 @@ class MtgMeleeClient:
     def get_players(self, uri, max_players=None):
         
         result = []
-        page_content = self.get_client().get(uri).text
+        # je ne suis pas sur de bien comprendre pourquoi utilisé self ici sachant qu'on appel une méthode static
+        # page_content = self.get_client().get(uri).text
+        page_content = MtgMeleeClient.get_client().get(uri).text
         soup = BeautifulSoup(page_content, 'html.parser')
 
         round_nodes = soup.select('button.btn.btn-gray.round-selector[data-is-completed="True"]')
@@ -58,6 +60,7 @@ class MtgMeleeClient:
             return None
 
         round_ids = [node['data-id'] for node in round_nodes]
+        
         for round_id in round_ids:
             has_data = True
             offset = 0
@@ -66,12 +69,12 @@ class MtgMeleeClient:
 
             round_parameters = MtgMeleeConstants.ROUND_PAGE_PARAMETERS.replace("{start}", str(offset)).replace("{roundId}", round_id) 
             round_url = MtgMeleeConstants.ROUND_PAGE 
-            response = self.get_client().post(round_url, data=round_parameters)
+            response = MtgMeleeClient.get_client().post(round_url, data=round_parameters)
             print("Réponse obtenue:", response.status_code)
             round_data = json.loads(response.text)
-            # response = get_client().post(round_url, data=round_parameters)
-            # round_data = json.loads(response.text)
-            print(len(round_data['data']))
+ 
+
+            # print(len(round_data['data']))
             while has_data and (max_players is None or offset < max_players):
                 if len(round_data['data']) == 0 and offset == 0:
                     if len(round_ids) > 1:
@@ -142,7 +145,8 @@ class MtgMeleeClient:
         deck_page_content = self.get_client().get(uri).text
         deck_soup = BeautifulSoup(deck_page_content, 'html.parser')
 
-        copy_button = deck_soup.select_one("button.decklist-builder-copy-button")
+        copy_button = deck_soup.select_one("button.decklist-builder-copy-button.btn-sm.btn.btn-card.text-nowrap")
+        
         card_list = copy_button['data-clipboard-text'].split("\r\n")
 
         player_url = deck_soup.select_one("span.decklist-card-title-author a")['href']

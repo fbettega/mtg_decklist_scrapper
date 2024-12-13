@@ -19,21 +19,6 @@ class MtgMeleeTournament:
         self.decklists = decklists
         self.formats = formats
 
-class MtgMeleeClient:
-    def get_tournaments(self, start_date: datetime, end_date: datetime) -> List[MtgMeleeTournament]:
-        # Simulating API call to fetch tournaments between start_date and end_date
-        # Replace with actual request logic, e.g., HTTP request to fetch data from the server.
-        return [
-            MtgMeleeTournament(1, 'http://example.com/tournament1', start_date, 'Organizer 1', 'Tournament 1', 50, ['Standard', 'Modern']),
-            MtgMeleeTournament(2, 'http://example.com/tournament2', end_date, 'Organizer 2', 'Tournament 2', 40, ['Pauper'])
-        ]
-
-class MtgMeleeAnalyzer:
-    def get_scraper_tournaments(self, tournament: MtgMeleeTournament) -> Optional[List[MtgMeleeTournament]]:
-        # Simulating tournament analysis
-        # Replace with actual analysis logic.
-        return [tournament]
-
 class TournamentList:
     @staticmethod
     def get_tournaments(start_date: datetime, end_date: Optional[datetime] = None) -> List[MtgMeleeTournament]:
@@ -70,8 +55,6 @@ class TournamentList:
 
 # for tournament in tournaments:
 #     print(f"Tournament: {tournament.name}, Date: {tournament.date}")
-
-
 
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):

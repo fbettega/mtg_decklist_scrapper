@@ -16,7 +16,7 @@ def main():
     client = MtgMeleeClient()
     # Test de la méthode get_players
     try:
-        players = client.get_players(uri=TOURNAMENT_URL, max_players=50)
+        players = client.get_deck(uri=TOURNAMENT_URL, players=50)
         print(f"Players found: {len(players)}")
         for player in players[:5]:  # Affiche les 5 premiers joueurs
             print(player)
@@ -25,3 +25,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

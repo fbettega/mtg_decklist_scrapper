@@ -4,7 +4,7 @@
         
         {
             "name": "Debug MtgMeleeClient",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/initial_debug.py",
             "console": "integratedTerminal",

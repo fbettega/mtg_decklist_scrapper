@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Optional
 from dateutil import parser
-
+from tools.MtgMeleeClient import MtgMeleeClient
 
 
  #%%
@@ -22,14 +22,13 @@ class Tournament:
         self.json_file = json_file
         self.force_redownload = force_redownload
 
-class ITournamentSource:
-    def get_tournaments(self, start_date: datetime, end_date: Optional[datetime]):
-        # Simulated behavior: this should be replaced with the actual tournament data retrieval.
-        return []
-
-    def get_tournament_details(self, tournament: Tournament):
-        # Simulated behavior: replace with actual tournament detail retrieval.
-        return None
+# class ITournamentSource:
+#     def get_tournaments(self, start_date: datetime, end_date: Optional[datetime]):
+#         # Simulated behavior: this should be replaced with the actual tournament data retrieval.
+#         return []
+#     def get_tournament_details(self, tournament: Tournament):
+#         # Simulated behavior: replace with actual tournament detail retrieval.
+#         return None
 
 # Update folder function
 def update_folder(cache_root_folder: str, source: ITournamentSource, start_date: datetime, end_date: Optional[datetime]):
@@ -85,7 +84,7 @@ def run_with_retry(action, max_attempts: int):
 
 # Main function equivalent
 def main():
-    args = ["./cache_folder", "2024-11-01", "2024-11-24", "mtgo", "skipleagues"]
+    args = ["./cache_folder", "2024-11-01", "2024-11-24", "all", "keepleague"]
     
     if len(args) < 1:
         print("Usage: MTGODecklistCache.Updater.App CACHE_FOLDER [START_DATE] [END_DATE] [SOURCE]")
@@ -107,17 +106,17 @@ def main():
 
     include_leagues = len(args) < 5 or args[4].lower() != "skipleagues"
 
-    if use_mtgo:
+    # if use_mtgo:
         # You would need to replace this with the actual implementation of MtgoSource
-        update_folder(cache_folder, ITournamentSource(), start_date, end_date)
+        # update_folder(cache_folder, ITournamentSource(), start_date, end_date)
     
     if use_mtg_melee:
         # You would need to replace this with the actual implementation of MtgMeleeSource
-        update_folder(cache_folder, ITournamentSource(), start_date, end_date)
+        update_folder(cache_folder, MtgMeleeClient(), start_date, end_date)
     
-    if use_topdeck:
+    # if use_topdeck:
         # You would need to replace this with the actual implementation of TopdeckSource
-        update_folder(cache_folder, ITournamentSource(), start_date, end_date)
+        # update_folder(cache_folder, ITournamentSource(), start_date, end_date)
 
 if __name__ == "__main__":
     main()
