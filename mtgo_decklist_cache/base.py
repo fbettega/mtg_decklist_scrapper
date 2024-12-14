@@ -7,36 +7,18 @@ Created on Sun Nov 24 18:54:58 2024
 
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dateutil import parser
-from tools.MtgMeleeClient import MtgMeleeClient
-
-
- #%%
-# Dummy classes to simulate source behavior (to be replaced with actual implementation)
-class Tournament:
-    def __init__(self, date: datetime, name: str, json_file: str, force_redownload: bool = False):
-        self.date = date
-        self.name = name
-        self.json_file = json_file
-        self.force_redownload = force_redownload
-
-# class ITournamentSource:
-#     def get_tournaments(self, start_date: datetime, end_date: Optional[datetime]):
-#         # Simulated behavior: this should be replaced with the actual tournament data retrieval.
-#         return []
-#     def get_tournament_details(self, tournament: Tournament):
-#         # Simulated behavior: replace with actual tournament detail retrieval.
-#         return None
+import MTGmelee.MtgMeleeClient as MTGmelee
 
 # Update folder function
-def update_folder(cache_root_folder: str, source: ITournamentSource, start_date: datetime, end_date: Optional[datetime]):
+def update_folder(cache_root_folder: str, source, start_date: datetime, end_date: Optional[datetime]):
     cache_folder = os.path.join(cache_root_folder, source.__class__.__name__)  # Provider is the class name
 
     print(f"Downloading tournament list for {source.__class__.__name__}")
     
-    tournaments = source.get_tournaments(start_date, end_date)
+    tournaments = source.TournamentList.get_tournaments(start_date, end_date)
     tournaments.sort(key=lambda t: t.date)
     
     for tournament in tournaments:
@@ -94,11 +76,11 @@ def main():
     
     start_date = (datetime.now() - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
     if len(args) > 1:
-        start_date = parser.parse(args[1]).astimezone(datetime.timezone.utc)
+        start_date = parser.parse(args[1]).astimezone(timezone.utc)
 
     end_date = None
     if len(args) > 2:
-        end_date = parser.parse(args[2]).astimezone(datetime.timezone.utc)
+        end_date = parser.parse(args[2]).astimezone(timezone.utc)
 
     use_mtgo = len(args) < 4 or args[3].lower() in ["mtgo", "all"]
     use_mtg_melee = len(args) < 4 or args[3].lower() in ["melee", "all"]
@@ -112,7 +94,7 @@ def main():
     
     if use_mtg_melee:
         # You would need to replace this with the actual implementation of MtgMeleeSource
-        update_folder(cache_folder, MtgMeleeClient(), start_date, end_date)
+        update_folder(cache_folder, MTGmelee, start_date, end_date)
     
     # if use_topdeck:
         # You would need to replace this with the actual implementation of TopdeckSource

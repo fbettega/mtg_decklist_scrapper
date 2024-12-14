@@ -7,7 +7,7 @@ Created on Sun Nov 24 20:48:21 2024
 import os
 import base
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
-from tools.MtgMeleeClient import MtgMeleeClient
+from MTGmelee.MtgMeleeClient import MtgMeleeClient
 
 # Exemple d'URL pour tester
 TOURNAMENT_URL = "https://melee.gg/Tournament/View/88897"
