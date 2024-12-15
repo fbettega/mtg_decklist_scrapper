@@ -264,12 +264,10 @@ class MtgMeleeClient:
     
 
 class CardNameNormalizer:
-    @staticmethod
     def normalize(card_name):
         return card_name.strip()
 
 class TournamentList:
-    @staticmethod
     def get_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
         """Récupérer les tournois entre les dates start_date et end_date."""
         if start_date < datetime(2020, 1, 1):
@@ -310,37 +308,6 @@ class MtgMeleeTournament:
         self.name = name
         self.decklists = decklists
         self.formats = formats
-
-class TournamentList:
-    @staticmethod
-    def get_tournaments(start_date: datetime, end_date: Optional[datetime] = None) -> List[MtgMeleeTournament]:
-        if start_date < datetime(2020, 1, 1, 0, 0, 0, tzinfo=timezone.utc):
-            return []
-        
-        if end_date is None:
-            end_date = datetime.utcnow() + timedelta(days=1)
-
-        result = []
-        current_start_date = start_date
-        
-        while current_start_date < end_date:
-            current_end_date = current_start_date + timedelta(days=7)
-            
-            print(f"\r[MtgMelee] Downloading tournaments from {current_start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}".ljust(80))
-
-            tournaments = MtgMeleeClient().get_tournaments(current_start_date, current_end_date)
-
-            for tournament in tournaments:
-                melee_tournaments = MtgMeleeAnalyzer().get_scraper_tournaments(tournament)
-                if melee_tournaments is not None:
-                    result.extend(melee_tournaments)
-
-            current_start_date = current_start_date + timedelta(days=7)
-
-        print("\r[MtgMelee] Download finished".ljust(80))
-
-        return result
-
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
         self.player1 = player1
@@ -373,7 +340,6 @@ class CacheItem:
         self.rounds = rounds
 
 class TournamentLoader:
-    @staticmethod
     def get_tournament_details(tournament: dict) -> CacheItem:
         players = TournamentLoader.get_players(tournament['uri'])
         
@@ -420,51 +386,3 @@ class TournamentLoader:
             rounds=rounds
         )
 
-    @staticmethod
-    def get_deck(player: MtgMeleePlayerInfo, players: List[MtgMeleePlayerInfo], tournament: dict, current_position: int) -> Optional[MtgMeleeDeckInfo]:
-        print(f"[MtgMelee] Downloading player {player.player_name} ({current_position})")
-
-        deck_uri = None
-        if player.decks:
-            if 'deck_offset' not in tournament:
-                deck_uri = player.decks[-1].deck_uri  # Use the last deck for compatibility
-            else:
-                if len(player.decks) >= tournament['expected_decks']:
-                    deck_uri = player.decks[tournament['deck_offset']].deck_uri
-                else:
-                    # Implement missing behavior (similar to the C# version)
-                    if tournament['fix_behavior'] == 'UseLast':
-                        deck_uri = player.decks[-1].deck_uri
-                    elif tournament['fix_behavior'] == 'UseFirst':
-                        deck_uri = player.decks[0].deck_uri
-        
-        if deck_uri:
-            return TournamentLoader.get_deck_info(deck_uri)
-        return None
-
-    @staticmethod
-    def get_deck_info(deck_uri: str) -> MtgMeleeDeckInfo:
-        # Fetch deck info from the deck_uri using an API or other methods
-        # For now, returning dummy data
-        return MtgMeleeDeckInfo(deck_uri, ['Card1', 'Card2'], ['SideboardCard1'])
-
-    @staticmethod
-    def get_players(tournament_uri: str) -> List[MtgMeleePlayerInfo]:
-        # Fetch players from the API
-        # Dummy data
-        return [
-            MtgMeleePlayerInfo('Player1', [MtgMeleeDeckInfo('uri1', ['CardA'], ['SideA'])], {'rank': 1}),
-            MtgMeleePlayerInfo('Player2', [MtgMeleeDeckInfo('uri2', ['CardB'], ['SideB'])], {'rank': 2})
-        ]
-
-# # Usage
-# tournament_info = {
-#     'uri': 'http://example.com/tournament',
-#     'name': 'Tournament 1',
-#     'excluded_rounds': ['Round 1'],
-#     'expected_decks': 8,
-#     'deck_offset': 0,
-#     'fix_behavior': 'UseFirst'
-# }
-
-# cache_item = TournamentLoader.get_tournament_details(tournament_info)
