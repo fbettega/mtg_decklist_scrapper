@@ -12,12 +12,12 @@ from  comon_tools.tools import *
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
-    BlacklistedTerms = ["term1", "term2"]  # Ajouter les termes réels
-    ValidFormats = ["Format1", "Format2"]
-    MinimumPlayers = 50
-    MininumPercentageOfDecks = 0.7
-    PlayersLoadedForAnalysis = 100
-    DecksLoadedForAnalysis = 100
+    MinimumPlayers = 16
+    MininumPercentageOfDecks = 0.5
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper"]
+    PlayersLoadedForAnalysis = 25
+    DecksLoadedForAnalysis = 16
+    BlacklistedTerms = ["Team "]
 
 @dataclass
 class MtgMeleeTournament:
