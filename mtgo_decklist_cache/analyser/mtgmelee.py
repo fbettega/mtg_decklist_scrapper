@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 import MTGmelee.MtgMeleeClient as MtgMeleeClient
-
-
+from  comon_tools.tools import *
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
@@ -50,10 +49,28 @@ class MtgMeleeDeckInfo:
 
 
 class FormatDetector:
+    _vintage_cards = ["Black Lotus", "Mox Emerald", "Mox Jet", "Mox Sapphire", "Mox Ruby", "Mox Pearl"]
+    _legacy_cards = ["Tundra", "Underground Sea", "Badlands", "Taiga", "Savannah", "Scrubland", "Volcanic Island", "Bayou", "Plateau", "Tropical Island"]
+    _modern_cards = ["Flooded Strand", "Polluted Delta", "Bloodstained Mire", "Wooded Foothills", "Windswept Heath", "Marsh Flats", "Scalding Tarn", "Verdant Catacombs", "Arid Mesa", "Misty Rainforest"]
+    _pioneer_cards1 = ["Hallowed Fountain", "Watery Grave", "Blood Crypt", "Stomping Ground", "Temple Garden", "Godless Shrine", "Overgrown Tomb", "Breeding Pool", "Steam Vents", "Sacred Foundry"]
+    _pioneer_cards2 = ["Nykthos, Shrine to Nyx", "Savai Triome", "Indatha Triome", "Zagoth Triome", "Ketria Triome", "Raugrin Triome", "Spara's Headquarters", "Raffine's Tower", "Xander's Lounge", "Ziatora's Proving Ground", "Jetmir's Garden"]
+    _pauper_cards = ["Lightning Bolt", "Counterspell"]
+
     @staticmethod
-    def detect(decks):
-        # Implémenter la détection du format à partir des decks
-        pass
+    def detect(decks: List[dict]) -> str:
+        if any(c["CardName"] in FormatDetector._vintage_cards for d in decks for c in d["Mainboard"]):
+            return "Vintage"
+        if any(c["CardName"] in FormatDetector._legacy_cards for d in decks for c in d["Mainboard"]):
+            return "Legacy"
+        if any(c["CardName"] in FormatDetector._modern_cards for d in decks for c in d["Mainboard"]):
+            return "Modern"
+        if (any(c["CardName"] in FormatDetector._pioneer_cards1 for d in decks for c in d["Mainboard"]) and
+            any(c["CardName"] in FormatDetector._pioneer_cards2 for d in decks for c in d["Mainboard"])):
+            return "Pioneer"
+        if any(c["CardName"] in FormatDetector._pauper_cards for d in decks for c in d["Mainboard"]):
+            return "Pauper"
+        return "Standard"
+
 
 
 

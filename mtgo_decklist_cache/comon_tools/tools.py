@@ -10,6 +10,7 @@ import requests
 from urllib.parse import quote
 from collections import defaultdict
 
+
 class CardNameNormalizer:
     _api_endpoint = "https://api.scryfall.com/cards/search?order=cmc&q={query}"
     _alchemy_prefix = "A-"
