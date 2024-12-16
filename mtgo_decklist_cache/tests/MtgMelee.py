@@ -1,23 +1,23 @@
 import pytest
-import MTGmelee.MtgMeleeClient as MtgMeleeClient
+from  MTGmelee.MtgMeleeClient import *
 import pdb
 
 
-try:
-    client = MtgMeleeClient.MtgMeleeClient()
-    players = client.get_players("https://melee.gg/Tournament/View/16429")
-    deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-    deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_rounds=True)
-except Exception as e:
-    print(f"An error occurred: {e}")
-    pdb.post_mortem()  # Lance le débogueur en mode post-mortem
+# try:
+#     client = MtgMeleeClient.MtgMeleeClient()
+#     players = client.get_players("https://melee.gg/Tournament/View/16429")
+#     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
+#     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_rounds=True)
+# except Exception as e:
+#     print(f"An error occurred: {e}")
+#     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
 
 
 
 @pytest.fixture(scope="module")
 def setup_decks():
-    client = MtgMeleeClient.MtgMeleeClient()
+    client = MtgMeleeClient()
     players = client.get_players("https://melee.gg/Tournament/View/16429")
     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_rounds=True)

@@ -129,8 +129,6 @@ class MtgMeleeClient:
         return re.sub(r'\s+', ' ', data).strip()
 
     def get_players(self, uri, max_players=None):
-        
-        uri = "https://melee.gg/Tournament/View/16429"
         result = []
         # je ne suis pas sur de bien comprendre pourquoi utilisé self ici sachant qu'on appel une méthode static
         # page_content = self.get_client().get(uri).text
@@ -157,7 +155,6 @@ class MtgMeleeClient:
             round_data = json.loads(response.text)
  
 
-            # print(len(round_data['data']))
             while has_data and (max_players is None or offset < max_players):
                 if len(round_data['data']) == 0 and offset == 0:
                     if len(round_ids) > 1:
@@ -169,8 +166,6 @@ class MtgMeleeClient:
                         break
 
                 for entry in round_data['data']:
-                    print("Entrée trouvée:", entry)
-                    # entry = round_data['data'][1]
                     has_data = True
                     player_name = entry['Team']['Players'][0]['DisplayName']
                     if not player_name:
