@@ -15,20 +15,104 @@ from typing import List, Optional
 
 # sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from models.mtg_melee_models import (
-    MtgMeleePlayerInfo,
-    MtgMeleePlayerDeck,
-    MtgMeleeDeckInfo,
-    MtgMeleeTournamentInfo,
-    MtgMeleeRoundInfo
-)
+
 from models.base_model import (
     Standing,
     DeckItem,
     RoundItem
 )
 
-from constant.MtgMeleeconstant import MtgMeleeConstants
+
+
+class MtgMeleeConstants:
+    # URL templates for various pages
+    DECK_PAGE = "https://melee.gg/Decklist/View/{deckId}"
+    PLAYER_DETAILS_PAGE = "https://melee.gg/Player/GetPlayerDetails?id={playerId}"
+    TOURNAMENT_PAGE = "https://melee.gg/Tournament/View/{tournamentId}"
+    TOURNAMENT_LIST_PAGE = "https://melee.gg/Decklist/TournamentSearch"
+    ROUND_PAGE = "https://melee.gg/Standing/GetRoundStandings"
+    # Parameters for the Tournament List page
+    TOURNAMENT_LIST_PARAMETERS = "draw=1&columns%5B0%5D%5Bdata%5D=ID&columns%5B0%5D%5Bname%5D=ID&columns%5B0%5D%5Bsearchable%5D=false&columns%5B0%5D%5Borderable%5D=false&columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B1%5D%5Bdata%5D=Name&columns%5B1%5D%5Bname%5D=Name&columns%5B1%5D%5Bsearchable%5D=true&columns%5B1%5D%5Borderable%5D=true&columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B2%5D%5Bdata%5D=StartDate&columns%5B2%5D%5Bname%5D=StartDate&columns%5B2%5D%5Bsearchable%5D=false&columns%5B2%5D%5Borderable%5D=true&columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B3%5D%5Bdata%5D=Status&columns%5B3%5D%5Bname%5D=Status&columns%5B3%5D%5Bsearchable%5D=true&columns%5B3%5D%5Borderable%5D=true&columns%5B3%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B3%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B4%5D%5Bdata%5D=Format&columns%5B4%5D%5Bname%5D=Format&columns%5B4%5D%5Bsearchable%5D=true&columns%5B4%5D%5Borderable%5D=true&columns%5B4%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B4%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B5%5D%5Bdata%5D=OrganizationName&columns%5B5%5D%5Bname%5D=OrganizationName&columns%5B5%5D%5Bsearchable%5D=true&columns%5B5%5D%5Borderable%5D=true&columns%5B5%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B5%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B6%5D%5Bdata%5D=Decklists&columns%5B6%5D%5Bname%5D=Decklists&columns%5B6%5D%5Bsearchable%5D=true&columns%5B6%5D%5Borderable%5D=true&columns%5B6%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B6%5D%5Bsearch%5D%5Bregex%5D=false&order%5B0%5D%5Bcolumn%5D=2&order%5B0%5D%5Bdir%5D=desc&start={offset}&length=25&search%5Bvalue%5D=&search%5Bregex%5D=false&q=&startDate={startDate}T00%3A00%3A00.000Z&endDate={endDate}T23%3A59%3A59.999Z";
+    # Parameters for the Round Page
+    ROUND_PAGE_PARAMETERS = "draw=1&columns%5B0%5D%5Bdata%5D=Rank&columns%5B0%5D%5Bname%5D=Rank&columns%5B0%5D%5Bsearchable%5D=true&columns%5B0%5D%5Borderable%5D=true&columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B1%5D%5Bdata%5D=Player&columns%5B1%5D%5Bname%5D=Player&columns%5B1%5D%5Bsearchable%5D=false&columns%5B1%5D%5Borderable%5D=false&columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B2%5D%5Bdata%5D=Decklists&columns%5B2%5D%5Bname%5D=Decklists&columns%5B2%5D%5Bsearchable%5D=false&columns%5B2%5D%5Borderable%5D=true&columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B3%5D%5Bdata%5D=MatchRecord&columns%5B3%5D%5Bname%5D=MatchRecord&columns%5B3%5D%5Bsearchable%5D=false&columns%5B3%5D%5Borderable%5D=false&columns%5B3%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B3%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B4%5D%5Bdata%5D=GameRecord&columns%5B4%5D%5Bname%5D=GameRecord&columns%5B4%5D%5Bsearchable%5D=false&columns%5B4%5D%5Borderable%5D=false&columns%5B4%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B4%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B5%5D%5Bdata%5D=Points&columns%5B5%5D%5Bname%5D=Points&columns%5B5%5D%5Bsearchable%5D=true&columns%5B5%5D%5Borderable%5D=true&columns%5B5%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B5%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B6%5D%5Bdata%5D=OpponentMatchWinPercentage&columns%5B6%5D%5Bname%5D=OpponentMatchWinPercentage&columns%5B6%5D%5Bsearchable%5D=false&columns%5B6%5D%5Borderable%5D=true&columns%5B6%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B6%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B7%5D%5Bdata%5D=TeamGameWinPercentage&columns%5B7%5D%5Bname%5D=TeamGameWinPercentage&columns%5B7%5D%5Bsearchable%5D=false&columns%5B7%5D%5Borderable%5D=true&columns%5B7%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B7%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B8%5D%5Bdata%5D=OpponentGameWinPercentage&columns%5B8%5D%5Bname%5D=OpponentGameWinPercentage&columns%5B8%5D%5Bsearchable%5D=false&columns%5B8%5D%5Borderable%5D=true&columns%5B8%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B8%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B9%5D%5Bdata%5D=FinalTiebreaker&columns%5B9%5D%5Bname%5D=FinalTiebreaker&columns%5B9%5D%5Bsearchable%5D=true&columns%5B9%5D%5Borderable%5D=true&columns%5B9%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B9%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B10%5D%5Bdata%5D=OpponentCount&columns%5B10%5D%5Bname%5D=OpponentCount&columns%5B10%5D%5Bsearchable%5D=true&columns%5B10%5D%5Borderable%5D=true&columns%5B10%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B10%5D%5Bsearch%5D%5Bregex%5D=false&order%5B0%5D%5Bcolumn%5D=0&order%5B0%5D%5Bdir%5D=asc&start={start}&length=25&search%5Bvalue%5D=&search%5Bregex%5D=false&roundId={roundId}"
+    MaxDaysBeforeTournamentMarkedAsEnded = 5
+    @staticmethod
+    def format_url(url, **params):
+        return url.format(**params)
+
+
+class MtgMeleeDeckInfo:
+    def __init__(self, deck_uri: str, format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], rounds: Optional[List['MtgMeleeRoundInfo']] = None):
+        self.deck_uri = deck_uri
+        self.format = format
+        self.mainboard = mainboard
+        self.sideboard = sideboard
+        self.rounds = rounds if rounds is not None else []
+
+class MtgMeleePlayerDeck:
+    def __init__(self, deck_id: str, uri: str, format: str):
+        self.id = deck_id
+        self.uri = uri
+        self.format = format
+
+class MtgMeleePlayerInfo:
+    def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
+        self.username = username
+        self.player_name = player_name
+        self.result = result
+        self.standing = standing
+        self.decks = decks if decks is not None else []
+
+class MtgMeleeRoundInfo:
+    def __init__(self, round_name: str, match: 'RoundItem'):
+        self.round_name = round_name
+        self.match = match
+
+class MtgMeleeTournamentInfo:
+    def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None):
+        self.id = tournament_id
+        self.uri = uri
+        self.date = date
+        self.organizer = organizer
+        self.name = name
+        self.decklists = decklists
+        self.formats = formats if formats is not None else []
+
+class MtgMeleeTournament:
+    def __init__(self, id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]]):
+        self.id = id
+        self.uri = uri
+        self.date = date
+        self.organizer = organizer
+        self.name = name
+        self.decklists = decklists
+        self.formats = formats
+class RoundItem:
+    def __init__(self, player1: str, player2: str, result: str):
+        self.player1 = player1
+        self.player2 = player2
+        self.result = result
+
+class Round:
+    def __init__(self, round_name: str, matches: List[RoundItem]):
+        self.round_name = round_name
+        self.matches = matches
+
+class MtgMeleeDeckInfo:
+    def __init__(self, deck_uri: str, mainboard: List[str], sideboard: List[str], rounds: Optional[List[Round]] = None):
+        self.deck_uri = deck_uri
+        self.mainboard = mainboard
+        self.sideboard = sideboard
+        self.rounds = rounds or []
+
+class CacheItem:
+    def __init__(self, tournament: str, decks: List[MtgMeleeDeckInfo], standings: List[dict], rounds: List[Round]):
+        self.tournament = tournament
+        self.decks = decks
+        self.standings = standings
+        self.rounds = rounds
+
+
 
 class MtgMeleeClient:
     @staticmethod
@@ -46,6 +130,7 @@ class MtgMeleeClient:
 
     def get_players(self, uri, max_players=None):
         
+        uri = "https://melee.gg/Tournament/View/16429"
         result = []
         # je ne suis pas sur de bien comprendre pourquoi utilisé self ici sachant qu'on appel une méthode static
         # page_content = self.get_client().get(uri).text
@@ -298,46 +383,8 @@ class TournamentList:
 
         print("\r[MtgMelee] Download finished".ljust(80))
         return result
-    
-class MtgMeleeTournament:
-    def __init__(self, id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]]):
-        self.id = id
-        self.uri = uri
-        self.date = date
-        self.organizer = organizer
-        self.name = name
-        self.decklists = decklists
-        self.formats = formats
-class RoundItem:
-    def __init__(self, player1: str, player2: str, result: str):
-        self.player1 = player1
-        self.player2 = player2
-        self.result = result
 
-class Round:
-    def __init__(self, round_name: str, matches: List[RoundItem]):
-        self.round_name = round_name
-        self.matches = matches
 
-class MtgMeleeDeckInfo:
-    def __init__(self, deck_uri: str, mainboard: List[str], sideboard: List[str], rounds: Optional[List[Round]] = None):
-        self.deck_uri = deck_uri
-        self.mainboard = mainboard
-        self.sideboard = sideboard
-        self.rounds = rounds or []
-
-class MtgMeleePlayerInfo:
-    def __init__(self, player_name: str, decks: Optional[List[MtgMeleeDeckInfo]] = None, standing: Optional[dict] = None):
-        self.player_name = player_name
-        self.decks = decks or []
-        self.standing = standing or {}
-
-class CacheItem:
-    def __init__(self, tournament: str, decks: List[MtgMeleeDeckInfo], standings: List[dict], rounds: List[Round]):
-        self.tournament = tournament
-        self.decks = decks
-        self.standings = standings
-        self.rounds = rounds
 
 class TournamentLoader:
     def get_tournament_details(tournament: dict) -> CacheItem:
