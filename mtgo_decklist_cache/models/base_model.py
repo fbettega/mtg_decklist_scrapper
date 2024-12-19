@@ -7,8 +7,8 @@ Created on Sun Nov 24 18:39:50 2024
 
 from datetime import datetime
 from typing import List, Optional
-
-
+from dataclasses import dataclass
+@dataclass
 class Tournament:
     def __init__(self, date: datetime, name: str, uri: str, json_file: Optional[str] = None, force_redownload: bool = False):
         self.date = date
@@ -20,7 +20,7 @@ class Tournament:
     def __str__(self):
         return f"{self.name}|{self.date.strftime('%Y-%m-%d')}"
 
-
+@dataclass
 class Standing:
     def __init__(self, rank: int, player: str, points: int, wins: int, losses: int, draws: int, omwp: float, gwp: float, ogwp: float):
         self.rank = rank
@@ -36,7 +36,7 @@ class Standing:
     def __str__(self):
         return f"#{self.rank} {self.player} {self.points} points"
 
-
+@dataclass
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
         self.player1 = player1
@@ -46,7 +46,7 @@ class RoundItem:
     def __str__(self):
         return f"{self.player1} {self.result} {self.player2}"
 
-
+@dataclass
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):
         self.round_name = round_name
@@ -55,16 +55,18 @@ class Round:
     def __str__(self):
         return f"Round: {self.round_name}, {len(self.matches)} matches"
 
-
+@dataclass
 class DeckItem:
     def __init__(self, count: int, card_name: str):
         self.count = count
         self.card_name = card_name
-
     def __str__(self):
-        return f"{self.count} {self.card_name}"
-
-
+        return f"count : {self.count}, card name : {self.card_name}"
+    def __eq__(self, other):
+        if isinstance(other, DeckItem):
+            return self.count == other.count and self.card_name == other.card_name
+        return False
+@dataclass
 class Deck:
     def __init__(self, date: Optional[datetime], player: str, result: str, anchor_uri: str,
                  mainboard: List[DeckItem], sideboard: List[DeckItem]):
@@ -83,7 +85,7 @@ class Deck:
         total = sum(item.count for item in self.mainboard) + sum(item.count for item in self.sideboard)
         return f"{total} cards"
 
-
+@dataclass
 class CacheItem:
     def __init__(self, tournament: Tournament, decks: List[Deck], rounds: List[Round], standings: List[Standing]):
         self.tournament = tournament

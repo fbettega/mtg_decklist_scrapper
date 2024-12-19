@@ -1,26 +1,40 @@
 import pytest
-from  MTGmelee.MtgMeleeClient import *
+# from  MTGmelee.MtgMeleeClient import *
 import pdb
+import importlib
 
+import MTGmelee.MtgMeleeClient
+
+# Recharger le module
+importlib.reload(MTGmelee.MtgMeleeClient)
+# pytest .\tests\MtgMelee.py 
+# Réimporter tous les objets exportés par le module
+from MTGmelee.MtgMeleeClient import *
 
 # try:
-#     client = MtgMeleeClient.MtgMeleeClient()
+#     client = MtgMeleeClient()
 #     players = client.get_players("https://melee.gg/Tournament/View/16429")
 #     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-#     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_rounds=True)
+#     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
 # except Exception as e:
 #     print(f"An error occurred: {e}")
 #     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
 
+# for card in deck.mainboard:
+#     print(card)
+# for card in expected_mainboard:
+#     print(card)
 
+
+# FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
 @pytest.fixture(scope="module")
 def setup_decks():
     client = MtgMeleeClient()
     players = client.get_players("https://melee.gg/Tournament/View/16429")
     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-    deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_rounds=True)
+    deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
     return deck, deck_no_rounds
 
 
@@ -93,7 +107,7 @@ def test_should_load_sideboard_cards(setup_decks):
         DeckItem(1, "Grafdigger's Cage"),
         DeckItem(1, "Phyrexian Metamorph")
     ]
-    assert deck.sideboard == expected_mainboard 
+    assert deck.sideboard == expected_sideboard 
 
 
 def test_should_include_uri(setup_decks):
@@ -108,39 +122,39 @@ def test_should_include_format(setup_decks):
 
 def test_should_respect_flag_to_skip_rounds(setup_decks):
     _, deck_no_rounds = setup_decks
-    assert deck_no_rounds.rounds is None
+    assert deck_no_rounds.rounds == []
 
 
 def test_should_not_break_on_decks_missing_rounds():
     client = MtgMeleeClient()
-    players = client.get_players(urlparse("https://melee.gg/Tournament/View/21"))
-    deck = client.get_deck(urlparse("https://melee.gg/Decklist/View/96"), players)
-    assert deck.rounds is None
+    players = client.get_players("https://melee.gg/Tournament/View/21")
+    deck = client.get_deck("https://melee.gg/Decklist/View/96", players)
+    assert deck.rounds == []
 
 
 def test_should_not_break_on_player_names_with_brackets():
     client = MtgMeleeClient()
-    players = client.get_players(urlparse("https://melee.gg/Tournament/View/7891"))
-    deck = client.get_deck(urlparse("https://melee.gg/Decklist/View/170318"), players)
+    players = client.get_players("https://melee.gg/Tournament/View/7891")
+    deck = client.get_deck("https://melee.gg/Decklist/View/170318", players)
     assert deck.rounds is not None
 
 
 def test_should_not_break_on_player_names_with_brackets_getting_a_bye():
     client = MtgMeleeClient()
-    players = client.get_players(urlparse("https://melee.gg/Tournament/View/14720"))
-    deck = client.get_deck(urlparse("https://melee.gg/Decklist/View/284652"), players)
+    players = client.get_players("https://melee.gg/Tournament/View/14720")
+    deck = client.get_deck("https://melee.gg/Decklist/View/284652", players)
     assert deck.rounds is not None
 
 
 def test_should_not_break_on_format_exception_errors():
     client = MtgMeleeClient()
-    players = client.get_players(urlparse("https://melee.gg/Tournament/View/15300"))
-    deck = client.get_deck(urlparse("https://melee.gg/Decklist/View/292670"), players)
+    players = client.get_players("https://melee.gg/Tournament/View/15300")
+    deck = client.get_deck("https://melee.gg/Decklist/View/292670", players)
     assert deck.rounds is not None
 
 
 def test_should_not_break_on_double_forfeit_message():
     client = MtgMeleeClient()
-    players = client.get_players(urlparse("https://melee.gg/Tournament/View/65803"))
-    deck = client.get_deck(urlparse("https://melee.gg/Decklist/View/399414"), players)
+    players = client.get_players("https://melee.gg/Tournament/View/65803")
+    deck = client.get_deck("https://melee.gg/Decklist/View/399414", players)
     assert deck.rounds is not None 

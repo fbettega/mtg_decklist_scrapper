@@ -12,7 +12,8 @@ from datetime import datetime, timedelta, timezone
 import os
 import sys
 from typing import List, Optional
-
+import html
+from dataclasses import dataclass
 # sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 
@@ -23,7 +24,7 @@ from models.base_model import (
 )
 
 
-
+@dataclass
 class MtgMeleeConstants:
     # URL templates for various pages
     DECK_PAGE = "https://melee.gg/Decklist/View/{deckId}"
@@ -40,7 +41,7 @@ class MtgMeleeConstants:
     def format_url(url, **params):
         return url.format(**params)
 
-
+@dataclass
 class MtgMeleeDeckInfo:
     def __init__(self, deck_uri: str, format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], rounds: Optional[List['MtgMeleeRoundInfo']] = None):
         self.deck_uri = deck_uri
@@ -49,12 +50,13 @@ class MtgMeleeDeckInfo:
         self.sideboard = sideboard
         self.rounds = rounds if rounds is not None else []
 
+@dataclass
 class MtgMeleePlayerDeck:
     def __init__(self, deck_id: str, uri: str, format: str):
         self.id = deck_id
         self.uri = uri
         self.format = format
-
+@dataclass
 class MtgMeleePlayerInfo:
     def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
         self.username = username
@@ -62,12 +64,20 @@ class MtgMeleePlayerInfo:
         self.result = result
         self.standing = standing
         self.decks = decks if decks is not None else []
-
+    def __str__(self):
+        return f"round_name : {self.round_name}, match : {self.match}"
+    
+@dataclass
 class MtgMeleeRoundInfo:
     def __init__(self, round_name: str, match: 'RoundItem'):
         self.round_name = round_name
         self.match = match
+    def __str__(self):
+        return f"round_name : {self.round_name}, match : {self.match}"
+    def __eq__(self, other):
+        return self.round_name == other.round_name and self.match == other.match
 
+@dataclass
 class MtgMeleeTournamentInfo:
     def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None):
         self.id = tournament_id
@@ -77,7 +87,7 @@ class MtgMeleeTournamentInfo:
         self.name = name
         self.decklists = decklists
         self.formats = formats if formats is not None else []
-
+@dataclass
 class MtgMeleeTournament:
     def __init__(self, id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]]):
         self.id = id
@@ -92,19 +102,19 @@ class RoundItem:
         self.player1 = player1
         self.player2 = player2
         self.result = result
-
+    def __eq__(self, other):
+        return (self.player1 == other.player1 and
+                self.player2 == other.player2 and
+                self.result == other.result)
+    def __str__(self):
+        return f"player1 : {self.player1}, player2 : {self.player2}, result : {self.result}"
+@dataclass
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):
         self.round_name = round_name
         self.matches = matches
 
-class MtgMeleeDeckInfo:
-    def __init__(self, deck_uri: str, mainboard: List[str], sideboard: List[str], rounds: Optional[List[Round]] = None):
-        self.deck_uri = deck_uri
-        self.mainboard = mainboard
-        self.sideboard = sideboard
-        self.rounds = rounds or []
-
+@dataclass
 class CacheItem:
     def __init__(self, tournament: str, decks: List[MtgMeleeDeckInfo], standings: List[dict], rounds: List[Round]):
         self.tournament = tournament
@@ -142,81 +152,84 @@ class MtgMeleeClient:
 
         round_ids = [node['data-id'] for node in round_nodes]
         
-        for round_id in round_ids:
-            has_data = True
-            offset = 0
-            # debug
-            # round_id = round_ids[-1]
+        has_data = True
+        offset = 0
+        # debug
+        round_id = round_ids[-1]
 
+        while True:
+        # has_data and (max_players is None or offset < max_players):
+            has_data = False
             round_parameters = MtgMeleeConstants.ROUND_PAGE_PARAMETERS.replace("{start}", str(offset)).replace("{roundId}", round_id) 
             round_url = MtgMeleeConstants.ROUND_PAGE 
             response = MtgMeleeClient.get_client().post(round_url, data=round_parameters)
-            print("Réponse obtenue:", response.status_code)
+            # print("Réponse obtenue:", response.status_code)
             round_data = json.loads(response.text)
- 
 
-            while has_data and (max_players is None or offset < max_players):
-                if len(round_data['data']) == 0 and offset == 0:
-                    if len(round_ids) > 1:
-                        round_ids = round_ids[:-1]
-                        round_id = round_ids[-1]
-                        has_data = True
-                        continue
-                    else:
-                        break
-
-                for entry in round_data['data']:
+            if len(round_data['data']) == 0 and offset == 0:
+                if len(round_ids) > 1:
+                    round_ids = round_ids[:-1]
+                    round_id = round_ids[-1]
                     has_data = True
-                    player_name = entry['Team']['Players'][0]['DisplayName']
-                    if not player_name:
+                    continue
+                else:
+                    break
+
+            for entry in round_data['data']:
+                has_data = True
+                player_name = entry['Team']['Players'][0]['DisplayName']
+                if not player_name:
+                    continue
+
+                player_name = self.normalize_spaces(player_name)
+                user_name = entry['Team']['Players'][0]['Username']
+                player_points = entry['Points']
+                omwp = entry['OpponentMatchWinPercentage']
+                gwp = entry['TeamGameWinPercentage']
+                ogwp = entry['OpponentGameWinPercentage']
+                player_position = entry['Rank']
+                wins = entry['MatchWins']
+                losses = entry['MatchLosses']
+                draws = entry['MatchDraws']
+
+                standing = Standing(
+                    player=player_name,
+                    rank=player_position,
+                    points=player_points,
+                    omwp=omwp,
+                    gwp=gwp,
+                    ogwp=ogwp,
+                    wins=wins,
+                    losses=losses,
+                    draws=draws
+                )
+
+                player_decks = []
+                for decklist in entry['Decklists']:
+                    deck_list_id = decklist['DecklistId']
+                    if not deck_list_id:
                         continue
+                    decklist_format = decklist['Format']
+                    player_decks.append(MtgMeleePlayerDeck(
+                        deck_id=deck_list_id,
+                        format=decklist_format,
+                        uri=f"{MtgMeleeConstants.DECK_PAGE}/{deck_list_id}"
+                    ))
 
-                    player_name = self.normalize_spaces(player_name)
-                    user_name = entry['Team']['Players'][0]['Username']
-                    player_points = entry['Points']
-                    omwp = entry['OpponentMatchWinPercentage']
-                    gwp = entry['TeamGameWinPercentage']
-                    ogwp = entry['OpponentGameWinPercentage']
-                    player_position = entry['Rank']
-                    wins = entry['MatchWins']
-                    losses = entry['MatchLosses']
-                    draws = entry['MatchDraws']
+                result.append(
+                    MtgMeleePlayerInfo( 
+                        username=user_name,
+                        player_name=player_name,
+                        result=f"{wins}-{losses}-{draws}",
+                        standing=standing,
+                        decks=player_decks if player_decks else None
+                )
+                )
 
-                    standing = Standing(
-                        player=player_name,
-                        rank=player_position,
-                        points=player_points,
-                        omwp=omwp,
-                        gwp=gwp,
-                        ogwp=ogwp,
-                        wins=wins,
-                        losses=losses,
-                        draws=draws
-                    )
-
-                    player_decks = []
-                    for decklist in entry['Decklists']:
-                        deck_list_id = decklist['DecklistId']
-                        if not deck_list_id:
-                            continue
-                        decklist_format = decklist['Format']
-                        player_decks.append(MtgMeleePlayerDeck(
-                            deck_id=deck_list_id,
-                            format=decklist_format,
-                            uri=f"{MtgMeleeConstants.DECK_PAGE}/{deck_list_id}"
-                        ))
-
-                    result.append(
-                        MtgMeleePlayerInfo( 
-                            username=user_name,
-                            player_name=player_name,
-                            result=f"{wins}-{losses}-{draws}",
-                            standing=standing,
-                            decks=player_decks if player_decks else None
-                    )
-                    )
-
-                offset += 25
+            offset += 25
+            # print(offset)
+            if not has_data or (max_players is not None and offset >= max_players):
+                break
         return result
 
     def get_deck(self, uri, players, skip_round_data=False):
@@ -231,14 +244,14 @@ class MtgMeleeClient:
         player_raw = deck_soup.select_one("span.decklist-card-title-author a").text
         player_name = self.get_player_name(player_raw, player_url, players)
 
-        format_div = deck_soup.select_one(".card-header.decklist-card-header")
+        format_div = deck_soup.select_one(".card-header.decklist-card-header").find_all("div")[1].find_all("div")[2]
         format = format_div.text.strip()
 
         main_board = []
         side_board = []
         inside_sideboard = inside_companion = False
         for card in card_list:
-            if card in ['Deck', 'Companion', 'Sideboard']:
+            if card in ['Deck', 'Companion', 'Sideboard','']:
                 inside_companion = card == 'Companion'
                 inside_sideboard = card == 'Sideboard'
             else:
@@ -255,9 +268,17 @@ class MtgMeleeClient:
 
         rounds = []
         if not skip_round_data:
-            rounds_div = deck_soup.select_one("#tournament-path-grid-item")
+            
+            rounds_div = deck_soup.select_one("div#tournament-path-grid-item")
             if rounds_div:
-                for round_div in rounds_div.select("div div div table tbody tr"):
+                # rounds_div.select("div div div table tbody tr")
+                for round_div in rounds_div.select("div > div > div > table > tbody > tr")[1:]: 
+                    # le [:1] est un ajout perso a tester car le selecteur python prend le tableau supérieur qui n'est pas un round par exmple dans le code debug 
+                    # # Javier Dominguez
+                    # # Rank:	6
+                    # # Record:	0-0-0
+                    # # Points:	42
+
                     round = self.get_round(round_div, player_name, players)
                     if round:
                         rounds.append(round)
@@ -271,14 +292,24 @@ class MtgMeleeClient:
         )
 
     def get_round(self, round_node, player_name, players):
+
         round_columns = round_node.find_all("td")
         if round_columns[0].text.strip() == "No results found":
             return None
+        # round_name = self.normalize_spaces(html.unescape(round_columns[0].decode_contents()))
+
+        # opponent_link = round_columns[1].find("a")
+        # round_opponent_url = opponent_link["href"] if opponent_link else None
+        # round_opponent_raw = opponent_link.decode_contents() if opponent_link else None
+        # round_opponent = get_player_name(round_opponent_raw, round_opponent_url, players)
+
+
 
         round_name = self.normalize_spaces(round_columns[0].text.strip())
-        round_opponent_url = round_columns[1].find("a")['href']
-        round_opponent_raw = round_columns[1].find("a").text
-        round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players)
+        a_tag = round_columns[1].find("a")
+        round_opponent_url = a_tag.get("href", None) if a_tag else None
+        round_opponent_raw = a_tag.decode_contents() if a_tag else None
+        round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players) if a_tag else None
 
         round_result = self.normalize_spaces(round_columns[3].text.strip())
         item = None
@@ -307,8 +338,10 @@ class MtgMeleeClient:
 
     def get_player_name(self, player_name_raw, profile_url, players):
         player_id = profile_url.split("/")[-1]
+        # p = players[0]
+        # p.username
         if player_id:
-            player_info = next((p for p in players if p.user_name == player_id), None)
+            player_info = next((p for p in players if p.username == player_id), None)
             if player_info:
                 return player_info.player_name
             elif player_name_raw:
@@ -399,6 +432,7 @@ class TournamentLoader:
             if deck:
                 decks.append(MtgMeleeDeckInfo(
                     deck_uri=deck.deck_uri,
+                    format= deck.format,
                     mainboard=deck.mainboard,
                     sideboard=deck.sideboard,
                     rounds=deck.rounds
