@@ -4,10 +4,10 @@ Created on Sun Nov 24 18:39:50 2024
 
 @author: Francois
 """
-
 from datetime import datetime
 from typing import List, Optional
 from dataclasses import dataclass
+
 @dataclass
 class Tournament:
     def __init__(self, date: datetime, name: str, uri: str, json_file: Optional[str] = None, force_redownload: bool = False):
@@ -95,3 +95,15 @@ class CacheItem:
 
     def __str__(self):
         return f"{len(self.decks)} decks"
+
+@dataclass
+class MtgMeleePlayerInfo:
+    def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
+        self.username = username
+        self.player_name = player_name
+        self.result = result
+        self.standing = standing
+        self.decks = decks if decks is not None else []
+    def __str__(self):
+        return f"round_name : {self.round_name}, match : {self.match}"
+    

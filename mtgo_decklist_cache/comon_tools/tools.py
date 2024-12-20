@@ -5,10 +5,20 @@ Created on Sun Nov 24 18:10:12 2024
 @author: Francois
 """
 from datetime import datetime
-from typing import List
+from typing import List,Optional
 import requests
 from urllib.parse import quote
 from collections import defaultdict
+from models.base_model import (
+    Deck,
+    Standing,
+    DeckItem,
+    RoundItem
+)
+
+
+
+
 
 
 class CardNameNormalizer:

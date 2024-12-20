@@ -20,13 +20,6 @@ from MTGmelee.MtgMeleeClient import *
 #     print(f"An error occurred: {e}")
 #     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
-
-# for card in deck.mainboard:
-#     print(card)
-# for card in expected_mainboard:
-#     print(card)
-
-
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
 @pytest.fixture(scope="module")
@@ -158,3 +151,94 @@ def test_should_not_break_on_double_forfeit_message():
     players = client.get_players("https://melee.gg/Tournament/View/65803")
     deck = client.get_deck("https://melee.gg/Decklist/View/399414", players)
     assert deck.rounds is not None 
+
+
+
+@pytest.fixture
+def test_data():
+    # je pense que cette appel est pété
+    tournament = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/12867",
+        date=datetime(2022, 11, 19, 0, 0, 0)
+    )
+    source =  MtgMeleeClient()
+    return source.get_tournament_details(tournament)["Decks"]
+
+def test_deck_count_is_correct(test_data):
+    assert len(test_data) == 1  # Mettez à jour cette valeur selon vos données
+
+def test_decks_dont_have_date(test_data):
+    for deck in test_data:
+        assert deck.date is None
+
+def test_decks_have_players(test_data):
+    for deck in test_data:
+        assert deck.player is not None and deck.player != ""
+
+def test_decks_have_mainboards(test_data):
+    for deck in test_data:
+        assert len(deck.mainboard) > 0
+
+def test_decks_have_sideboards(test_data):
+    for deck in test_data:
+        assert len(deck.sideboard) > 0
+
+def test_decks_have_valid_mainboards(test_data):
+    for deck in test_data:
+        assert sum(item.count for item in deck.mainboard) >= 60
+
+def test_decks_have_valid_sideboards(test_data):
+    for deck in test_data:
+        assert sum(item.count for item in deck.sideboard) <= 15
+
+def test_deck_data_is_correct(test_data):
+    expected_deck = Deck(
+        player="SB36",
+        anchor_uri="https://melee.gg/Decklist/View/257079",
+        date=None,
+        result="4th Place",
+        mainboard = [
+            DeckItem(4, "The Mightstone and Weakstone"),
+            DeckItem(3, "Urza, Lord Protector"),
+            DeckItem(4, "Bonecrusher Giant"),
+            DeckItem(4, "Omnath, Locus of Creation"),
+            DeckItem(4, "Fable of the Mirror-Breaker"),
+            DeckItem(1, "Temporary Lockdown"),
+            DeckItem(4, "Leyline Binding"),
+            DeckItem(4, "Fires of Invention"),
+            DeckItem(1, "Snow-Covered Forest"),
+            DeckItem(1, "Stomping Ground"),
+            DeckItem(1, "Snow-Covered Mountain"),
+            DeckItem(1, "Boseiju, Who Endures"),
+            DeckItem(1, "Temple Garden"),
+            DeckItem(1, "Breeding Pool"),
+            DeckItem(1, "Steam Vents"),
+            DeckItem(2, "Ketria Triome"),
+            DeckItem(1, "Snow-Covered Island"),
+            DeckItem(1, "Snow-Covered Plains"),
+            DeckItem(2, "Hallowed Fountain"),
+            DeckItem(1, "Spara's Headquarters"),
+            DeckItem(1, "Ziatora's Proving Ground"),
+            DeckItem(1, "Indatha Triome"),
+            DeckItem(2, "Sacred Foundry"),
+            DeckItem(2, "Jetmir's Garden"),
+            DeckItem(3, "Raugrin Triome"),
+            DeckItem(4, "Fabled Passage"),
+            DeckItem(1, "Colossal Skyturtle"),
+            DeckItem(1, "Otawara, Soaring City"),
+            DeckItem(1, "Touch the Spirit Realm"),
+            DeckItem(2, "Supreme Verdict")
+        ]
+
+        sideboard = [
+            DeckItem(1, "Keruga, the Macrosage"),
+            DeckItem(1, "Chandra, Awakened Inferno"),
+            DeckItem(4, "Leyline of the Void"),
+            DeckItem(3, "Mystical Dispute"),
+            DeckItem(1, "Supreme Verdict"),
+            DeckItem(3, "Knight of Autumn"),
+            DeckItem(1, "Temporary Lockdown"),
+            DeckItem(1, "Twinshot Sniper")
+        ]
+    )
+    assert test_data[0] == expected_deck

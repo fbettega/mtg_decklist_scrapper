@@ -18,6 +18,8 @@ from dataclasses import dataclass
 
 
 from models.base_model import (
+    Deck,
+    MtgMeleePlayerInfo,
     Standing,
     DeckItem,
     RoundItem
@@ -56,17 +58,7 @@ class MtgMeleePlayerDeck:
         self.id = deck_id
         self.uri = uri
         self.format = format
-@dataclass
-class MtgMeleePlayerInfo:
-    def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
-        self.username = username
-        self.player_name = player_name
-        self.result = result
-        self.standing = standing
-        self.decks = decks if decks is not None else []
-    def __str__(self):
-        return f"round_name : {self.round_name}, match : {self.match}"
-    
+
 @dataclass
 class MtgMeleeRoundInfo:
     def __init__(self, round_name: str, match: 'RoundItem'):
@@ -327,7 +319,8 @@ class MtgMeleeClient:
             item = RoundItem(player1=player_name, player2=round_opponent, result="0-2-0")
         elif round_result.startswith("Not reported") or "[FORMAT EXCEPTION]" in round_result:
             item = RoundItem(player1=player_name, player2=round_opponent, result="0-0-0")
-
+        elif f"{player_name} forfeited" in round_result and f"{round_opponent} forfeited" in round_result:
+            item = RoundItem(player1=player_name, player2=round_opponent, result="0-0-0")
         if item is None:
             raise ValueError(f"Cannot parse round data for player {player_name} and opponent {round_opponent}")
 

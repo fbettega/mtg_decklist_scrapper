@@ -15,9 +15,7 @@ import MTGmelee.MtgMeleeClient as MTGmelee
 # Update folder function
 def update_folder(cache_root_folder: str, source, start_date: datetime, end_date: Optional[datetime]):
     cache_folder = os.path.join(cache_root_folder, source.__class__.__name__)  # Provider is the class name
-
     print(f"Downloading tournament list for {source.__class__.__name__}")
-    
     tournaments = source.TournamentList.get_tournaments(start_date, end_date)
     tournaments.sort(key=lambda t: t.date)
     
