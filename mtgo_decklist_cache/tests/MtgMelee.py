@@ -22,6 +22,10 @@ from MTGmelee.MtgMeleeClient import *
 
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
+
+# MtgMeleeClient test
+## Deckloader test
+
 @pytest.fixture(scope="module")
 def setup_decks():
     client = MtgMeleeClient()
@@ -152,10 +156,127 @@ def test_should_not_break_on_double_forfeit_message():
     deck = client.get_deck("https://melee.gg/Decklist/View/399414", players)
     assert deck.rounds is not None 
 
+# MtgMeleeClient test
+## NameError Tests 
+    # tu dois debugguer le fixer
+def test_should_fix_name_for_magnifying_glass_enthusiast():
+    client = MtgMeleeClient()
+    players = client.get_players("https://melee.gg/Tournament/View/8248")
+    deck = client.get_deck("https://melee.gg/Decklist/View/182814", players)
+    assert any(c.card_name == "Jacob Hauken, Inspector" for c in deck.mainboard)
+
+def test_should_fix_voltaic_visionary():
+    client = MtgMeleeClient()
+    players = client.get_players("https://melee.gg/Tournament/View/8248")
+    deck = client.get_deck("https://melee.gg/Decklist/View/182336", players)
+    assert any(c.card_name == "Voltaic Visionary" for c in deck.mainboard)
+
+
+def test_should_fix_name_sticker_goblin():
+    client = MtgMeleeClient()
+    players = client.get_players("https://melee.gg/Tournament/View/17900")
+    deck = client.get_deck("https://melee.gg/Decklist/View/329567", players)
+    assert any(c.card_name == "_____ Goblin" for c in deck.mainboard)
+
+# MtgMeleeClient test
+## PlayerLoader Tests 
+@pytest.fixture(scope="module")
+def players(self, client):
+    client = MtgMeleeClient()
+    players = client.get_players("https://melee.gg/Tournament/View/72980")
+    return players
+
+def test_should_load_number_of_players(self, players):
+    assert len(players) == 207
+
+def test_should_include_user_names(self, players):
+    for player in players:
+        assert player.user_name is not None and player.user_name != ""
+
+def test_should_include_player_names(self, players):
+    for player in players:
+        assert player.player_name is not None and player.player_name != ""
+
+def test_should_include_results(self, players):
+    for player in players:
+        assert player.result is not None and player.result != ""
+
+def test_should_include_correct_result_data(self, players):
+    assert players[0].result == "18-1-0"
+
+def test_should_load_standings(self, players):
+    for player in players:
+        assert player.standing is not None
+
+def test_should_include_correct_standings_data(self, players):
+    expected = Standing("Yoshihiko Ikawa", 1, 54, 0.62502867, 0.75, 0.57640079, 18, 1, 0)
+    assert players[0].standing == expected
+
+def test_should_include_correct_standings_data_with_draws(self, players):
+    expected = Standing("Yuta Takahashi", 2, 41, 0.59543296, 0.68027211, 0.55188929, 13, 4, 2)
+    assert players[1].standing == expected
+
+def test_should_load_deck_uris(self, players):
+    for player in players:
+        for deck in player.decks:
+            assert deck.uri is not None
+
+def test_should_load_deck_format(self, players):
+    for player in players:
+        for deck in player.decks:
+            assert deck.format is not None
+
+# here
+def test_should_load_correct_deck_uris(self, players):
+    assert players[7].decks[0].uri == ["https://melee.gg/Decklist/View/391605"]
+
+# @pytest.mark.skip("Not implemented")
+# def test_should_load_correct_deck_uris_when_multiple_present(self, players):
+#     players[0].decks = [
+#         MagicMock(uri="https://melee.gg/Decklist/View/391788"),
+#         MagicMock(uri="https://melee.gg/Decklist/View/393380")
+#     ]
+#     assert [deck.uri for deck in players[0].decks] == [
+#         "https://melee.gg/Decklist/View/391788",
+#         "https://melee.gg/Decklist/View/393380"
+#     ]
+
+def test_should_support_limiting_players(self, client):
+    client.get_players.return_value = [MagicMock()] * 25
+    players = client.get_players("https://melee.gg/Tournament/View/16429", limit=25)
+    assert len(players) == 25
+
+def test_should_correctly_map_player_name_to_user_name(self, client):
+    client.get_players.return_value = [
+        MagicMock(player_name="koki hara", user_name="BlooMooNight")
+    ]
+    players = client.get_players("https://melee.gg/Tournament/View/16429")
+    assert next(p.user_name for p in players if p.player_name == "koki hara") == "BlooMooNight"
+
+def test_should_not_break_on_empty_tournaments(self, client):
+    client.get_players.return_value = None
+    players = client.get_players("https://melee.gg/Tournament/View/31590")
+    assert players is None
+
+def test_should_load_players_for_tournaments_with_empty_last_phase(self, client):
+    client.get_players.return_value = [MagicMock()]
+    players = client.get_players("https://melee.gg/Tournament/View/52904")
+    assert players is not None and len(players) > 0
+
+@pytest.mark.skip("Not implemented")
+def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(self, client):
+    players = [
+        MagicMock(decks=[MagicMock(format="Standard"), MagicMock(format="Standard"), MagicMock(format="Standard")])
+    ]
+    formats = [deck.format for deck in players[0].decks]
+    assert len(set(formats)) == 1
+
+
 
 
 @pytest.fixture
 def test_data():
+
     # je pense que cette appel est pété
     tournament = MtgMeleeTournament(
         uri="https://melee.gg/Tournament/View/12867",
