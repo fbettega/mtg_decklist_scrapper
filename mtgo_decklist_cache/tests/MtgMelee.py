@@ -402,7 +402,79 @@ def test_deck_data_is_correct(test_data):
 
     assert test_data_no_rounds == expected_deck
 
+# MtgMeleeUpdater test
+## RoundsLoaderTests
 
+@pytest.fixture
+def test_data_round(client):
+    # Setup des données de test
+    tournament_1 = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/12867", 
+        date=datetime(2022, 11, 19, 0, 0, 0)
+        )
+    test_data_round = client.get_tournament_details(tournament_1).rounds    
+    return test_data_round
 
+@pytest.fixture
+def test_data_round2(client):
+    tournament_2 = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/7708",
+         date=datetime(2021, 11, 9, 0, 0, 0)
+         )
+    test_data_round2 = client.get_tournament_details(tournament_2).rounds
+    return test_data_round2
 
+@pytest.fixture
+def test_data_round3(client):
+    tournament_3 = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/12946",
+         date=datetime(2022, 11, 20, 0, 0, 0)
+         )
+    test_data_round3 = client.get_tournament_details(tournament_3).rounds
+    return test_data_round3
+
+@pytest.fixture
+def test_data_round4(client):
+    source = MtgMeleeSource()
+    tournament_4 = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/12867", 
+        date=datetime(2022, 11, 19, 0, 0, 0), 
+        excluded_rounds=["Round 1"])
+    test_data_round4 = client.get_tournament_details(tournament_4).rounds
+    return test_data_round4
+
+def test_round_count_is_correct(test_data_round):
+    assert len(test_data_round) == 5
+
+def test_rounds_have_name(test_data_round):
+    for round in test_data_round:
+        assert round.round_name is not None and round.round_name != ""
+
+def test_rounds_have_matches(test_data_round):
+    for round in test_data_round:
+        assert len(round.matches) > 0
+
+def test_round_data_is_correct(test_data_round):
+    test_round = test_data_round[0]
+    assert test_round.round_name == "Round 1"
+    assert test_round.matches[0] == RoundItem(player1="removed removed", player2="agesZ #84443", result="2-0-0")
+# here
+def test_should_parse_byes_correctly(test_data_round2):
+    round_3 = [r for r in test_data_round2 if r.round_name == "Round 3"]
+    match = next((m for m in round_3[0].matches if m.player1 == "Er_gitta"), None)
+    assert match == RoundItem(player1="Er_gitta", player2="-", result="2-0-0")
+
+def test_should_parse_draws_correctly(test_data_round3):
+    round_5 = [r for r in test_data_round3 if r.round_name == "Round 5"]
+    match = next((m for m in round_5[0].matches if m.player1 == "Arthur Rodrigues"), None)
+    assert match == RoundItem(player1="Arthur Rodrigues", player2="RudsonC", result="0-0-3")
+
+def test_should_parse_missing_opponent_correctly(test_data_round2):
+    round_4 = [r for r in test_data_round2 if r.round_name == "Round 4"]
+    match = next((m for m in round_4[0].matches if m.player1 == "Taerian van Rensburg"), None)
+    assert match == RoundItem(player1="Taerian van Rensburg", player2="-", result="2-0-0")
+
+def test_should_be_able_to_skip_rounds(test_data_round4):
+    test_round = test_data_round4[0]
+    assert test_round.round_name == "Round 2"
 
