@@ -291,6 +291,11 @@ class MtgMeleeClient:
         main_board = []
         side_board = []
         inside_sideboard = inside_companion = False
+        card = card_list[18]
+        count, name = card.split(" ", 1)
+        count = int(count)
+        name = CardNameNormalizer.normalize(name)
+        
         for card in card_list:
             if card in ['Deck', 'Companion', 'Sideboard','']:
                 inside_companion = card == 'Companion'

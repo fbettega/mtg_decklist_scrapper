@@ -158,8 +158,7 @@ def test_should_not_break_on_double_forfeit_message( client):
 
 # MtgMeleeClient test
 ## NameError Tests 
-    # tu dois debugguer le fixer
-def test_should_fix_name_for_magnifying_glass_enthusiast(  client):
+def test_should_fix_name_for_magnifying_glass_enthusiast(client):
     players = client.get_players("https://melee.gg/Tournament/View/8248")
     deck = client.get_deck("https://melee.gg/Decklist/View/182814", players)
     assert any(c.card_name == "Jacob Hauken, Inspector" for c in deck.mainboard)
@@ -222,7 +221,7 @@ def test_should_load_deck_format(  players):
         for deck in player.decks:
             assert deck.format is not None
 
-# here
+
 def test_should_load_correct_deck_uris(  players):
     assert players[7].decks[0].uri == "https://melee.gg/Decklist/View/391605"
 

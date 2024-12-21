@@ -46,15 +46,17 @@ class CardNameNormalizer:
             # Melee.gg normalization errors
             "\"Magnifying Glass Enthusiast\"": "Jacob Hauken, Inspector",
             "\"Voltaic Visionary\"": "Voltaic Visionary",
-            "Goblin": "_____ Goblin",
+            "Goblin": "_____ Goblin"
         })
 
     @classmethod
     def normalize(cls, card: str) -> str:
-        card = card.strip()
-        if card.startswith(cls._alchemy_prefix):
-            card = card[len(cls._alchemy_prefix):]
-        return cls._normalization.get(card, card)
+            # Retirer les guillemets doubles ou simples autour du nom
+        CardNameNormalizer.initialize()
+        card_strip = card.strip()
+        if card_strip.startswith(cls._alchemy_prefix):
+            card_strip = card_strip[len(cls._alchemy_prefix):]
+        return cls._normalization.get(card_strip, card_strip)
 
     @classmethod
     def add_multiname_cards(cls, criteria, create_target_name, text_replacement=None, only_combined_names=False):
