@@ -16,11 +16,6 @@ from models.base_model import (
     RoundItem
 )
 
-
-
-
-
-
 class CardNameNormalizer:
     _api_endpoint = "https://api.scryfall.com/cards/search?order=cmc&q={query}"
     _alchemy_prefix = "A-"

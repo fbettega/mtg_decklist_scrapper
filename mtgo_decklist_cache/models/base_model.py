@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import List, Optional
 from dataclasses import dataclass
 
+
+
 @dataclass
 class Tournament:
     def __init__(self, date: datetime, name: str, uri: str, json_file: Optional[str] = None, force_redownload: bool = False):

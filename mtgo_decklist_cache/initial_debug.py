@@ -9,17 +9,14 @@ import base
 from datetime import datetime
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
 from MTGmelee.MtgMeleeClient import MtgMeleeClient
-
-# Exemple d'URL pour tester
-TOURNAMENT_URL = "https://melee.gg/Tournament/View/88897"
+from MTGmelee.MtgMeleeClient import MtgMeleeTournament
 
 def main():
     client = MtgMeleeClient()
     # Test de la méthode get_players get_deck
+    players = client.get_players("https://melee.gg/Tournament/View/8248")
     try:
-        tournament_results = client.get_tournaments(
-                                    datetime(2023, 9, 1), datetime(2023, 9, 12)
-        )
+        deck = client.get_deck("https://melee.gg/Decklist/View/182814", players)
         # players = client.get_players("https://melee.gg/Tournament/View/16429")
         # deck = client.get_deck("https://melee.gg/Decklist/View/315233",players)
         # print(f"Players found: {len(players)}")

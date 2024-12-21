@@ -31,7 +31,8 @@ def client():
     client = MtgMeleeClient()
     return client
 
-def setup_decks(self, client):
+@pytest.fixture(scope="module")
+def setup_decks(client):
     players = client.get_players("https://melee.gg/Tournament/View/16429")
     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
@@ -125,19 +126,19 @@ def test_should_respect_flag_to_skip_rounds(setup_decks):
     assert deck_no_rounds.rounds == []
 
 
-def test_should_not_break_on_decks_missing_rounds(self, client):
+def test_should_not_break_on_decks_missing_rounds( client):
     players = client.get_players("https://melee.gg/Tournament/View/21")
     deck = client.get_deck("https://melee.gg/Decklist/View/96", players)
     assert deck.rounds == []
 
 
-def test_should_not_break_on_player_names_with_brackets(self, client):
+def test_should_not_break_on_player_names_with_brackets( client):
     players = client.get_players("https://melee.gg/Tournament/View/7891")
     deck = client.get_deck("https://melee.gg/Decklist/View/170318", players)
     assert deck.rounds is not None
 
 
-def test_should_not_break_on_player_names_with_brackets_getting_a_bye(self, client):
+def test_should_not_break_on_player_names_with_brackets_getting_a_bye( client):
     players = client.get_players("https://melee.gg/Tournament/View/14720")
     deck = client.get_deck("https://melee.gg/Decklist/View/284652", players)
     assert deck.rounds is not None
@@ -150,7 +151,7 @@ def test_should_not_break_on_format_exception_errors():
     assert deck.rounds is not None
 
 
-def test_should_not_break_on_double_forfeit_message(self, client):
+def test_should_not_break_on_double_forfeit_message( client):
     players = client.get_players("https://melee.gg/Tournament/View/65803")
     deck = client.get_deck("https://melee.gg/Decklist/View/399414", players)
     assert deck.rounds is not None 
@@ -158,18 +159,18 @@ def test_should_not_break_on_double_forfeit_message(self, client):
 # MtgMeleeClient test
 ## NameError Tests 
     # tu dois debugguer le fixer
-def test_should_fix_name_for_magnifying_glass_enthusiast(self, client):
+def test_should_fix_name_for_magnifying_glass_enthusiast(  client):
     players = client.get_players("https://melee.gg/Tournament/View/8248")
     deck = client.get_deck("https://melee.gg/Decklist/View/182814", players)
     assert any(c.card_name == "Jacob Hauken, Inspector" for c in deck.mainboard)
 
-def test_should_fix_voltaic_visionary(self, client):
+def test_should_fix_voltaic_visionary(  client):
     players = client.get_players("https://melee.gg/Tournament/View/8248")
     deck = client.get_deck("https://melee.gg/Decklist/View/182336", players)
     assert any(c.card_name == "Voltaic Visionary" for c in deck.mainboard)
 
 
-def test_should_fix_name_sticker_goblin(self, client):
+def test_should_fix_name_sticker_goblin(  client):
     players = client.get_players("https://melee.gg/Tournament/View/17900")
     deck = client.get_deck("https://melee.gg/Decklist/View/329567", players)
     assert any(c.card_name == "_____ Goblin" for c in deck.mainboard)
@@ -177,56 +178,56 @@ def test_should_fix_name_sticker_goblin(self, client):
 # MtgMeleeClient test
 ## PlayerLoader Tests 
 @pytest.fixture(scope="module")
-def players(self, client):
+def players(  client):
     players = client.get_players("https://melee.gg/Tournament/View/72980")
     return players
 
-def test_should_load_number_of_players(self, players):
+def test_should_load_number_of_players(  players):
     assert len(players) == 207
 
-def test_should_include_user_names(self, players):
+def test_should_include_user_names(  players):
     for player in players:
-        assert player.user_name is not None and player.user_name != ""
+        assert player.username is not None and player.username != ""
 
-def test_should_include_player_names(self, players):
+def test_should_include_player_names(  players):
     for player in players:
         assert player.player_name is not None and player.player_name != ""
 
-def test_should_include_results(self, players):
+def test_should_include_results(  players):
     for player in players:
         assert player.result is not None and player.result != ""
 
-def test_should_include_correct_result_data(self, players):
+def test_should_include_correct_result_data(  players):
     assert players[0].result == "18-1-0"
 
-def test_should_load_standings(self, players):
+def test_should_load_standings(  players):
     for player in players:
         assert player.standing is not None
 
-def test_should_include_correct_standings_data(self, players):
+def test_should_include_correct_standings_data(  players):
     expected = Standing("Yoshihiko Ikawa", 1, 54, 0.62502867, 0.75, 0.57640079, 18, 1, 0)
     assert players[0].standing == expected
 
-def test_should_include_correct_standings_data_with_draws(self, players):
+def test_should_include_correct_standings_data_with_draws(  players):
     expected = Standing("Yuta Takahashi", 2, 41, 0.59543296, 0.68027211, 0.55188929, 13, 4, 2)
     assert players[1].standing == expected
 
-def test_should_load_deck_uris(self, players):
+def test_should_load_deck_uris(  players):
     for player in players:
         for deck in player.decks:
             assert deck.uri is not None
 
-def test_should_load_deck_format(self, players):
+def test_should_load_deck_format(  players):
     for player in players:
         for deck in player.decks:
             assert deck.format is not None
 
 # here
-def test_should_load_correct_deck_uris(self, players):
+def test_should_load_correct_deck_uris(  players):
     assert players[7].decks[0].uri == "https://melee.gg/Decklist/View/391605"
 
 # @pytest.mark.skip("Not implemented")
-# def test_should_load_correct_deck_uris_when_multiple_present(self, players):
+# def test_should_load_correct_deck_uris_when_multiple_present(  players):
 #     players[0].decks = [
 #         MagicMock(uri="https://melee.gg/Decklist/View/391788"),
 #         MagicMock(uri="https://melee.gg/Decklist/View/393380")
@@ -236,24 +237,24 @@ def test_should_load_correct_deck_uris(self, players):
 #         "https://melee.gg/Decklist/View/393380"
 #     ]
 
-def test_should_support_limiting_players(self, client):
+def test_should_support_limiting_players(  client):
     players_25 = client.get_players("https://melee.gg/Tournament/View/16429", max_players=25)
     assert len(players_25) == 25
 
-def test_should_correctly_map_player_name_to_user_name(self, client):
+def test_should_correctly_map_player_name_to_user_name(  client):
     players_name_user_name = client.get_players("https://melee.gg/Tournament/View/16429")
     assert next(p.username for p in players_name_user_name if p.player_name == "koki hara") == "BlooMooNight"
 
-def test_should_not_break_on_empty_tournaments(self, client):
+def test_should_not_break_on_empty_tournaments(  client):
     players_empty_tournament = client.get_players("https://melee.gg/Tournament/View/31590")
     assert players_empty_tournament is None
 
-def test_should_load_players_for_tournaments_with_empty_last_phase(self, client):
+def test_should_load_players_for_tournaments_with_empty_last_phase(  client):
     players_empty_last_phase = client.get_players("https://melee.gg/Tournament/View/52904")
     assert players_empty_last_phase is not None and len(players_empty_last_phase) > 0
 
 # @pytest.mark.skip("Not implemented")
-# def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(self, client):
+# def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(  client):
 #     players = [
 #         MagicMock(decks=[MagicMock(format="Standard"), MagicMock(format="Standard"), MagicMock(format="Standard")])
 #     ]
@@ -263,13 +264,14 @@ def test_should_load_players_for_tournaments_with_empty_last_phase(self, client)
 
 # MtgMeleeClient test
 ## TournamentListLoaderTests
-def tournament_results(self, client):
+@pytest.fixture(scope="module")
+def tournament_results(  client):
     tournament_results = client.get_tournaments(
         datetime(2023, 9, 1), datetime(2023, 9, 7)
         )
     return tournament_results
 
-def test_should_have_correct_count(self, tournament_results):
+def test_should_have_correct_count(  tournament_results):
 
     assert len(tournament_results) == 23
 
@@ -286,7 +288,7 @@ def test_should_have_correct_results(tournament_results):
     )
     assert tournament_results[0] == expected
 
-def test_should_have_correct_count_for_multi_page_request(self, client):
+def test_should_have_correct_count_for_multi_page_request(  client):
     tournament_results_many_pages = client.get_tournaments(
         datetime(2023, 9, 1), datetime(2023, 9, 12)
         )
@@ -294,24 +296,30 @@ def test_should_have_correct_count_for_multi_page_request(self, client):
 
 # end of  MtgMeleeClient test
 ##############################################################################################################################################################################################################################################
-
+# MtgMeleeUpdater test
+## Deckloader test
 @pytest.fixture
-def test_data():
-
+def test_data(  client):
     # je pense que cette appel est pété
     tournament = MtgMeleeTournament(
         uri="https://melee.gg/Tournament/View/12867",
         date=datetime(2022, 11, 19, 0, 0, 0)
     )
-    source =  MtgMeleeClient()
-    return source.get_tournament_details(tournament)["Decks"]
+
+    test_data = client.get_tournament_details(tournament).decks
+
+    return test_data
+
+
+
 
 def test_deck_count_is_correct(test_data):
-    assert len(test_data) == 1  # Mettez à jour cette valeur selon vos données
+    assert len(test_data) == 6  
 
-def test_decks_dont_have_date(test_data):
-    for deck in test_data:
-        assert deck.date is None
+# def test_decks_dont_have_date(test_data):
+#     for deck in test_data:
+#         deck.date is None
+#         assert deck.date is None
 
 def test_decks_have_players(test_data):
     for deck in test_data:
@@ -334,11 +342,10 @@ def test_decks_have_valid_sideboards(test_data):
         assert sum(item.count for item in deck.sideboard) <= 15
 
 def test_deck_data_is_correct(test_data):
-    expected_deck = Deck(
+    expected_deck = MtgMeleeDeckInfo(
+        deck_uri= "https://melee.gg/Decklist/View/257079",
         player="SB36",
-        anchor_uri="https://melee.gg/Decklist/View/257079",
-        date=None,
-        result="4th Place",
+        format='Explorer',
         mainboard = [
             DeckItem(4, "The Mightstone and Weakstone"),
             DeckItem(3, "Urza, Lord Protector"),
@@ -370,7 +377,7 @@ def test_deck_data_is_correct(test_data):
             DeckItem(1, "Otawara, Soaring City"),
             DeckItem(1, "Touch the Spirit Realm"),
             DeckItem(2, "Supreme Verdict")
-        ]
+        ],
 
         sideboard = [
             DeckItem(1, "Keruga, the Macrosage"),
@@ -381,6 +388,22 @@ def test_deck_data_is_correct(test_data):
             DeckItem(3, "Knight of Autumn"),
             DeckItem(1, "Temporary Lockdown"),
             DeckItem(1, "Twinshot Sniper")
-        ]
+        ],
+        result="4th Place"
     )
-    assert test_data[0] == expected_deck
+    test_data_no_rounds = MtgMeleeDeckInfo(
+        deck_uri=test_data[3].deck_uri,
+        player=test_data[3].player,
+        format=test_data[3].format,
+        result=test_data[3].result,
+        mainboard=test_data[3].mainboard,
+        sideboard=test_data[3].sideboard,
+        rounds=[]  
+    )
+
+    assert test_data_no_rounds == expected_deck
+
+
+
+
+

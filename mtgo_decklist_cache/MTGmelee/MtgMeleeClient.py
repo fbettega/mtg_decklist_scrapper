@@ -15,8 +15,7 @@ from typing import List, Optional
 import html
 from dataclasses import dataclass
 # sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
-
+from comon_tools.tools import CardNameNormalizer
 from models.base_model import (
     Deck,
     MtgMeleePlayerInfo,
@@ -45,13 +44,39 @@ class MtgMeleeConstants:
 
 @dataclass
 class MtgMeleeDeckInfo:
-    def __init__(self, deck_uri: str, format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], rounds: Optional[List['MtgMeleeRoundInfo']] = None):
+    def __init__(self, deck_uri: str, player:str ,format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], result: Optional[str] = None, rounds: Optional[List['MtgMeleeRoundInfo']] = None):
         self.deck_uri = deck_uri
+        self.player = player
         self.format = format
         self.mainboard = mainboard
         self.sideboard = sideboard
+        self.result = result 
         self.rounds = rounds if rounds is not None else []
+    def __str__(self):
+        return (
+            f"MtgMeleeDeckInfo(\n"
+            f"  deck_uri='{self.deck_uri}',\n"
+            f"  player='{self.player}',\n"
+            f"  format='{self.format}',\n"
+            f"  mainboard=[{', '.join(str(item) for item in self.mainboard)}],\n"
+            f"  sideboard=[{', '.join(str(item) for item in self.sideboard)}],\n"
+            f"  result='{self.result}',\n"
+            f"  rounds=[{', '.join(str(round_info) for round_info in self.rounds)}]\n"
+            f")"
+        )
 
+    def __eq__(self, other):
+        if not isinstance(other, MtgMeleeDeckInfo):
+            return False
+        return (
+            self.deck_uri == other.deck_uri and
+            self.player == other.player and
+            self.format == other.format and
+            self.mainboard == other.mainboard and
+            self.sideboard == other.sideboard and
+            self.result == other.result and
+            self.rounds == other.rounds
+        )
 @dataclass
 class MtgMeleePlayerDeck:
     def __init__(self, deck_id: str, uri: str, format: str):
@@ -92,9 +117,19 @@ class MtgMeleeTournamentInfo:
         if not isinstance(other, MtgMeleeTournamentInfo):
             return False
         return (self.id == other.id and self.date == other.date)
+
 @dataclass
 class MtgMeleeTournament:
-    def __init__(self, id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]]):
+    def __init__(
+        self,
+        id: Optional[int] = None,
+        uri: Optional[str] = None,
+        date: Optional[datetime] = None,
+        organizer: Optional[str] = None,
+        name: Optional[str] = None,
+        decklists: Optional[int] = None,
+        formats: Optional[List[str]] = None
+    ):
         self.id = id
         self.uri = uri
         self.date = date
@@ -102,6 +137,7 @@ class MtgMeleeTournament:
         self.name = name
         self.decklists = decklists
         self.formats = formats
+
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
         self.player1 = player1
@@ -290,6 +326,7 @@ class MtgMeleeClient:
 
         return MtgMeleeDeckInfo(
             deck_uri=uri,
+            player=player_name,
             format=format,
             mainboard=main_board,
             sideboard=side_board,
@@ -382,90 +419,107 @@ class MtgMeleeClient:
                 break
         return result
     
-
-class CardNameNormalizer:
-    def normalize(card_name):
-        return card_name.strip()
-
-class TournamentList:
-    def get_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
-        """Récupérer les tournois entre les dates start_date et end_date."""
-        if start_date < datetime(2020, 1, 1):
-            return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
-        
-        if end_date is None:
-            end_date = datetime.utcnow()
-
-        result = []
-
-        while start_date < end_date:
-            current_end_date = start_date + timedelta(days=7)
-            print(f"\r[MtgMelee] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end="")
-
-            # Créer une instance du client et récupérer les tournois
-            client = MtgMeleeClient()
-            tournaments = client.get_tournaments(start_date, current_end_date)
-
-            # Analyser les tournois récupérés
-            analyzer = MtgMeleeAnalyzer()
-            for tournament in tournaments:
-                melee_tournaments = analyzer.get_scraper_tournaments(tournament)
-                if melee_tournaments:
-                    result.extend(melee_tournaments)
-
-            # Passer à la semaine suivante
-            start_date = current_end_date
-
-        print("\r[MtgMelee] Download finished".ljust(80))
-        return result
+    # def download_deck(self,player, players, tournament, current_position):
+    #     deck_uri = None
+    #     print(f"\r[MtgMelee] Downloading player {player.player_name} ({current_position})", end='', flush=True)
+    #     if player.decks and len(player.decks) > 0:
+    #         if tournament.deck_offset is None:
+    #             # Ancien comportement pour compatibilité
+    #             deck_uri = player.decks[-1].uri  # Dernier deck
+    #         else:
+    #             if len(player.decks) >= tournament.expected_decks:
+    #                 deck_uri = player.decks[tournament.deck_offset].uri
+    #             else:
+    #                 if tournament.fix_behavior == "UseLast":  # Équivaut à MtgMeleeMissingDeckBehavior.UseLast
+    #                     deck_uri = player.decks[-1].uri
+    #                 elif tournament.fix_behavior == "UseFirst":  # Équivaut à MtgMeleeMissingDeckBehavior.UseFirst
+    #                     deck_uri = player.decks[0].uri
+    #     if deck_uri is not None:
+    #         return MtgMeleeClient().get_deck(deck_uri, players)
+    #     else:
+    #         return None
 
 
+    def get_tournament_details(self,  tournament: MtgMeleeTournament) -> 'CacheItem':
 
-class TournamentLoader:
-    def get_tournament_details(tournament: dict) -> CacheItem:
-        players = TournamentLoader.get_players(tournament['uri'])
+        client = MtgMeleeClient()
+        players = client.get_players(tournament.uri)
         
         decks = []
         standings = []
         consolidated_rounds = {}
 
         current_position = 1
+        # player = players[0]
+        # uri = tournament.uri
         for player in players:
             standings.append(player.standing)
-            player_position = player.standing.get('rank', 0)
+            player_position = player.standing.rank
             player_result = f"{player_position}th Place" if player_position > 3 else f"{player_position}st Place"  # Simplified result naming
 
-            deck = TournamentLoader.get_deck(player, players, tournament, current_position)
+            deck_uri = player.decks[-1].uri
+            # cf TRUC au dessus je ne suis pas sur de comprendre pourquoi une autres méthodes
+            # deck = client.download_deck(player=player, players=players, tournament=tournament, current_position=current_position)
+            deck = MtgMeleeClient().get_deck(deck_uri, players)
             if deck:
-                decks.append(MtgMeleeDeckInfo(
+                decks.append(
+                    MtgMeleeDeckInfo(
                     deck_uri=deck.deck_uri,
+                    player=player.player_name,
                     format= deck.format,
                     mainboard=deck.mainboard,
                     sideboard=deck.sideboard,
+                    result =player_result,
                     rounds=deck.rounds
-                ))
+                )
+                )
 
             # Consolidating rounds
             if deck and deck.rounds:
                 for deck_round in deck.rounds:
-                    if 'excluded_rounds' in tournament and deck_round.round_name in tournament['excluded_rounds']:
-                        continue
+                    # if 'excluded_rounds' in tournament and deck_round.round_name in tournament['excluded_rounds']:
+                    #     continue
 
                     if deck_round.round_name not in consolidated_rounds:
                         consolidated_rounds[deck_round.round_name] = {}
 
-                    round_item_key = f"{deck_round.round_name}_{deck_round.matches[0].player1}_{deck_round.matches[0].player2}"
+                    round_item_key = f"{deck_round.round_name}_{deck_round.match.player1}_{deck_round.match.player2}"
                     if round_item_key not in consolidated_rounds[deck_round.round_name]:
-                        consolidated_rounds[deck_round.round_name][round_item_key] = deck_round.matches[0]
-
-        print("[MtgMelee] Downloading finished")
-        
+                        consolidated_rounds[deck_round.round_name][round_item_key] = deck_round.match        
         rounds = [Round(round_name, list(matches.values())) for round_name, matches in consolidated_rounds.items()]
         
         return CacheItem(
-            tournament=tournament['name'],
+            tournament=tournament.name,
             decks=decks,
             standings=standings,
             rounds=rounds
         )
+
+
+
+# class TournamentList:
+#     def get_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+#         """Récupérer les tournois entre les dates start_date et end_date."""
+#         if start_date < datetime(2020, 1, 1):
+#             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
+        
+#         if end_date is None:
+#             end_date = datetime.utcnow()
+#         result = []
+#         while start_date < end_date:
+#             current_end_date = start_date + timedelta(days=7)
+#             print(f"\r[MtgMelee] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end="")
+#             # Créer une instance du client et récupérer les tournois
+#             client = MtgMeleeClient()
+#             tournaments = client.get_tournaments(start_date, current_end_date)
+#             # Analyser les tournois récupérés
+#             analyzer = MtgMeleeAnalyzer()
+#             for tournament in tournaments:
+#                 melee_tournaments = analyzer.get_scraper_tournaments(tournament)
+#                 if melee_tournaments:
+#                     result.extend(melee_tournaments)
+#             # Passer à la semaine suivante
+#             start_date = current_end_date
+#         print("\r[MtgMelee] Download finished".ljust(80))
+#         return result
 
