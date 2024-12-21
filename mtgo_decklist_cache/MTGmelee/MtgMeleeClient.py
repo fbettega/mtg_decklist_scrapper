@@ -79,6 +79,19 @@ class MtgMeleeTournamentInfo:
         self.name = name
         self.decklists = decklists
         self.formats = formats if formats is not None else []
+    def __str__(self):
+        return (f"Tournament ID: {self.id}\n"
+                f"Name: {self.name}\n"
+                f"Organizer: {self.organizer}\n"
+                f"Date: {self.date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"URI: {self.uri}\n"
+                f"Decklists: {self.decklists}\n"
+                f"Formats: {', '.join(self.formats)}"
+                )
+    def __eq__(self, other):
+        if not isinstance(other, MtgMeleeTournamentInfo):
+            return False
+        return (self.id == other.id and self.date == other.date)
 @dataclass
 class MtgMeleeTournament:
     def __init__(self, id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]]):
@@ -205,7 +218,7 @@ class MtgMeleeClient:
                     player_decks.append(MtgMeleePlayerDeck(
                         deck_id=deck_list_id,
                         format=decklist_format,
-                        uri=f"{MtgMeleeConstants.DECK_PAGE}/{deck_list_id}"
+                        uri=MtgMeleeConstants.format_url(MtgMeleeConstants.DECK_PAGE, deckId=deck_list_id)
                     ))
 
                 result.append(
@@ -345,7 +358,7 @@ class MtgMeleeClient:
         offset = 0
         limit = -1
         result = []
-        while offset < limit:
+        while True:
             tournament_list_parameters = MtgMeleeConstants.TOURNAMENT_LIST_PARAMETERS.replace("{offset}", str(offset)).replace("{startDate}", start_date.strftime("%Y-%m-%d")).replace("{endDate}", end_date.strftime("%Y-%m-%d"))
             tournament_list_url = MtgMeleeConstants.TOURNAMENT_LIST_PAGE
 
@@ -356,8 +369,8 @@ class MtgMeleeClient:
             for item in tournament_data['data']:
                 offset += 1
                 tournament = MtgMeleeTournamentInfo(
-                    id=item['ID'],
-                    date=datetime.strptime(item['StartDate'], "%Y-%m-%dT%H:%M:%S%z"),
+                    tournament_id=item['ID'],
+                    date=datetime.strptime(item['StartDate'], "%Y-%m-%dT%H:%M:%S"), #"%Y-%m-%dT%H:%M:%S%z"
                     name=self.normalize_spaces(item['Name']),
                     organizer=self.normalize_spaces(item['OrganizationName']),
                     formats=[self.normalize_spaces(item['FormatDescription'])],
@@ -365,7 +378,8 @@ class MtgMeleeClient:
                     decklists=item['Decklists']
                 )
                 result.append(tournament)
-
+            if offset >= limit:
+                break
         return result
     
 

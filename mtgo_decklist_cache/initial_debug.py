@@ -6,6 +6,7 @@ Created on Sun Nov 24 20:48:21 2024
 """
 import os
 import base
+from datetime import datetime
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
 from MTGmelee.MtgMeleeClient import MtgMeleeClient
 
@@ -16,11 +17,14 @@ def main():
     client = MtgMeleeClient()
     # Test de la méthode get_players get_deck
     try:
-        players = client.get_players("https://melee.gg/Tournament/View/16429")
-        deck = client.get_deck("https://melee.gg/Decklist/View/315233",players)
-        print(f"Players found: {len(players)}")
-        for player in players[:5]:  # Affiche les 5 premiers joueurs
-            print(player)
+        tournament_results = client.get_tournaments(
+                                    datetime(2023, 9, 1), datetime(2023, 9, 12)
+        )
+        # players = client.get_players("https://melee.gg/Tournament/View/16429")
+        # deck = client.get_deck("https://melee.gg/Decklist/View/315233",players)
+        # print(f"Players found: {len(players)}")
+        # for player in players[:5]:  # Affiche les 5 premiers joueurs
+        #     print(player)
     except Exception as e:
         print(f"Error during get_players: {e}")
 

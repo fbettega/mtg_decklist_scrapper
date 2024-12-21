@@ -23,12 +23,15 @@ from MTGmelee.MtgMeleeClient import *
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
 
+##############################################################################################################################################################################################################################################
 # MtgMeleeClient test
 ## Deckloader test
-
 @pytest.fixture(scope="module")
-def setup_decks():
+def client():
     client = MtgMeleeClient()
+    return client
+
+def setup_decks(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/16429")
     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
@@ -122,22 +125,19 @@ def test_should_respect_flag_to_skip_rounds(setup_decks):
     assert deck_no_rounds.rounds == []
 
 
-def test_should_not_break_on_decks_missing_rounds():
-    client = MtgMeleeClient()
+def test_should_not_break_on_decks_missing_rounds(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/21")
     deck = client.get_deck("https://melee.gg/Decklist/View/96", players)
     assert deck.rounds == []
 
 
-def test_should_not_break_on_player_names_with_brackets():
-    client = MtgMeleeClient()
+def test_should_not_break_on_player_names_with_brackets(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/7891")
     deck = client.get_deck("https://melee.gg/Decklist/View/170318", players)
     assert deck.rounds is not None
 
 
-def test_should_not_break_on_player_names_with_brackets_getting_a_bye():
-    client = MtgMeleeClient()
+def test_should_not_break_on_player_names_with_brackets_getting_a_bye(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/14720")
     deck = client.get_deck("https://melee.gg/Decklist/View/284652", players)
     assert deck.rounds is not None
@@ -150,8 +150,7 @@ def test_should_not_break_on_format_exception_errors():
     assert deck.rounds is not None
 
 
-def test_should_not_break_on_double_forfeit_message():
-    client = MtgMeleeClient()
+def test_should_not_break_on_double_forfeit_message(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/65803")
     deck = client.get_deck("https://melee.gg/Decklist/View/399414", players)
     assert deck.rounds is not None 
@@ -159,21 +158,18 @@ def test_should_not_break_on_double_forfeit_message():
 # MtgMeleeClient test
 ## NameError Tests 
     # tu dois debugguer le fixer
-def test_should_fix_name_for_magnifying_glass_enthusiast():
-    client = MtgMeleeClient()
+def test_should_fix_name_for_magnifying_glass_enthusiast(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/8248")
     deck = client.get_deck("https://melee.gg/Decklist/View/182814", players)
     assert any(c.card_name == "Jacob Hauken, Inspector" for c in deck.mainboard)
 
-def test_should_fix_voltaic_visionary():
-    client = MtgMeleeClient()
+def test_should_fix_voltaic_visionary(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/8248")
     deck = client.get_deck("https://melee.gg/Decklist/View/182336", players)
     assert any(c.card_name == "Voltaic Visionary" for c in deck.mainboard)
 
 
-def test_should_fix_name_sticker_goblin():
-    client = MtgMeleeClient()
+def test_should_fix_name_sticker_goblin(self, client):
     players = client.get_players("https://melee.gg/Tournament/View/17900")
     deck = client.get_deck("https://melee.gg/Decklist/View/329567", players)
     assert any(c.card_name == "_____ Goblin" for c in deck.mainboard)
@@ -182,7 +178,6 @@ def test_should_fix_name_sticker_goblin():
 ## PlayerLoader Tests 
 @pytest.fixture(scope="module")
 def players(self, client):
-    client = MtgMeleeClient()
     players = client.get_players("https://melee.gg/Tournament/View/72980")
     return players
 
@@ -228,7 +223,7 @@ def test_should_load_deck_format(self, players):
 
 # here
 def test_should_load_correct_deck_uris(self, players):
-    assert players[7].decks[0].uri == ["https://melee.gg/Decklist/View/391605"]
+    assert players[7].decks[0].uri == "https://melee.gg/Decklist/View/391605"
 
 # @pytest.mark.skip("Not implemented")
 # def test_should_load_correct_deck_uris_when_multiple_present(self, players):
@@ -242,37 +237,63 @@ def test_should_load_correct_deck_uris(self, players):
 #     ]
 
 def test_should_support_limiting_players(self, client):
-    client.get_players.return_value = [MagicMock()] * 25
-    players = client.get_players("https://melee.gg/Tournament/View/16429", limit=25)
-    assert len(players) == 25
+    players_25 = client.get_players("https://melee.gg/Tournament/View/16429", max_players=25)
+    assert len(players_25) == 25
 
 def test_should_correctly_map_player_name_to_user_name(self, client):
-    client.get_players.return_value = [
-        MagicMock(player_name="koki hara", user_name="BlooMooNight")
-    ]
-    players = client.get_players("https://melee.gg/Tournament/View/16429")
-    assert next(p.user_name for p in players if p.player_name == "koki hara") == "BlooMooNight"
+    players_name_user_name = client.get_players("https://melee.gg/Tournament/View/16429")
+    assert next(p.username for p in players_name_user_name if p.player_name == "koki hara") == "BlooMooNight"
 
 def test_should_not_break_on_empty_tournaments(self, client):
-    client.get_players.return_value = None
-    players = client.get_players("https://melee.gg/Tournament/View/31590")
-    assert players is None
+    players_empty_tournament = client.get_players("https://melee.gg/Tournament/View/31590")
+    assert players_empty_tournament is None
 
 def test_should_load_players_for_tournaments_with_empty_last_phase(self, client):
-    client.get_players.return_value = [MagicMock()]
-    players = client.get_players("https://melee.gg/Tournament/View/52904")
-    assert players is not None and len(players) > 0
+    players_empty_last_phase = client.get_players("https://melee.gg/Tournament/View/52904")
+    assert players_empty_last_phase is not None and len(players_empty_last_phase) > 0
 
-@pytest.mark.skip("Not implemented")
-def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(self, client):
-    players = [
-        MagicMock(decks=[MagicMock(format="Standard"), MagicMock(format="Standard"), MagicMock(format="Standard")])
-    ]
-    formats = [deck.format for deck in players[0].decks]
-    assert len(set(formats)) == 1
-
+# @pytest.mark.skip("Not implemented")
+# def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(self, client):
+#     players = [
+#         MagicMock(decks=[MagicMock(format="Standard"), MagicMock(format="Standard"), MagicMock(format="Standard")])
+#     ]
+#     formats = [deck.format for deck in players[0].decks]
+#     assert len(set(formats)) == 1
 
 
+# MtgMeleeClient test
+## TournamentListLoaderTests
+def tournament_results(self, client):
+    tournament_results = client.get_tournaments(
+        datetime(2023, 9, 1), datetime(2023, 9, 7)
+        )
+    return tournament_results
+
+def test_should_have_correct_count(self, tournament_results):
+
+    assert len(tournament_results) == 23
+
+
+def test_should_have_correct_results(tournament_results):
+    expected = MtgMeleeTournamentInfo(
+        tournament_id=25360,
+        date=datetime(2023, 9, 7, 19, 0, 0),
+        name="Legacy League Pavia 23/24 - Tappa 12",
+        organizer="Legacy Pavia",
+        formats=["Legacy"],
+        uri="https://melee.gg/Tournament/View/25360",
+        decklists=13
+    )
+    assert tournament_results[0] == expected
+
+def test_should_have_correct_count_for_multi_page_request(self, client):
+    tournament_results_many_pages = client.get_tournaments(
+        datetime(2023, 9, 1), datetime(2023, 9, 12)
+        )
+    assert len(tournament_results_many_pages) == 41
+
+# end of  MtgMeleeClient test
+##############################################################################################################################################################################################################################################
 
 @pytest.fixture
 def test_data():
