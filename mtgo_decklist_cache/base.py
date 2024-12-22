@@ -10,13 +10,13 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dateutil import parser
-import MTGmelee.MtgMeleeClient as MTGmelee
+import MTGmelee.MtgMeleeAnalyzer as MTGmelee
 
 # Update folder function
 def update_folder(cache_root_folder: str, source, start_date: datetime, end_date: Optional[datetime]):
     cache_folder = os.path.join(cache_root_folder, source.__class__.__name__)  # Provider is the class name
     print(f"Downloading tournament list for {source.__class__.__name__}")
-    tournaments = source.TournamentList.get_tournaments(start_date, end_date)
+    tournaments = source.TournamentList.DL_tournaments(start_date, end_date)
     tournaments.sort(key=lambda t: t.date)
     
     for tournament in tournaments:
@@ -91,7 +91,6 @@ def main():
         # update_folder(cache_folder, ITournamentSource(), start_date, end_date)
     
     if use_mtg_melee:
-        # You would need to replace this with the actual implementation of MtgMeleeSource
         update_folder(cache_folder, MTGmelee, start_date, end_date)
     
     # if use_topdeck:
