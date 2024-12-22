@@ -11,19 +11,19 @@ importlib.reload(MTGmelee.MtgMeleeClient)
 # Réimporter tous les objets exportés par le module
 from MTGmelee.MtgMeleeClient import *
 
-try:
-    client = MtgMeleeClient()
-    # players = client.get_players("https://melee.gg/Tournament/View/16429")
-    # deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-    # deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
-    tournament_3 = MtgMeleeTournament(
-        uri="https://melee.gg/Tournament/View/12946",
-         date=datetime(2022, 11, 20, 0, 0, 0)
-         )
-    test_data_round3 = client.get_tournament_details(tournament_3).rounds
-except Exception as e:
-    print(f"An error occurred: {e}")
-    pdb.post_mortem()  # Lance le débogueur en mode post-mortem
+# try:
+#     client = MtgMeleeClient()
+#     # players = client.get_players("https://melee.gg/Tournament/View/16429")
+#     # deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
+#     # deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
+#     tournament_3 = MtgMeleeTournament(
+#         uri="https://melee.gg/Tournament/View/12946",
+#          date=datetime(2022, 11, 20, 0, 0, 0)
+#          )
+#     test_data_round3 = client.get_tournament_details(tournament_3).rounds
+# except Exception as e:
+#     print(f"An error occurred: {e}")
+#     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
@@ -480,4 +480,44 @@ def test_should_be_able_to_skip_rounds(test_data_round4):
     assert test_round.round_name == "Round 2"
 
 # MtgMeleeUpdater test
-## RoundsLoaderTests
+## StandingsLoaderTests
+@pytest.fixture
+def test_data_standings(client):
+    tournament = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/86543"
+        )
+    test_data_standings = client.get_tournament_details(tournament).standings
+    return test_data_standings
+# Test cases
+def test_standings_count_is_correct(test_data_standings):
+    assert len(test_data_standings) == 9  # Adjust count based on mock data size
+
+# Test cases
+def test_standings_have_players(test_data_standings):
+    for standing in test_data_standings:
+        assert standing.player
+
+def test_standings_have_rank(test_data_standings):
+    for standing in test_data_standings:
+        assert standing.rank > 0
+
+def test_standings_have_points(test_data_standings):
+    for standing in test_data_standings[:-1]:  
+        assert standing.points > 0
+
+def test_standings_have_omwp(test_data_standings):
+    for standing in test_data_standings:
+        assert standing.omwp > 0
+
+def test_decks_have_gwp(test_data_standings):
+    for standing in test_data_standings:
+        assert standing.gwp > 0
+
+def test_decks_have_ogwp(test_data_standings):
+    for standing in test_data_standings:
+        assert standing.ogwp > 0
+
+def test_standing_data_is_correct(test_data_standings):
+    test_standing = test_data_standings[3]  # Access the 4th standing
+    expected_standing = Standing(rank=4, player="Elston", points=6, wins=2, losses=2, draws=0, omwp=0.75, gwp=0.44444444, ogwp=0.75661376)
+    assert test_standing == expected_standing
