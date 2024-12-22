@@ -32,16 +32,16 @@ class FormatDetector:
 
     @staticmethod
     def detect(decks: List[dict]) -> str:
-        if any(c["CardName"] in FormatDetector._vintage_cards for d in decks for c in d["Mainboard"]):
+        if any(c.card_name in FormatDetector._vintage_cards for d in decks for c in d.mainboard):
             return "Vintage"
-        if any(c["CardName"] in FormatDetector._legacy_cards for d in decks for c in d["Mainboard"]):
+        if any(c.card_name in FormatDetector._legacy_cards for d in decks for c in d.mainboard):
             return "Legacy"
-        if any(c["CardName"] in FormatDetector._modern_cards for d in decks for c in d["Mainboard"]):
+        if any(c.card_name in FormatDetector._modern_cards for d in decks for c in d.mainboard):
             return "Modern"
-        if (any(c["CardName"] in FormatDetector._pioneer_cards1 for d in decks for c in d["Mainboard"]) and
-            any(c["CardName"] in FormatDetector._pioneer_cards2 for d in decks for c in d["Mainboard"])):
+        if (any(c.card_name in FormatDetector._pioneer_cards1 for d in decks for c in d.mainboard) and
+            any(c.card_name in FormatDetector._pioneer_cards2 for d in decks for c in d.mainboard)):
             return "Pioneer"
-        if any(c["CardName"] in FormatDetector._pauper_cards for d in decks for c in d["Mainboard"]):
+        if any(c.card_name in FormatDetector._pauper_cards for d in decks for c in d.mainboard):
             return "Pauper"
         return "Standard"
 

@@ -11,19 +11,6 @@ importlib.reload(MTGmelee.MtgMeleeClient)
 # Réimporter tous les objets exportés par le module
 from MTGmelee.MtgMeleeClient import *
 
-# try:
-#     client = MtgMeleeClient()
-#     # players = client.get_players("https://melee.gg/Tournament/View/16429")
-#     # deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-#     # deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
-#     tournament_3 = MtgMeleeTournament(
-#         uri="https://melee.gg/Tournament/View/12946",
-#          date=datetime(2022, 11, 20, 0, 0, 0)
-#          )
-#     test_data_round3 = client.get_tournament_details(tournament_3).rounds
-# except Exception as e:
-#     print(f"An error occurred: {e}")
-#     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 

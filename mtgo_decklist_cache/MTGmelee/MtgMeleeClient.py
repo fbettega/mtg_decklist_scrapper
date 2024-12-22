@@ -129,7 +129,11 @@ class MtgMeleeTournament:
         name: Optional[str] = None,
         decklists: Optional[int] = None,
         formats: Optional[List[str]] = None,
-        excluded_rounds: Optional[List[str]] = None
+        excluded_rounds: Optional[List[str]] = None,
+        json_file: Optional[str] = None,
+        deck_offset: Optional[int] = None,
+        expected_decks: Optional[int] = None,  
+        fix_behavior: Optional[str] = None 
     ):
         self.id = id
         self.uri = uri
@@ -139,6 +143,10 @@ class MtgMeleeTournament:
         self.decklists = decklists
         self.formats = formats
         self.excluded_rounds = excluded_rounds
+        self.json_file = json_file
+        self.deck_offset = deck_offset
+        self.expected_decks = expected_decks
+        self.fix_behavior = fix_behavior
 
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
