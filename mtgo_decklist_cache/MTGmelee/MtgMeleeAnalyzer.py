@@ -7,11 +7,11 @@ Created on Sun Nov 24 18:10:12 2024
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
-import MTGmelee.MtgMeleeClient as MtgMeleeClient
 from  comon_tools.tools import *
 from models.base_model import (
     MtgMeleePlayerInfo
 )
+from MTGmelee.MtgMeleeClient import *
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
@@ -21,27 +21,6 @@ class MtgMeleeAnalyzerSettings:
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
-
-@dataclass
-class MtgMeleeTournament:
-    uri: str
-    date: datetime
-    name: str
-    json_file: str
-    deck_offset: Optional[int] = None
-    expected_decks: Optional[int] = None
-    fix_behavior: Optional[str] = None
-    excluded_rounds: Optional[List[str]] = None
-
-@dataclass
-class MtgMeleeTournamentInfo:
-    uri: str
-    date: datetime
-    name: str
-    formats: List[str]
-    decklists: int
-    organizer: str
-
 
 class FormatDetector:
     _vintage_cards = ["Black Lotus", "Mox Emerald", "Mox Jet", "Mox Sapphire", "Mox Ruby", "Mox Pearl"]
