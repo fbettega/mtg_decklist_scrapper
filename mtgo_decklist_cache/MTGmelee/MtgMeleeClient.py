@@ -128,7 +128,8 @@ class MtgMeleeTournament:
         organizer: Optional[str] = None,
         name: Optional[str] = None,
         decklists: Optional[int] = None,
-        formats: Optional[List[str]] = None
+        formats: Optional[List[str]] = None,
+        excluded_rounds: Optional[List[str]] = None
     ):
         self.id = id
         self.uri = uri
@@ -137,6 +138,7 @@ class MtgMeleeTournament:
         self.name = name
         self.decklists = decklists
         self.formats = formats
+        self.excluded_rounds = excluded_rounds
 
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
@@ -291,11 +293,7 @@ class MtgMeleeClient:
         main_board = []
         side_board = []
         inside_sideboard = inside_companion = False
-        card = card_list[18]
-        count, name = card.split(" ", 1)
-        count = int(count)
-        name = CardNameNormalizer.normalize(name)
-        
+        CardNameNormalizer.initialize()
         for card in card_list:
             if card in ['Deck', 'Companion', 'Sideboard','']:
                 inside_companion = card == 'Companion'
@@ -462,11 +460,12 @@ class MtgMeleeClient:
             player_position = player.standing.rank
             player_result = f"{player_position}th Place" if player_position > 3 else f"{player_position}st Place"  # Simplified result naming
 
-            deck_uri = player.decks[-1].uri
-            # cf TRUC au dessus je ne suis pas sur de comprendre pourquoi une autres méthodes
-            # deck = client.download_deck(player=player, players=players, tournament=tournament, current_position=current_position)
-            deck = MtgMeleeClient().get_deck(deck_uri, players)
-            if deck:
+            if len(player.decks) > 0:
+                deck_uri = player.decks[-1].uri
+                deck = MtgMeleeClient().get_deck(deck_uri, players)
+            else: 
+                deck = None
+            if deck is not None:
                 decks.append(
                     MtgMeleeDeckInfo(
                     deck_uri=deck.deck_uri,
@@ -480,10 +479,11 @@ class MtgMeleeClient:
                 )
 
             # Consolidating rounds
-            if deck and deck.rounds:
+            if deck is not None and deck.rounds:
+                deck_round = deck.rounds[0]
                 for deck_round in deck.rounds:
-                    # if 'excluded_rounds' in tournament and deck_round.round_name in tournament['excluded_rounds']:
-                    #     continue
+                    if tournament.excluded_rounds is not None and deck_round.round_name in tournament.excluded_rounds:
+                        continue
 
                     if deck_round.round_name not in consolidated_rounds:
                         consolidated_rounds[deck_round.round_name] = {}

@@ -11,14 +11,19 @@ importlib.reload(MTGmelee.MtgMeleeClient)
 # Réimporter tous les objets exportés par le module
 from MTGmelee.MtgMeleeClient import *
 
-# try:
-#     client = MtgMeleeClient()
-#     players = client.get_players("https://melee.gg/Tournament/View/16429")
-#     deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-#     deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
-# except Exception as e:
-#     print(f"An error occurred: {e}")
-#     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
+try:
+    client = MtgMeleeClient()
+    # players = client.get_players("https://melee.gg/Tournament/View/16429")
+    # deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
+    # deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
+    tournament_3 = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/12946",
+         date=datetime(2022, 11, 20, 0, 0, 0)
+         )
+    test_data_round3 = client.get_tournament_details(tournament_3).rounds
+except Exception as e:
+    print(f"An error occurred: {e}")
+    pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
 # FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
 
@@ -309,9 +314,6 @@ def test_data(  client):
 
     return test_data
 
-
-
-
 def test_deck_count_is_correct(test_data):
     assert len(test_data) == 6  
 
@@ -435,7 +437,6 @@ def test_data_round3(client):
 
 @pytest.fixture
 def test_data_round4(client):
-    source = MtgMeleeSource()
     tournament_4 = MtgMeleeTournament(
         uri="https://melee.gg/Tournament/View/12867", 
         date=datetime(2022, 11, 19, 0, 0, 0), 
@@ -458,7 +459,7 @@ def test_round_data_is_correct(test_data_round):
     test_round = test_data_round[0]
     assert test_round.round_name == "Round 1"
     assert test_round.matches[0] == RoundItem(player1="removed removed", player2="agesZ #84443", result="2-0-0")
-# here
+
 def test_should_parse_byes_correctly(test_data_round2):
     round_3 = [r for r in test_data_round2 if r.round_name == "Round 3"]
     match = next((m for m in round_3[0].matches if m.player1 == "Er_gitta"), None)
@@ -472,9 +473,11 @@ def test_should_parse_draws_correctly(test_data_round3):
 def test_should_parse_missing_opponent_correctly(test_data_round2):
     round_4 = [r for r in test_data_round2 if r.round_name == "Round 4"]
     match = next((m for m in round_4[0].matches if m.player1 == "Taerian van Rensburg"), None)
-    assert match == RoundItem(player1="Taerian van Rensburg", player2="-", result="2-0-0")
+    assert match == RoundItem(player1="Taerian van Rensburg", player2 = None, result="2-0-0")
 
 def test_should_be_able_to_skip_rounds(test_data_round4):
     test_round = test_data_round4[0]
     assert test_round.round_name == "Round 2"
 
+# MtgMeleeUpdater test
+## RoundsLoaderTests

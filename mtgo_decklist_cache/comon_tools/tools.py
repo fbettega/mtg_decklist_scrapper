@@ -52,7 +52,6 @@ class CardNameNormalizer:
     @classmethod
     def normalize(cls, card: str) -> str:
             # Retirer les guillemets doubles ou simples autour du nom
-        CardNameNormalizer.initialize()
         card_strip = card.strip()
         if card_strip.startswith(cls._alchemy_prefix):
             card_strip = card_strip[len(cls._alchemy_prefix):]
