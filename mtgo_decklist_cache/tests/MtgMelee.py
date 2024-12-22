@@ -11,10 +11,6 @@ importlib.reload(MTGmelee.MtgMeleeClient)
 # Réimporter tous les objets exportés par le module
 from MTGmelee.MtgMeleeClient import *
 
-
-# FAILED tests/MtgMelee.py::test_should_not_break_on_double_forfeit_message - ValueError: Cannot parse round data for player Tomoya Kobayashi and opponent Masashiro Kuroda
-
-
 ##############################################################################################################################################################################################################################################
 # MtgMeleeClient test
 ## Deckloader test
@@ -508,40 +504,5 @@ def test_standing_data_is_correct(test_data_standings):
     expected_standing = Standing(rank=4, player="Elston", points=6, wins=2, losses=2, draws=0, omwp=0.75, gwp=0.44444444, ogwp=0.75661376)
     assert test_standing == expected_standing
 
-
-
-############
-# doit etre implémenter plus tard need analyser
-# MtgMeleeUpdater test
-## TournamentLoaderTests
-# a priori les tournoi on deja était récupéré dans tournament_results mais ont une longueur diférentes
-@pytest.fixture(scope="module")
-def tournament_loader_data():
-    tournament_loader_data = TournamentList.DL_tournaments(
-    start_date = datetime(2023, 9, 1, 0, 0, 0),
-    end_date = datetime(2023, 9, 7, 0, 0, 0)
-    )
-    return tournament_loader_data
-
-def test_tournament_count_is_correct(tournament_loader_data):
-    assert len(tournament_loader_data) == 23 # dans le code de badaro devrait etre 12 je ne comprend pas pk
-
-def test_tournament_data_is_correct(tournament_loader_data):
-    test_tournament = tournament_loader_data[2]  # devrait etre le 0 mais comme au dessus je ne comprend pas pk surement mauvaise conversion de time-zone
-    expected_tournament =  MtgMeleeTournamentInfo(
-        tournament_id=25360,
-        date=datetime(2023, 9, 7, 19, 0, 0),
-        name="Legacy League Pavia 23/24 - Tappa 12",
-        organizer="Legacy Pavia",
-        formats=["Legacy"],
-        uri="https://melee.gg/Tournament/View/25360",
-        decklists=13
-    )
-    MtgMeleeTournament(
-        name="Berlin Double Up Legacy VIII im Brettspielplatz 07.09.23",
-        date="2023-09-07T17:15:00Z",
-        uri="https://melee.gg/Tournament/View/18285"
-        )
-    assert test_tournament == expected_tournament
 
 

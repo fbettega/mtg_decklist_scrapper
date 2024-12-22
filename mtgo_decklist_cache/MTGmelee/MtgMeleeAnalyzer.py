@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 from  comon_tools.tools import *
-from models.base_model import (
-    MtgMeleePlayerInfo
-)
+from models.base_model import *
 from MTGmelee.MtgMeleeClient import *
+
+
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
@@ -161,3 +161,27 @@ class MtgMeleeAnalyzer:
             name += f" (Seat {offset + 1})"
 
         return f"{SlugGenerator.generate_slug(name.strip())}-{tournament.uri.split('/')[-1]}-{tournament.date.strftime('%Y-%m-%d')}.json"
+
+
+class TournamentList:
+    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+        """Récupérer les tournois entre les dates start_date et end_date."""
+        if start_date < datetime(2020, 1, 1):
+            return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
+        if end_date is None:
+            end_date = datetime.utcnow()
+        result = []
+        while start_date < end_date:
+            current_end_date = start_date + timedelta(days=7)
+            print(f"\r[MtgMelee] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end="")
+            # Créer une instance du client et récupérer les tournois
+            client = MtgMeleeClient()
+            tournaments = client.get_tournaments(start_date, current_end_date)
+            analyzer = MtgMeleeAnalyzer()
+            for tournament in tournaments:
+                melee_tournaments = analyzer.get_scraper_tournaments(tournament)
+                if melee_tournaments:
+                    result.extend(melee_tournaments)
+            start_date = current_end_date
+        print("\r[MtgMelee] Download finished".ljust(80))
+        return result
