@@ -6,11 +6,9 @@ Created on Sun Nov 24 18:39:50 2024
 """
 from datetime import datetime
 from typing import List, Optional
-from dataclasses import dataclass
+# from dataclasses import dataclass
 
-
-
-@dataclass
+# @dataclass
 class Tournament:
     def __init__(self, date: datetime, name: str, uri: str, json_file: Optional[str] = None, force_redownload: bool = False):
         self.date = date
@@ -21,8 +19,16 @@ class Tournament:
 
     def __str__(self):
         return f"{self.name}|{self.date.strftime('%Y-%m-%d')}"
+    def to_dict(self):
+        return {
+            "date": self.date.isoformat(),
+            "name": self.name,
+            "uri": self.uri,
+            "json_file": self.json_file,
+            "force_redownload": self.force_redownload
+        }
 
-@dataclass
+# @dataclass
 class Standing:
     def __init__(self, rank: int, player: str, points: int, wins: int, losses: int, draws: int, omwp: float, gwp: float, ogwp: float):
         self.rank = rank
@@ -37,8 +43,20 @@ class Standing:
 
     def __str__(self):
         return f"#{self.rank} {self.player} {self.points} points"
+    def to_dict(self):
+        return {
+            "rank": self.rank,
+            "player": self.player,
+            "points": self.points,
+            "wins": self.wins,
+            "losses": self.losses,
+            "draws": self.draws,
+            "omwp": self.omwp,
+            "gwp": self.gwp,
+            "ogwp": self.ogwp
+        }
 
-@dataclass
+# @dataclass
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
         self.player1 = player1
@@ -47,8 +65,14 @@ class RoundItem:
 
     def __str__(self):
         return f"{self.player1} {self.result} {self.player2}"
+    def to_dict(self):
+        return {
+            "player1": self.player1,
+            "player2": self.player2,
+            "result": self.result
+        }
 
-@dataclass
+# @dataclass
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):
         self.round_name = round_name
@@ -56,8 +80,12 @@ class Round:
 
     def __str__(self):
         return f"Round: {self.round_name}, {len(self.matches)} matches"
+    def to_dict(self):
+        return {
+            "round_name": self.round_name,
+            "matches": [match.to_dict() for match in self.matches]
+        }
 
-@dataclass
 class DeckItem:
     def __init__(self, count: int, card_name: str):
         self.count = count
@@ -68,7 +96,12 @@ class DeckItem:
         if isinstance(other, DeckItem):
             return self.count == other.count and self.card_name == other.card_name
         return False
-@dataclass
+    def to_dict(self):
+        return {
+            "card_name": self.card_name,
+            "count": self.count,
+        }
+
 class Deck:
     def __init__(self, date: Optional[datetime], player: str, result: str, anchor_uri: str,
                  mainboard: List[DeckItem], sideboard: List[DeckItem]):
@@ -86,8 +119,17 @@ class Deck:
     def __str__(self):
         total = sum(item.count for item in self.mainboard) + sum(item.count for item in self.sideboard)
         return f"{total} cards"
+    
+    def to_dict(self):
+        return {
+            "date": self.date.isoformat() if self.date else None,
+            "player": self.player,
+            "result": self.result,
+            "anchor_uri": self.anchor_uri,
+            "mainboard": [item.to_dict() for item in self.mainboard],
+            "sideboard": [item.to_dict() for item in self.sideboard],
+        }
 
-@dataclass
 class CacheItem:
     def __init__(self, tournament: Tournament, decks: List[Deck], rounds: List[Round], standings: List[Standing]):
         self.tournament = tournament
@@ -97,8 +139,16 @@ class CacheItem:
 
     def __str__(self):
         return f"{len(self.decks)} decks"
+    
+    def to_dict(self):
+        return {
+            "tournament": self.tournament,
+            "decks": [deck.to_dict() for deck in self.decks],
+            "rounds": [round.to_dict() for round in self.rounds],
+            "standings": [standing.to_dict() for standing in self.standings],
+        }
 
-@dataclass
+# @dataclass
 class MtgMeleePlayerInfo:
     def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
         self.username = username
@@ -108,9 +158,16 @@ class MtgMeleePlayerInfo:
         self.decks = decks if decks is not None else []
     def __str__(self):
         return f"round_name : {self.round_name}, match : {self.match}"
+    def to_dict(self):
+        return {
+            "username": self.username,
+            "player_name": self.player_name,
+            "result": self.result,
+            "standing": self.standing.to_dict() if self.standing else None,
+            "decks": [deck.to_dict() for deck in self.decks]
+        }
 
-
-@dataclass
+# @dataclass
 class MtgMeleeConstants:
     # URL templates for various pages
     DECK_PAGE = "https://melee.gg/Decklist/View/{deckId}"
@@ -127,7 +184,7 @@ class MtgMeleeConstants:
     def format_url(url, **params):
         return url.format(**params)
 
-@dataclass
+# @dataclass
 class MtgMeleeDeckInfo:
     def __init__(self, deck_uri: str, player:str ,format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], result: Optional[str] = None, rounds: Optional[List['MtgMeleeRoundInfo']] = None):
         self.deck_uri = deck_uri
@@ -162,14 +219,29 @@ class MtgMeleeDeckInfo:
             self.result == other.result and
             self.rounds == other.rounds
         )
-@dataclass
+    def to_dict(self):
+        return {
+            "deck_uri": self.deck_uri,
+            "player": self.player,
+            "format": self.format,
+            "mainboard": [item.to_dict() for item in self.mainboard],  
+            "sideboard": [item.to_dict() for item in self.sideboard],  
+            "result": self.result,
+            "rounds": [round_info.to_dict() for round_info in self.rounds]  
+        }
+# @dataclass
 class MtgMeleePlayerDeck:
     def __init__(self, deck_id: str, uri: str, format: str):
         self.id = deck_id
         self.uri = uri
         self.format = format
-
-@dataclass
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "uri": self.uri,
+            "format": self.format
+        }
+# @dataclass
 class MtgMeleeRoundInfo:
     def __init__(self, round_name: str, match: 'RoundItem'):
         self.round_name = round_name
@@ -178,8 +250,12 @@ class MtgMeleeRoundInfo:
         return f"round_name : {self.round_name}, match : {self.match}"
     def __eq__(self, other):
         return self.round_name == other.round_name and self.match == other.match
-
-@dataclass
+    def to_dict(self):
+        return {
+            "round_name": self.round_name,
+            "match": self.match.to_dict()  # assuming RoundItem has a to_dict method
+        }
+# @dataclass
 class MtgMeleeTournamentInfo:
     def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None):
         self.id = tournament_id
@@ -202,8 +278,17 @@ class MtgMeleeTournamentInfo:
         if not isinstance(other, MtgMeleeTournamentInfo):
             return False
         return (self.id == other.id and self.date == other.date)
-
-@dataclass
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "uri": self.uri,
+            "date": self.date,
+            "organizer": self.organizer,
+            "name": self.name,
+            "decklists": self.decklists,
+            "formats": self.formats
+        }
+# @dataclass
 class MtgMeleeTournament:
     def __init__(
         self,
@@ -254,6 +339,22 @@ class MtgMeleeTournament:
                 f"json_file={self.json_file}, deck_offset={self.deck_offset}, "
                 f"expected_decks={self.expected_decks}, fix_behavior={self.fix_behavior})"
                 )
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "uri": self.uri,
+            "date": self.date.isoformat() if self.date else None,
+            "organizer": self.organizer,
+            "name": self.name,
+            "decklists": self.decklists,
+            "formats": self.formats if self.formats else [],
+            "excluded_rounds": self.excluded_rounds if self.excluded_rounds else [],
+            "json_file": self.json_file,
+            "deck_offset": self.deck_offset,
+            "expected_decks": self.expected_decks,
+            "fix_behavior": self.fix_behavior,
+        }
+
 class RoundItem:
     def __init__(self, player1: str, player2: str, result: str):
         self.player1 = player1
@@ -265,16 +366,9 @@ class RoundItem:
                 self.result == other.result)
     def __str__(self):
         return f"player1 : {self.player1}, player2 : {self.player2}, result : {self.result}"
-@dataclass
-class Round:
-    def __init__(self, round_name: str, matches: List[RoundItem]):
-        self.round_name = round_name
-        self.matches = matches
-
-@dataclass
-class CacheItem:
-    def __init__(self, tournament: str, decks: List[MtgMeleeDeckInfo], standings: List[dict], rounds: List[Round]):
-        self.tournament = tournament
-        self.decks = decks
-        self.standings = standings
-        self.rounds = rounds
+    def to_dict(self):
+        return {
+            "player1": self.player1,
+            "player2": self.player2,
+            "result": self.result
+        }

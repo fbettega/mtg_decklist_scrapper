@@ -290,8 +290,7 @@ def test_data(  client):
         uri="https://melee.gg/Tournament/View/12867",
         date=datetime(2022, 11, 19, 0, 0, 0)
     )
-
-    test_data = client.get_tournament_details(tournament).decks
+    test_data = TournamentList().get_tournament_details(tournament).decks
 
     return test_data
 
@@ -395,16 +394,16 @@ def test_data_round(client):
         uri="https://melee.gg/Tournament/View/12867", 
         date=datetime(2022, 11, 19, 0, 0, 0)
         )
-    test_data_round = client.get_tournament_details(tournament_1).rounds    
+    test_data_round = TournamentList().get_tournament_details(tournament_1).rounds    
     return test_data_round
 
 @pytest.fixture
-def test_data_round2(client):
+def test_data_round2():
     tournament_2 = MtgMeleeTournament(
         uri="https://melee.gg/Tournament/View/7708",
          date=datetime(2021, 11, 9, 0, 0, 0)
          )
-    test_data_round2 = client.get_tournament_details(tournament_2).rounds
+    test_data_round2 = TournamentList().get_tournament_details(tournament_2).rounds
     return test_data_round2
 
 @pytest.fixture
@@ -422,7 +421,7 @@ def test_data_round4(client):
         uri="https://melee.gg/Tournament/View/12867", 
         date=datetime(2022, 11, 19, 0, 0, 0), 
         excluded_rounds=["Round 1"])
-    test_data_round4 = client.get_tournament_details(tournament_4).rounds
+    test_data_round4 = TournamentList().get_tournament_details(tournament_4).rounds
     return test_data_round4
 
 def test_round_count_is_correct(test_data_round):
@@ -467,7 +466,7 @@ def test_data_standings(client):
     tournament = MtgMeleeTournament(
         uri="https://melee.gg/Tournament/View/86543"
         )
-    test_data_standings = client.get_tournament_details(tournament).standings
+    test_data_standings = TournamentList().get_tournament_details(tournament).standings
     return test_data_standings
 # Test cases
 def test_standings_count_is_correct(test_data_standings):

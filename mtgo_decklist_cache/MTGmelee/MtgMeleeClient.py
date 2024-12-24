@@ -295,65 +295,6 @@ class MtgMeleeClient:
     #         return None
 
 
-    def get_tournament_details(self,  tournament: MtgMeleeTournament) -> 'CacheItem':
-
-        client = MtgMeleeClient()
-        players = client.get_players(tournament.uri)
-        
-        decks = []
-        standings = []
-        consolidated_rounds = {}
-
-        current_position = 1
-        # player = players[0]
-        # uri = tournament.uri
-        for player in players:
-            standings.append(player.standing)
-            player_position = player.standing.rank
-            player_result = f"{player_position}th Place" if player_position > 3 else f"{player_position}st Place"  # Simplified result naming
-
-            if len(player.decks) > 0:
-                deck_uri = player.decks[-1].uri
-                deck = MtgMeleeClient().get_deck(deck_uri, players)
-            else: 
-                deck = None
-            if deck is not None:
-                decks.append(
-                    MtgMeleeDeckInfo(
-                    deck_uri=deck.deck_uri,
-                    player=player.player_name,
-                    format= deck.format,
-                    mainboard=deck.mainboard,
-                    sideboard=deck.sideboard,
-                    result =player_result,
-                    rounds=deck.rounds
-                )
-                )
-
-            # Consolidating rounds
-            if deck is not None and deck.rounds:
-                deck_round = deck.rounds[0]
-                for deck_round in deck.rounds:
-                    if tournament.excluded_rounds is not None and deck_round.round_name in tournament.excluded_rounds:
-                        continue
-
-                    if deck_round.round_name not in consolidated_rounds:
-                        consolidated_rounds[deck_round.round_name] = {}
-
-                    round_item_key = f"{deck_round.round_name}_{deck_round.match.player1}_{deck_round.match.player2}"
-                    if round_item_key not in consolidated_rounds[deck_round.round_name]:
-                        consolidated_rounds[deck_round.round_name][round_item_key] = deck_round.match        
-        rounds = [Round(round_name, list(matches.values())) for round_name, matches in consolidated_rounds.items()]
-        
-        return CacheItem(
-            tournament=tournament.name,
-            decks=decks,
-            standings=standings,
-            rounds=rounds
-        )
-
-
-
 
 
 # Configuration settings
@@ -507,9 +448,66 @@ class MtgMeleeAnalyzer:
 
 
 class TournamentList:
+    def get_tournament_details(self,  tournament: MtgMeleeTournament) -> 'CacheItem':
+        client = MtgMeleeClient()
+        players = client.get_players(tournament.uri)
+        
+        decks = []
+        standings = []
+        consolidated_rounds = {}
+
+        current_position = 1
+        # player = players[0]
+        # uri = tournament.uri
+        for player in players:
+            standings.append(player.standing)
+            player_position = player.standing.rank
+            player_result = f"{player_position}th Place" if player_position > 3 else f"{player_position}st Place"  # Simplified result naming
+
+            if len(player.decks) > 0:
+                deck_uri = player.decks[-1].uri
+                deck = MtgMeleeClient().get_deck(deck_uri, players)
+            else: 
+                deck = None
+            if deck is not None:
+                decks.append(
+                    MtgMeleeDeckInfo(
+                    deck_uri=deck.deck_uri,
+                    player=player.player_name,
+                    format= deck.format,
+                    mainboard=deck.mainboard,
+                    sideboard=deck.sideboard,
+                    result =player_result,
+                    rounds=deck.rounds
+                )
+                )
+
+            # Consolidating rounds
+            if deck is not None and deck.rounds:
+                deck_round = deck.rounds[0]
+                for deck_round in deck.rounds:
+                    if tournament.excluded_rounds is not None and deck_round.round_name in tournament.excluded_rounds:
+                        continue
+
+                    if deck_round.round_name not in consolidated_rounds:
+                        consolidated_rounds[deck_round.round_name] = {}
+
+                    round_item_key = f"{deck_round.round_name}_{deck_round.match.player1}_{deck_round.match.player2}"
+                    if round_item_key not in consolidated_rounds[deck_round.round_name]:
+                        consolidated_rounds[deck_round.round_name][round_item_key] = deck_round.match        
+        rounds = [Round(round_name, list(matches.values())) for round_name, matches in consolidated_rounds.items()]
+        
+        return CacheItem(
+            tournament=tournament.name,
+            decks=decks,
+            standings=standings,
+            rounds=rounds
+        )
+
+
     def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
         """Récupérer les tournois entre les dates start_date et end_date."""
-        if start_date < datetime(2020, 1, 1):
+        if start_date < datetime(2020, 1, 1, tzinfo=timezone.utc):
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
         if end_date is None:
             end_date = datetime.utcnow()
