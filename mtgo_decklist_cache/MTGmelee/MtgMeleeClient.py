@@ -498,7 +498,7 @@ class TournamentList:
         rounds = [Round(round_name, list(matches.values())) for round_name, matches in consolidated_rounds.items()]
         
         return CacheItem(
-            tournament=tournament.name,
+            tournament=tournament,
             decks=decks,
             standings=standings,
             rounds=rounds

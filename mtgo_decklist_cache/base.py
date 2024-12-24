@@ -28,9 +28,7 @@ def update_folder(cache_root_folder: str, source, start_date: datetime, end_date
         # if os.path.exists(target_file) and not tournament.force_redownload:
         if os.path.exists(target_file):
             continue
-
         print(f"- Downloading tournament {tournament.json_file}")
-        
         details = run_with_retry(lambda: source.TournamentList().get_tournament_details(tournament), 3)
         if not details:
             print(f"-- Tournament has no data, skipping")
