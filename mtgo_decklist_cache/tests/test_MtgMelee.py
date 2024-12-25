@@ -291,8 +291,33 @@ def test_data(  client):
         date=datetime(2022, 11, 19, 0, 0, 0)
     )
     test_data = TournamentList().get_tournament_details(tournament).decks
-
     return test_data
+
+# a faire tester les dictionnaire
+# def to_dict_cache_item_should_return_correct_dict():
+#     # je pense que cette appel est pété
+#     tournament = MtgMeleeTournament(
+#         uri="https://melee.gg/Tournament/View/12867",
+#         date=datetime(2022, 11, 19, 0, 0, 0)
+#     )
+#     test_to_ditc = TournamentList().get_tournament_details(tournament)
+
+###################### test commander
+# test reject commander multi quand tu aurra trouvé un tournoi sur melee
+# def should_work_with_duel_commander():
+# duel_commander_tournament = MtgMeleeTournament(
+#         uri="https://melee.gg/Tournament/View/145443",
+#         date=datetime(2024, 9, 7, 20, 0, 0)
+#     )
+# test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
+
+
+# def should_pool_commander_from_free_form():
+# duel_commander_tournament = MtgMeleeTournament(
+#         uri="https://melee.gg/Tournament/View/15509",
+#         date=datetime(2022, 4, 29, 0, 0, 0)
+#     )
+# test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
 
 def test_deck_count_is_correct(test_data):
     assert len(test_data) == 6  

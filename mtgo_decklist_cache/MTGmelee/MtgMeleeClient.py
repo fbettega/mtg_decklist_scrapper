@@ -132,24 +132,32 @@ class MtgMeleeClient:
         deck_soup = BeautifulSoup(deck_page_content, 'html.parser')
 
         copy_button = deck_soup.select_one("button.decklist-builder-copy-button.btn-sm.btn.btn-card.text-nowrap")
-        
         card_list = copy_button['data-clipboard-text'].split("\r\n")
 
         player_url = deck_soup.select_one("span.decklist-card-title-author a")['href']
         player_raw = deck_soup.select_one("span.decklist-card-title-author a").text
         player_name = self.get_player_name(player_raw, player_url, players)
 
+        date_string = deck_soup.find('div', class_='decklist-card-info').get_text(strip=True)
+
+        date_tournament = datetime.strptime(date_string, "%m/%d/%Y")
         format_div = deck_soup.select_one(".card-header.decklist-card-header").find_all("div")[1].find_all("div")[2]
         format = format_div.text.strip()
 
         main_board = []
         side_board = []
-        inside_sideboard = inside_companion = False
+        inside_sideboard = inside_companion = inside_commander = False
         CardNameNormalizer.initialize()
         for card in card_list:
-            if card in ['Deck', 'Companion', 'Sideboard','']:
+            if card in ['Deck', 'Companion', 'Sideboard','Commander','']:
                 inside_companion = card == 'Companion'
                 inside_sideboard = card == 'Sideboard'
+                inside_commander = card == 'Commander'
+                if(inside_commander):
+                    inside_sideboard = True
+                if(card == 'Deck' and inside_commander):
+                    inside_sideboard = False
+                    inside_commander = False
             else:
                 if inside_companion:
                     continue
@@ -180,6 +188,7 @@ class MtgMeleeClient:
                         rounds.append(round)
 
         return MtgMeleeDeckInfo(
+            date = date_tournament,
             deck_uri=uri,
             player=player_name,
             format=format,
@@ -301,7 +310,7 @@ class MtgMeleeClient:
 class MtgMeleeAnalyzerSettings:
     MinimumPlayers = 16
     MininumPercentageOfDecks = 0.5
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper"]
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander"]
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
@@ -318,6 +327,10 @@ class FormatDetector:
     def detect(decks: List[dict]) -> str:
         if any(c.card_name in FormatDetector._vintage_cards for d in decks for c in d.mainboard):
             return "Vintage"
+        if (all(c.count == 1 for c in decks.mainboard + decks.sideboard) and
+            len(decks.sideboard) <= 3 and
+            (len(decks.mainboard) + len(decks.sideboard) == 100 or (len(decks.mainboard) + len(decks.sideboard) == 101 and len(decks.sideboard) == 3))):
+            return "Commander"
         if any(c.card_name in FormatDetector._legacy_cards for d in decks for c in d.mainboard):
             return "Legacy"
         if any(c.card_name in FormatDetector._modern_cards for d in decks for c in d.mainboard):
@@ -397,7 +410,10 @@ class MtgMeleeAnalyzer:
         ][:MtgMeleeAnalyzerSettings.DecksLoadedForAnalysis]
 
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
+
+        # a debug renvoie rien
         format_detected = FormatDetector.detect(decks)
+
 
         return MtgMeleeTournament(
             uri=tournament.uri,
@@ -419,6 +435,8 @@ class MtgMeleeAnalyzer:
     def generate_pro_tour_tournament(self, tournament: MtgMeleeTournamentInfo, players: List[MtgMeleePlayerInfo]) -> MtgMeleeTournament:
         deck_uris = [p.decks[-1].uri for p in players if p.decks]
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
+
+
         format_detected = FormatDetector.detect(decks)
 
         return MtgMeleeTournament(
@@ -472,6 +490,7 @@ class TournamentList:
             if deck is not None:
                 decks.append(
                     MtgMeleeDeckInfo(
+                    date=tournament.date,
                     deck_uri=deck.deck_uri,
                     player=player.player_name,
                     format= deck.format,

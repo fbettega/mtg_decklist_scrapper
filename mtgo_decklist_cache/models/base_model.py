@@ -180,7 +180,8 @@ class MtgMeleeConstants:
         return url.format(**params)
 
 class MtgMeleeDeckInfo:
-    def __init__(self, deck_uri: str, player:str ,format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], result: Optional[str] = None, rounds: Optional[List['MtgMeleeRoundInfo']] = None):
+    def __init__(self, date: datetime, deck_uri: str, player:str ,format: str, mainboard: List['DeckItem'], sideboard: List['DeckItem'], result: Optional[str] = None, rounds: Optional[List['MtgMeleeRoundInfo']] = None):
+        self.date = date
         self.deck_uri = deck_uri
         self.player = player
         self.format = format
@@ -191,6 +192,7 @@ class MtgMeleeDeckInfo:
     def __str__(self):
         return (
             f"MtgMeleeDeckInfo(\n"
+            f"  date='{self.date}',\n"
             f"  deck_uri='{self.deck_uri}',\n"
             f"  player='{self.player}',\n"
             f"  format='{self.format}',\n"
@@ -205,6 +207,7 @@ class MtgMeleeDeckInfo:
         if not isinstance(other, MtgMeleeDeckInfo):
             return False
         return (
+            self.date == other.date and
             self.deck_uri == other.deck_uri and
             self.player == other.player and
             self.format == other.format and
@@ -215,13 +218,14 @@ class MtgMeleeDeckInfo:
         )
     def to_dict(self):
         return {
-            "deck_uri": self.deck_uri,
-            "player": self.player,
-            "format": self.format,
-            "mainboard": [item.to_dict() for item in self.mainboard],  
-            "sideboard": [item.to_dict() for item in self.sideboard],  
-            "result": self.result,
-            "rounds": [round_info.to_dict() for round_info in self.rounds]  
+            "Date": self.date.isoformat(),
+            "Player": self.player,
+            "Result": self.result,
+            "AnchorUri": self.deck_uri,
+            "Format": self.format,
+            "Mainboard": [item.to_dict() for item in self.mainboard],  
+            "Sideboard": [item.to_dict() for item in self.sideboard],  
+            # "rounds": [round_info.to_dict() for round_info in self.rounds]  
         }
 
 class MtgMeleePlayerDeck:
@@ -335,18 +339,18 @@ class MtgMeleeTournament:
                 )
     def to_dict(self):
         return {
-            "id": self.id,
-            "uri": self.uri,
-            "date": self.date.isoformat() if self.date else None,
-            "organizer": self.organizer,
-            "name": self.name,
-            "decklists": self.decklists,
-            "formats": self.formats if self.formats else [],
-            "excluded_rounds": self.excluded_rounds if self.excluded_rounds else [],
-            "json_file": self.json_file,
-            "deck_offset": self.deck_offset,
-            "expected_decks": self.expected_decks,
-            "fix_behavior": self.fix_behavior,
+            # "id": self.id,
+            "Date": self.date.isoformat() if self.date else None,
+            "Name": self.name,
+            "Uri": self.uri,
+            # "organizer": self.organizer,
+            # "decklists": self.decklists,
+            "Formats": self.formats if self.formats else [],
+            # "excluded_rounds": self.excluded_rounds if self.excluded_rounds else [],
+            # "json_file": self.json_file,
+            # "deck_offset": self.deck_offset,
+            # "expected_decks": self.expected_decks,
+            # "fix_behavior": self.fix_behavior,
         }
 
 class RoundItem:
@@ -362,7 +366,8 @@ class RoundItem:
         return f"player1 : {self.player1}, player2 : {self.player2}, result : {self.result}"
     def to_dict(self):
         return {
-            "player1": self.player1,
-            "player2": self.player2,
-            "result": self.result
+            "Player1": self.player1,
+            "Player2": self.player2,
+            "Result": self.result
         }
+

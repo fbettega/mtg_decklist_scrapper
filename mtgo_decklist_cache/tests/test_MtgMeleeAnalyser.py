@@ -129,3 +129,5 @@ def test_tournament_data_is_correct(tournament_loader_data):
     assert test_tournament == expected_tournament
 
 
+############# a faire tester le commander
+

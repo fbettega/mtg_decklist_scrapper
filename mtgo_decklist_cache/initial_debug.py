@@ -9,7 +9,7 @@ import base
 from datetime import datetime
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
 from MTGmelee.MtgMeleeClient import *
-from MTGmelee.MtgMeleeAnalyzer import *
+
 
 # try:
 #     client = MtgMeleeClient()
@@ -29,11 +29,13 @@ def main():
     try:
         client = MtgMeleeClient()
         analyzer = MtgMeleeAnalyzer()
-        tournament = next(
-        (t for t in client.get_tournaments(datetime(2023, 7, 28, 0, 0),datetime(2023, 7, 28, 0, 0)) if t.id == 16429),
-        None
-        )
-        result = analyzer.get_scraper_tournaments(tournament)[0]
+        players = client.get_players("https://melee.gg/Tournament/View/145443")
+        deck = client.get_deck("https://melee.gg/Decklist/View/429472", players)
+        # tournament = next(
+        # (t for t in client.get_tournaments(datetime(2023, 7, 28, 0, 0),datetime(2023, 7, 28, 0, 0)) if t.id == 16429),
+        # None
+        # )
+        # result = analyzer.get_scraper_tournaments(tournament)[0]
         # players = client.get_players("https://melee.gg/Tournament/View/16429")
         # deck = client.get_deck("https://melee.gg/Decklist/View/315233",players)
         # print(f"Players found: {len(players)}")

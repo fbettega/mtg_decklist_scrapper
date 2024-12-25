@@ -13,10 +13,10 @@ import MTGmelee.MtgMeleeClient as MTGmelee
 # python base.py ./cache_folder 2024-11-01 2024-11-07 all keepleague
 
 # Update folder function
-def update_folder(cache_root_folder: str, source, start_date: datetime, end_date: Optional[datetime]):
+def update_folder(cache_root_folder: str, source, source_name:str,start_date: datetime, end_date: Optional[datetime]):
     
-    cache_folder = os.path.join(cache_root_folder, source.__class__.__name__)  # Provider is the class name
-    print(f"Downloading tournament list for {source.__class__.__name__}")
+    cache_folder = os.path.join(cache_root_folder, source_name)  # Provider is the class name
+    print(f"Downloading tournament list for {source_name}")
     tournaments = source.TournamentList.DL_tournaments(start_date, end_date)
     tournaments.sort(key=lambda t: t.date)
     
@@ -46,8 +46,8 @@ def update_folder(cache_root_folder: str, source, start_date: datetime, end_date
                 os.rmdir(target_folder)
             continue
 
-        with open(target_file, 'w') as f:
-            json.dump(details.to_dict(), f, indent=4)
+        with open(target_file, 'w', encoding="utf-8") as f:
+            json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
 
 # Retry function
 def run_with_retry(action, max_attempts: int):
@@ -92,7 +92,7 @@ def main():
         # update_folder(cache_folder, ITournamentSource(), start_date, end_date)
     
     if use_mtg_melee:
-        update_folder(cache_folder, MTGmelee, start_date, end_date)
+        update_folder(cache_folder, MTGmelee,"MTGmelee", start_date, end_date)
     
     # if use_topdeck:
         # You would need to replace this with the actual implementation of TopdeckSource
