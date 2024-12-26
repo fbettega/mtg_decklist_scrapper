@@ -5,7 +5,7 @@ Created on Sun Nov 24 20:48:21 2024
 @author: Francois
 """
 import os
-import base
+import fetch_tournament
 from datetime import datetime
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
 from MTGmelee.MtgMeleeClient import *
