@@ -169,7 +169,6 @@ class MtgMeleeClient:
                     side_board.append(DeckItem(card_name=name, count=count))
                 else:
                     main_board.append(DeckItem(card_name=name, count=count))
-
         rounds = []
         if not skip_round_data:
             
@@ -182,13 +181,14 @@ class MtgMeleeClient:
                     # # Rank:	6
                     # # Record:	0-0-0
                     # # Points:	42
-
                     round = self.get_round(round_div, player_name, players)
                     if round:
                         rounds.append(round)
 
         return MtgMeleeDeckInfo(
-            date = date_tournament,
+            # in order to match badaro test put date to none,
+            # date=date = date_tournament, 
+            date=None,
             deck_uri=uri,
             player=player_name,
             format=format,
@@ -327,9 +327,10 @@ class FormatDetector:
     def detect(decks: List[dict]) -> str:
         if any(c.card_name in FormatDetector._vintage_cards for d in decks for c in d.mainboard):
             return "Vintage"
-        if (all(c.count == 1 for c in decks.mainboard + decks.sideboard) and
-            len(decks.sideboard) <= 3 and
-            (len(decks.mainboard) + len(decks.sideboard) == 100 or (len(decks.mainboard) + len(decks.sideboard) == 101 and len(decks.sideboard) == 3))):
+        if all(c.count == 1 for d in decks for c in d.mainboard + d.sideboard) and \
+        all(len(d.sideboard) <= 3 for d in decks) and \
+        all((len(d.mainboard) + len(d.sideboard) == 100 or 
+                (len(d.mainboard) + len(d.sideboard) == 101 and len(d.sideboard) == 3)) for d in decks):
             return "Commander"
         if any(c.card_name in FormatDetector._legacy_cards for d in decks for c in d.mainboard):
             return "Legacy"
@@ -397,11 +398,22 @@ class MtgMeleeAnalyzer:
                 return result
 
     def generate_single_format_tournament(self, tournament: MtgMeleeTournamentInfo) -> MtgMeleeTournament:
+        ### Complètement inutile car deja filtré dans (# Skips tournaments with weird formats) et prend enormement de temps
+        # , players: List[MtgMeleePlayerInfo]
+        # if any(tournament.formats[0] not in MtgMeleeAnalyzerSettings.ValidFormats):   
+        #     deck_uris = [p.decks[0].uri for p in players if p.decks and len(p.decks) > 0][:MtgMeleeAnalyzerSettings.DecksLoadedForAnalysis]
+        #     decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
+        #     format_detected = FormatDetector.detect(decks)
+        # else:
+        format_detected = tournament.formats[0]
+
+
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
             name=tournament.name,
-            json_file=self.generate_file_name(tournament, tournament.formats[0], -1)
+            formats=format_detected,
+            json_file=self.generate_file_name(tournament, format_detected, -1)
         )
 
     def generate_multi_format_tournament(self, tournament: MtgMeleeTournamentInfo, players: List[MtgMeleePlayerInfo], offset: int, expected_decks: int) -> MtgMeleeTournament:
@@ -411,14 +423,12 @@ class MtgMeleeAnalyzer:
 
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
 
-        # a debug renvoie rien
         format_detected = FormatDetector.detect(decks)
-
-
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
             name=tournament.name,
+            formats=format_detected,
             json_file=FilenameGenerator.generate_file_name(
                 tournament_id=tournament.uri.split("/")[-1],
                 name=tournament.name,
@@ -435,14 +445,12 @@ class MtgMeleeAnalyzer:
     def generate_pro_tour_tournament(self, tournament: MtgMeleeTournamentInfo, players: List[MtgMeleePlayerInfo]) -> MtgMeleeTournament:
         deck_uris = [p.decks[-1].uri for p in players if p.decks]
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
-
-
         format_detected = FormatDetector.detect(decks)
-
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
             name=tournament.name,
+            formats=format_detected,
             json_file=self.generate_file_name(tournament, format_detected, -1),
             deck_offset=0,
             expected_decks=3,
@@ -473,7 +481,6 @@ class TournamentList:
         decks = []
         standings = []
         consolidated_rounds = {}
-
         current_position = 1
         # player = players[0]
         # uri = tournament.uri
@@ -490,7 +497,9 @@ class TournamentList:
             if deck is not None:
                 decks.append(
                     MtgMeleeDeckInfo(
-                    date=tournament.date,
+                    # in order to match badaro test put date to none,
+                    # date=tournament.date, 
+                    date=None,
                     deck_uri=deck.deck_uri,
                     player=player.player_name,
                     format= deck.format,

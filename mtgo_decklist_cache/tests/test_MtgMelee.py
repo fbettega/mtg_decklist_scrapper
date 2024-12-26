@@ -310,14 +310,13 @@ def test_data(  client):
 #         date=datetime(2024, 9, 7, 20, 0, 0)
 #     )
 # test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
-
-
 # def should_pool_commander_from_free_form():
 # duel_commander_tournament = MtgMeleeTournament(
 #         uri="https://melee.gg/Tournament/View/15509",
 #         date=datetime(2022, 4, 29, 0, 0, 0)
 #     )
 # test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
+
 
 def test_deck_count_is_correct(test_data):
     assert len(test_data) == 6  

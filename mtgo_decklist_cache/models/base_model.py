@@ -119,7 +119,8 @@ class Deck:
     
     def to_dict(self):
         return {
-            "Date": self.date.isoformat() if self.date else None,
+            # "Date": self.date.isoformat() if self.date else None,
+            "Date": self.date,
             "Player": self.player,
             "Result": self.result,
             "AnchorUri": self.anchor_uri,
@@ -218,11 +219,12 @@ class MtgMeleeDeckInfo:
         )
     def to_dict(self):
         return {
-            "Date": self.date.isoformat(),
+            # "Date": self.date.isoformat(),
+            "Date": self.date,
             "Player": self.player,
             "Result": self.result,
             "AnchorUri": self.deck_uri,
-            "Format": self.format,
+            # "Format": self.format,
             "Mainboard": [item.to_dict() for item in self.mainboard],  
             "Sideboard": [item.to_dict() for item in self.sideboard],  
             # "rounds": [round_info.to_dict() for round_info in self.rounds]  

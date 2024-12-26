@@ -15,6 +15,22 @@ def analyzer():
     analyzer = MtgMeleeAnalyzer()
     return analyzer
 
+
+
+duel_commander_tournament = next(
+    (t for t in client.get_tournaments(datetime(2022, 4, 28, 0, 0, 0, tzinfo=timezone.utc),datetime(2022, 4, 30, 0, 0, 0, tzinfo=timezone.utc)) #if t.id == 15509
+     ),
+    None
+    )
+duel_commander_tournament = MtgMeleeTournament(
+        uri="https://melee.gg/Tournament/View/15509",
+        date=datetime(2022, 4, 29, 0, 0, 0)
+    )
+test_DC = analyzer.get_scraper_tournaments(duel_commander_tournament)
+
+
+
+
 def test_should_detect_simple_tournaments(client,analyzer):
     tournament = next(
     (t for t in client.get_tournaments(datetime(2023, 10, 14, 0, 0, 0, tzinfo=timezone.utc),datetime(2023, 10, 14, 0, 0, 0, tzinfo=timezone.utc)) if t.id == 17461),

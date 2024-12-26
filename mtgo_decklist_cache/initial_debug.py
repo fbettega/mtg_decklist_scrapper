@@ -29,8 +29,11 @@ def main():
     try:
         client = MtgMeleeClient()
         analyzer = MtgMeleeAnalyzer()
-        players = client.get_players("https://melee.gg/Tournament/View/145443")
-        deck = client.get_deck("https://melee.gg/Decklist/View/429472", players)
+        tournament = next(
+        (t for t in client.get_tournaments(datetime(2023, 10, 15, 0, 0), datetime(2023, 10, 15, 0, 0)) if t.id == 17469),
+        None
+        )
+        result = analyzer.get_scraper_tournaments(tournament)[0]
         # tournament = next(
         # (t for t in client.get_tournaments(datetime(2023, 7, 28, 0, 0),datetime(2023, 7, 28, 0, 0)) if t.id == 16429),
         # None
