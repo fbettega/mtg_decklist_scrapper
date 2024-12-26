@@ -17,6 +17,7 @@ import re
 
 #fait
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-01-31 all keepleague
+
 # python fetch_tournament.py ./cache_folder 2024-02-01 2024-02-29 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-03-01 2024-03-31 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-04-01 2024-04-30 all keepleague

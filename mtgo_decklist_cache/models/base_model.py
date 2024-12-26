@@ -28,7 +28,17 @@ class Tournament:
 
 
 class Standing:
-    def __init__(self, rank: int, player: str, points: int, wins: int, losses: int, draws: int, omwp: float, gwp: float, ogwp: float):
+    def __init__(self, 
+                 rank: Optional[int] = None, 
+                 player: Optional[str] = None, 
+                 points: Optional[int] = None, 
+                 wins: Optional[int] = None, 
+                 losses: Optional[int] = None, 
+                 draws: Optional[int] = None, 
+                 omwp: Optional[float] = None, 
+                 gwp: Optional[float] = None, 
+                 ogwp: Optional[float] = None):
+        # Assign default values if None
         self.rank = rank
         self.player = player
         self.points = points
@@ -136,6 +146,16 @@ class Deck:
     def __str__(self):
         total = sum(item.count for item in self.mainboard) + sum(item.count for item in self.sideboard)
         return f"{total} cards"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Deck):
+            return False
+        return (self.date == other.date and
+                self.player == other.player and
+                self.result == other.result and
+                self.anchor_uri == other.anchor_uri and
+                self.mainboard == other.mainboard and
+                self.sideboard == other.sideboard)
     
     def to_dict(self):
         return {

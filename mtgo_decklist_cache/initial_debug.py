@@ -8,7 +8,9 @@ import os
 import fetch_tournament
 from datetime import datetime
 # from .MTGODecklistCache_Updater_MtgMelee_Client.MtgMeleeClient import MtgMeleeClient
-from MTGmelee.MtgMeleeClient import *
+# from MTGmelee.MtgMeleeClient import *
+from models.base_model import *
+from comon_tools.tools import *
 
 
 # try:
@@ -27,9 +29,64 @@ from MTGmelee.MtgMeleeClient import *
 
 def main():
     try:
-        client = MtgMeleeClient()
-        analyzer = MtgMeleeAnalyzer()
-        tournament_data = next(t for t in client.get_tournaments(datetime(2024, 8, 12, 0, 0, 0), datetime(2024, 8, 12, 0, 0, 0)) if t.uri == "https://melee.gg/Tournament/View/193242")
+        decks = [
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fifth", result="1st Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Winner", result="2nd Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Sixth", result="3rd Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Seventh", result="4th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Third", result="5th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Eighth", result="6th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fourth", result="7th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Second", result="8th Place"),
+        ]
+            
+        standings = [
+            Standing(player="Fifth", points=10),
+            Standing(player="Winner", points=9),
+            Standing(player="Sixth", points=8),
+            Standing(player="Seventh", points=7),
+            Standing(player="Third", points=6),
+            Standing(player="Eighth", points=5),
+            Standing(player="Fourth", points=4),
+            Standing(player="Second", points=3),
+        ]
+
+        bracket = [
+            Round(
+                round_name="Quarterfinals",
+                matches=[
+                    RoundItem(player1="Winner", player2="Fifth", result="2-0-0"),
+                    RoundItem(player1="Second", player2="Sixth", result="2-0-0"),
+                    RoundItem(player1="Third", player2="Seventh", result="2-0-0"),
+                    RoundItem(player1="Fourth", player2="Eighth", result="2-0-0"),
+                ],
+            ),
+            Round(
+                round_name="Semifinals",
+                matches=[
+                    RoundItem(player1="Winner", player2="Third", result="2-0-0"),
+                    RoundItem(player1="Second", player2="Fourth", result="2-0-0"),
+                ],
+            ),
+            Round(
+                round_name="Finals",
+                matches=[
+                    RoundItem(player1="Winner", player2="Second", result="2-0-0")
+                ],
+            ),
+        ]
+        expected_decks = [
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Winner", result="1st Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Second", result="2nd Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Third", result="3rd Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fourth", result="4th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fifth", result="5th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Sixth", result="6th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Seventh", result="7th Place"),
+            Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Eighth", result="8th Place"),
+        ]
+
+        normalized_decks = OrderNormalizer.reorder_decks(decks, standings, bracket, update_result=True)
         # tournament = next(
         # (t for t in client.get_tournaments(datetime(2023, 7, 28, 0, 0),datetime(2023, 7, 28, 0, 0)) if t.id == 16429),
         # None

@@ -5,6 +5,7 @@ import importlib
 from models.base_model import *
 from comon_tools.tools import *
 
+CardNameNormalizer.initialize()
 ##############################################################################
 # CardNormalizerTests
 def test_should_remove_leading_spaces():
@@ -115,7 +116,6 @@ def test_should_reorder_cards():
             DeckItem(card_name="Tropical Island", count=1),
         ]
     )
-
     normalized_deck = DeckNormalizer.normalize(input_deck)
     assert normalized_deck == expected_deck
 
@@ -164,16 +164,16 @@ def test_should_combine_duplicates():
     # OrderNormalizerTests
 def test_should_reorder_using_bracket():
     decks = [
-        Deck(player="Fifth", result="1st Place"),
-        Deck(player="Winner", result="2nd Place"),
-        Deck(player="Sixth", result="3rd Place"),
-        Deck(player="Seventh", result="4th Place"),
-        Deck(player="Third", result="5th Place"),
-        Deck(player="Eighth", result="6th Place"),
-        Deck(player="Fourth", result="7th Place"),
-        Deck(player="Second", result="8th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fifth", result="1st Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Winner", result="2nd Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Sixth", result="3rd Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Seventh", result="4th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Third", result="5th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Eighth", result="6th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fourth", result="7th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Second", result="8th Place"),
     ]
-
+        
     standings = [
         Standing(player="Fifth", points=10),
         Standing(player="Winner", points=9),
@@ -209,17 +209,16 @@ def test_should_reorder_using_bracket():
             ],
         ),
     ]
-
     expected_decks = [
-        Deck(player="Winner", result="1st Place"),
-        Deck(player="Second", result="2nd Place"),
-        Deck(player="Third", result="3rd Place"),
-        Deck(player="Fourth", result="4th Place"),
-        Deck(player="Fifth", result="5th Place"),
-        Deck(player="Sixth", result="6th Place"),
-        Deck(player="Seventh", result="7th Place"),
-        Deck(player="Eighth", result="8th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Winner", result="1st Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Second", result="2nd Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Third", result="3rd Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fourth", result="4th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Fifth", result="5th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Sixth", result="6th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Seventh", result="7th Place"),
+        Deck(date = None,anchor_uri = "test_url",mainboard=[],sideboard=[],player="Eighth", result="8th Place"),
     ]
 
-    normalized_decks = OrderNormalizer.reorder_decks(decks, standings, bracket, use_bracket=True)
+    normalized_decks = OrderNormalizer.reorder_decks(decks, standings, bracket, update_result=True)
     assert normalized_decks == expected_decks

@@ -58,14 +58,11 @@ class CardNameNormalizer:
         while api:
             response = requests.get(api, headers={"User-Agent": "Mozilla/5.0"})
             data = response.json()
-
             for card in data.get("data", []):
                 if "card_faces" not in card:
                     continue
-
                 front = card["card_faces"][0]["name"]
                 back = card["card_faces"][1]["name"]
-
                 if front == back:
                     continue
 
@@ -85,7 +82,6 @@ class CardNameNormalizer:
                     f"{front}///{back}": target,
                     f"{front} /// {back}": target,
                 })
-
             api = data.get("next_page")
 
     @classmethod
@@ -204,6 +200,9 @@ class OrderNormalizer:
     def get_player_order(decks: list[Deck], standings: list[Standing], bracket_rounds: list[Round]) -> list[str]:
         result = []
 
+        for standing in standings:
+            if not hasattr(standing, "rank") or standing.rank is None:
+                standing.rank = sum(1 for s in standings if s.points > standing.points) + 1
         # Add players based on standings rank
         for i in range(1, max(s.rank for s in standings) + 1):
             player_name = next((s.player for s in standings if s.rank == i), None)
