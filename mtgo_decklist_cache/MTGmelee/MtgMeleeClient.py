@@ -151,16 +151,19 @@ class MtgMeleeClient:
         CardNameNormalizer.initialize()
         for card in card_list:
             if card in ['Deck', 'Companion', 'Sideboard','Commander','']:
-                inside_companion = card == 'Companion'
-                inside_sideboard = card == 'Sideboard'
-                inside_commander = card == 'Commander'
+                if card == 'Commander':
+                    inside_commander = True
+                else:
+                    inside_companion = card == 'Companion'
+                    inside_sideboard = card == 'Sideboard'         
                 if(inside_commander):
                     inside_sideboard = True
                 if(card == 'Deck' and inside_commander):
                     inside_sideboard = False
                     inside_commander = False
+                    inside_companion = False
             else:
-                if inside_companion:
+                if inside_companion and not inside_commander:
                     continue
                 count, name = card.split(" ", 1)
                 count = int(count)
@@ -355,8 +358,8 @@ class MtgMeleeAnalyzer:
             ("Pro Tour" in tournament.name or "World Championship" in tournament.name) and
             "Qualifier" not in tournament.name
         )
-
         # Skips tournaments with blacklisted terms
+
         if any(term.lower() in tournament.name.lower() for term in MtgMeleeAnalyzerSettings.BlacklistedTerms):
             return None
 

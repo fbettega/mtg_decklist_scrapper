@@ -213,8 +213,9 @@ def test_should_load_deck_format(  players):
 def test_should_load_correct_deck_uris(  players):
     assert players[7].decks[0].uri == "https://melee.gg/Decklist/View/391605"
 
+
 # @pytest.mark.skip("Not implemented")
-# def test_should_load_correct_deck_uris_when_multiple_present(  players):
+# def test_should_load_correct_deck_uris_when_multiple_present(players):
 #     players[0].decks = [
 #         MagicMock(uri="https://melee.gg/Decklist/View/391788"),
 #         MagicMock(uri="https://melee.gg/Decklist/View/393380")
@@ -241,7 +242,7 @@ def test_should_load_players_for_tournaments_with_empty_last_phase(  client):
     assert players_empty_last_phase is not None and len(players_empty_last_phase) > 0
 
 # @pytest.mark.skip("Not implemented")
-# def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(  client):
+# def test_should_ensure_decks_for_the_same_format_are_in_the_same_position(client):
 #     players = [
 #         MagicMock(decks=[MagicMock(format="Standard"), MagicMock(format="Standard"), MagicMock(format="Standard")])
 #     ]
@@ -303,20 +304,6 @@ def test_data(  client):
 #     )
 #     test_to_ditc = TournamentList().get_tournament_details(tournament)
 
-###################### test commander
-# test reject commander multi quand tu aurra trouvé un tournoi sur melee
-# def should_work_with_duel_commander():
-# duel_commander_tournament = MtgMeleeTournament(
-#         uri="https://melee.gg/Tournament/View/145443",
-#         date=datetime(2024, 9, 7, 20, 0, 0)
-#     )
-# test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
-# def should_pool_commander_from_free_form():
-# duel_commander_tournament = MtgMeleeTournament(
-#         uri="https://melee.gg/Tournament/View/15509",
-#         date=datetime(2022, 4, 29, 0, 0, 0)
-#     )
-# test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
 
 
 def test_deck_count_is_correct(test_data):
@@ -528,6 +515,5 @@ def test_standing_data_is_correct(test_data_standings):
     test_standing = test_data_standings[3]  # Access the 4th standing
     expected_standing = Standing(rank=4, player="Elston", points=6, wins=2, losses=2, draws=0, omwp=0.75, gwp=0.44444444, ogwp=0.75661376)
     assert test_standing == expected_standing
-
 
 

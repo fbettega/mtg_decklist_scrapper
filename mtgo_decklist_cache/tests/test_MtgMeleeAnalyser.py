@@ -133,3 +133,68 @@ def test_tournament_data_is_correct(tournament_loader_data):
 
 ############# a faire tester le commander
 
+###################### test commander
+# test reject commander multi quand tu aurra trouvé un tournoi sur melee
+@pytest.fixture(scope="module")
+def DC_test_data(client):
+    tournament_data_dc = next(t for t in client.get_tournaments(datetime(2024, 12, 8, 0, 0, 0), datetime(2024, 12,8, 0, 0, 0)) if t.id == 193242)
+    DC_test_tournaments_info = analyzer.get_scraper_tournaments(tournament_data_dc)[0]
+    DC_test_data = TournamentList().get_tournament_details(DC_test_tournaments_info)
+    return  DC_test_data
+
+@pytest.fixture(scope="module")
+def DC_reference_deck(DC_test_data):
+    DC_reference_deck = DC_test_data.decks[0]
+    return  DC_reference_deck
+
+
+def should_not_load_not_enougth_player_tournament(client):
+    tournament_data = next(t for t in client.get_tournaments(datetime(2024, 9, 7), datetime(2024, 9, 7)) if t.uri == "https://melee.gg/Tournament/View/145443")
+    not_enoughth_player = analyzer.get_scraper_tournaments(tournament_data)
+    assert  not_enoughth_player is None
+
+def should_100_cards_sideboard_between_1to3_duel_commander(DC_reference_deck):
+    assert 1 == sum(item.count for item in DC_reference_deck.sideboard) 
+    assert sum(item.count for item in DC_reference_deck.mainboard) + sum(item.count for item in DC_reference_deck.sideboard) == 100
+
+def should_have_singleton_duel_commander(DC_reference_deck):
+        BASIC_LANDS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
+        non_basic_mainboard = [item for item in DC_reference_deck.mainboard if item.card_name not in BASIC_LANDS]
+        non_basic_sideboard = [item for item in DC_reference_deck.sideboard if item.card_name not in BASIC_LANDS]
+        # Vérifier que toutes les cartes non-basics ont un count de 1
+        assert all(item.count == 1 for item in non_basic_mainboard)
+        assert all(item.count == 1 for item in non_basic_sideboard)
+        # Vérifier qu'il n'y a pas de doublons de noms de cartes non-basics
+        all_card_names = [item.card_name for item in non_basic_mainboard + non_basic_sideboard]
+        assert len(all_card_names) == len(set(all_card_names))
+
+
+
+# REcherche une liste avec companion 
+# Une avec partener 
+# Une avec les 2
+# quand trouvé une dl legale mettre ce test avec partner et companion
+            # (sum(item.count for item in deck.sideboard) == 3 and 
+            #  sum(item.count for item in deck.mainboard) + sum(item.count for item in deck.sideboard) == 101)
+# Decklist commander with companion mais illegale
+def should_correctly_put_companion_in_side_in_DC(DC_test_data):
+    DC_companion_deck = DC_test_data.decks[-2]
+    assert len(DC_companion_deck.sideboard) == 2
+    assert any(item.card_name == "Keruga, the Macrosage" for item in DC_companion_deck.sideboard)
+
+def should_parse_format_duel_commander(DC_test_data):
+    assert len(DC_test_data.decks) == 29
+    assert DC_test_data.tournament.formats == "Commander"
+
+
+
+
+
+# https://melee.gg/Decklist/View/461269
+
+# def should_pool_commander_from_free_form():
+# duel_commander_tournament = MtgMeleeTournament(
+#         uri="https://melee.gg/Tournament/View/15509",
+#         date=datetime(2022, 4, 29, 0, 0, 0)
+#     )
+# test_DC = TournamentList().get_tournament_details(duel_commander_tournament)
