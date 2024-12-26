@@ -9,12 +9,7 @@ from typing import List,Optional
 import requests
 from urllib.parse import quote
 from collections import defaultdict
-from models.base_model import (
-    Deck,
-    Standing,
-    DeckItem,
-    RoundItem
-)
+from models.base_model import *
 
 class CardNameNormalizer:
     _api_endpoint = "https://api.scryfall.com/cards/search?order=cmc&q={query}"
@@ -172,4 +167,83 @@ class SlugGenerator:
     def generate_slug(text: str) -> str:
         # Exemple simple : remplacer les espaces par des tirets et mettre en minuscules.
         return text.lower().replace(" ", "-")
-    
+
+# a Verifier lourdement
+class OrderNormalizer:
+    @staticmethod
+    def reorder_decks(decks: list[Deck], standings: list[Standing], bracket_rounds: list[Round], update_result: bool) -> list[Deck]:
+        ordered_decks = []
+
+        player_order = OrderNormalizer.get_player_order(decks, standings, bracket_rounds)
+
+        position = 1
+        for player in player_order:
+            deck = next((d for d in decks if d.player == player), None)
+            if deck is None:
+                position += 1
+                continue
+
+            rank = f"{position}th Place"
+            if position == 1:
+                rank = "1st Place"
+            elif position == 2:
+                rank = "2nd Place"
+            elif position == 3:
+                rank = "3rd Place"
+            
+            position += 1
+
+            if update_result:
+                deck.result = rank
+
+            ordered_decks.append(deck)
+
+        return ordered_decks
+
+    @staticmethod
+    def get_player_order(decks: list[Deck], standings: list[Standing], bracket_rounds: list[Round]) -> list[str]:
+        result = []
+
+        # Add players based on standings rank
+        for i in range(1, max(s.rank for s in standings) + 1):
+            player_name = next((s.player for s in standings if s.rank == i), None)
+            if player_name is None:
+                result.append("-")
+            else:
+                result.append(player_name)
+
+        # Adjust order using bracket rounds
+        if bracket_rounds is not None:
+            for bracket_round in bracket_rounds:
+                result = OrderNormalizer.push_to_top(
+                    result,
+                    [match.player2 for match in bracket_round.matches],
+                    standings
+                )
+                result = OrderNormalizer.push_to_top(
+                    result,
+                    [match.player1 for match in bracket_round.matches],
+                    standings
+                )
+
+        # Add missing players from decks
+        for deck in decks:
+            if deck.player not in result:
+                result.append(deck.player)
+
+        return list(dict.fromkeys(result))  # Remove duplicates while preserving order
+
+    @staticmethod
+    def push_to_top(players: list[str], pushed_players: list[str], standings: list[Standing]) -> list[str]:
+        player_ranks = {
+            player: next(s.rank for s in standings if s.player == player)
+            for player in pushed_players if any(s.player == player for s in standings)
+        }
+
+        remaining_players = [p for p in players if p not in pushed_players]
+
+        # Create the final order: pushed players sorted by rank, followed by remaining players
+        result = [p for p, _ in sorted(player_ranks.items(), key=lambda x: x[1])]
+        result.extend(remaining_players)
+
+        return result
