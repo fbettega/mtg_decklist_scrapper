@@ -16,21 +16,6 @@ def analyzer():
     return analyzer
 
 
-
-duel_commander_tournament = next(
-    (t for t in client.get_tournaments(datetime(2022, 4, 28, 0, 0, 0, tzinfo=timezone.utc),datetime(2022, 4, 30, 0, 0, 0, tzinfo=timezone.utc)) #if t.id == 15509
-     ),
-    None
-    )
-duel_commander_tournament = MtgMeleeTournament(
-        uri="https://melee.gg/Tournament/View/15509",
-        date=datetime(2022, 4, 29, 0, 0, 0)
-    )
-test_DC = analyzer.get_scraper_tournaments(duel_commander_tournament)
-
-
-
-
 def test_should_detect_simple_tournaments(client,analyzer):
     tournament = next(
     (t for t in client.get_tournaments(datetime(2023, 10, 14, 0, 0, 0, tzinfo=timezone.utc),datetime(2023, 10, 14, 0, 0, 0, tzinfo=timezone.utc)) if t.id == 17461),
@@ -125,8 +110,8 @@ def test_should_skip_team_tournaments_for_now(client,analyzer):
 @pytest.fixture(scope="module")
 def tournament_loader_data():
     tournament_loader_data = TournamentList.DL_tournaments(
-    start_date = datetime(2023, 9, 1, 0, 0, 0),
-    end_date = datetime(2023, 9, 7, 0, 0, 0)
+    start_date = datetime(2023, 9, 1, 0, 0, 0, tzinfo=timezone.utc),
+    end_date = datetime(2023, 9, 7, 0, 0, 0, tzinfo=timezone.utc)
     )
     return tournament_loader_data
 
@@ -140,6 +125,7 @@ def test_tournament_data_is_correct(tournament_loader_data):
         name="Berlin Double Up Legacy VIII im Brettspielplatz 07.09.23",
         date= datetime(2023, 9, 7, 17, 15, 0),
         uri="https://melee.gg/Tournament/View/18285",
+        formats="Legacy",
         json_file="berlin-double-up-legacy-viii-im-brettspielplatz-07.09.23-18285-2023-09-07.json"
         )
     assert test_tournament == expected_tournament

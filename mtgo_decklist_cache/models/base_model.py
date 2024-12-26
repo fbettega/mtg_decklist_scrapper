@@ -40,7 +40,27 @@ class Standing:
         self.ogwp = ogwp
 
     def __str__(self):
-        return f"#{self.rank} {self.player} {self.points} points"
+        return (
+            f"Standing(Rank={self.rank}, Player='{self.player}', Points={self.points}, "
+            f"Wins={self.wins}, Losses={self.losses}, Draws={self.draws}, "
+            f"OMWP={self.omwp:.2f}, GWP={self.gwp:.2f}, OGWP={self.ogwp:.2f})"
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, Standing):
+            return NotImplemented
+        return (
+            self.rank == other.rank and
+            self.player == other.player and
+            self.points == other.points and
+            self.wins == other.wins and
+            self.losses == other.losses and
+            self.draws == other.draws and
+            self.omwp == other.omwp and
+            self.gwp == other.gwp and
+            self.ogwp == other.ogwp
+        )
+    
     def to_dict(self):
         return {
             "Rank": self.rank,

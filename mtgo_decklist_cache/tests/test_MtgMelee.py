@@ -7,6 +7,7 @@ import MTGmelee.MtgMeleeClient
 # Recharger le module
 importlib.reload(MTGmelee.MtgMeleeClient)
 # pytest .\tests\MtgMelee.py 
+# pytest .\tests\
 # Réimporter tous les objets exportés par le module
 from MTGmelee.MtgMeleeClient import *
 
@@ -191,11 +192,11 @@ def test_should_load_standings(  players):
         assert player.standing is not None
 
 def test_should_include_correct_standings_data(  players):
-    expected = Standing("Yoshihiko Ikawa", 1, 54, 0.62502867, 0.75, 0.57640079, 18, 1, 0)
+    expected = Standing(1,"Yoshihiko Ikawa", 54, 18, 1, 0, 0.62502867, 0.75, 0.57640079)
     assert players[0].standing == expected
 
 def test_should_include_correct_standings_data_with_draws(  players):
-    expected = Standing("Yuta Takahashi", 2, 41, 0.59543296, 0.68027211, 0.55188929, 13, 4, 2)
+    expected = Standing(2,"Yuta Takahashi",  41, 13, 4, 2, 0.59543296, 0.68027211, 0.55188929)
     assert players[1].standing == expected
 
 def test_should_load_deck_uris(  players):
@@ -348,6 +349,7 @@ def test_decks_have_valid_sideboards(test_data):
 
 def test_deck_data_is_correct(test_data):
     expected_deck = MtgMeleeDeckInfo(
+        date=None,
         deck_uri= "https://melee.gg/Decklist/View/257079",
         player="SB36",
         format='Explorer',
@@ -397,6 +399,7 @@ def test_deck_data_is_correct(test_data):
         result="4th Place"
     )
     test_data_no_rounds = MtgMeleeDeckInfo(
+        date=test_data[3].date  ,
         deck_uri=test_data[3].deck_uri,
         player=test_data[3].player,
         format=test_data[3].format,
@@ -436,7 +439,7 @@ def test_data_round3(client):
         uri="https://melee.gg/Tournament/View/12946",
          date=datetime(2022, 11, 20, 0, 0, 0)
          )
-    test_data_round3 = client.get_tournament_details(tournament_3).rounds
+    test_data_round3 = TournamentList().get_tournament_details(tournament_3).rounds
     return test_data_round3
 
 @pytest.fixture

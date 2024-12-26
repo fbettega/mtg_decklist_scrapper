@@ -12,10 +12,25 @@ from dateutil import parser
 import MTGmelee.MtgMeleeClient as MTGmelee
 # python base.py ./cache_folder 2024-11-01 2024-11-07 all keepleague
 
+
+def clean_temp_files(cache_folder: str):
+    """Delete all temporary files starting with 'Temp' and ending with '.tmp' in the cache folder."""
+    for root, _, files in os.walk(cache_folder):
+        for file in files:
+            if file.startswith("Temp") and file.endswith(".tmp"):
+                temp_file_path = os.path.join(root, file)
+                try:
+                    os.remove(temp_file_path)
+                    print(f"Removed temporary file: {temp_file_path}")
+                except Exception as e:
+                    print(f"Error removing temporary file {temp_file_path}: {e}")
+
 # Update folder function
 def update_folder(cache_root_folder: str, source, source_name:str,start_date: datetime, end_date: Optional[datetime]):
     
     cache_folder = os.path.join(cache_root_folder, source_name)  # Provider is the class name
+    # Clean up any leftover temp files
+    clean_temp_files(cache_folder)
     print(f"Downloading tournament list for {source_name}")
     tournaments = source.TournamentList.DL_tournaments(start_date, end_date)
     tournaments.sort(key=lambda t: t.date)
@@ -45,9 +60,12 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
             if not os.listdir(target_folder):
                 os.rmdir(target_folder)
             continue
-
-        with open(target_file, 'w', encoding="utf-8") as f:
-            json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
+        temp_file = os.path.join(cache_folder, f"Temp{tournament.json_file}.tmp").replace('/', '-')  # Temp file in cache_folder
+        with open(temp_file, 'w', encoding="utf-8") as f:
+                json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
+        os.replace(temp_file, target_file) 
+        # with open(target_file, 'w', encoding="utf-8") as f:
+        #     json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
 
 # Retry function
 def run_with_retry(action, max_attempts: int):
