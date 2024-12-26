@@ -11,8 +11,17 @@ from typing import Optional
 from dateutil import parser
 import argparse
 import MTGmelee.MtgMeleeClient as MTGmelee
+import re
 # python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 all keepleague
+
+
+
+def sanitize_filename(filename):
+    """
+    Replace invalid characters in the filename with underscores.
+    """
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 def clean_temp_files(cache_folder: str):
     """Delete all temporary files starting with 'Temp' and ending with '.tmp' in the cache folder."""
@@ -38,8 +47,9 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
     
     for tournament in tournaments:
         target_folder = os.path.join(cache_folder, str(tournament.date.year), f"{tournament.date.month:02d}", f"{tournament.date.day:02d}")
+        target_folder = sanitize_filename(target_folder)
+
         os.makedirs(target_folder, exist_ok=True)
-        
         target_file = os.path.join(target_folder, tournament.json_file).replace('/', '-')
         # if os.path.exists(target_file) and not tournament.force_redownload:
         if os.path.exists(target_file):
@@ -62,6 +72,7 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
                 os.rmdir(target_folder)
             continue
         temp_file = os.path.join(cache_folder, f"Temp{tournament.json_file}.tmp").replace('/', '-')  # Temp file in cache_folder
+        temp_file = sanitize_filename(temp_file)
         with open(temp_file, 'w', encoding="utf-8") as f:
                 json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
         os.replace(temp_file, target_file) 
