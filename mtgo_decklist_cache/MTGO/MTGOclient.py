@@ -176,14 +176,14 @@ class TournamentLoader:
             # Traiter le mainboard
             for card in deck.get("main_deck", []):
                 name = card["card_attributes"]["card_name"]
-                quantity = card["qty"]
+                quantity = int(card["qty"]) 
                 name = CardNameNormalizer.normalize(name)
                 mainboard.append(DeckItem(count=quantity, card_name=name))
 
             # Traiter le sideboard
             for card in deck.get("sideboard_deck", []):
                 name = card["card_attributes"]["card_name"]
-                quantity = card["qty"]
+                quantity = int(card["qty"]) 
                 name = CardNameNormalizer.normalize(name)
                 sideboard.append(DeckItem(count=quantity, card_name=name))
 
@@ -217,18 +217,25 @@ class TournamentLoader:
                     rank += 1
 
             # Normaliser et ajouter le deck
-            decks.append(
-                DeckNormalizer.normalize(
-                    Deck(
+
+            deck_ite = DeckNormalizer.normalize(Deck(
                         date=event_date,
                         player=player,
                         result=result,
                         anchor_uri=f"{tournament.uri}#deck_{player}",
                         mainboard=mainboard,
                         sideboard=sideboard
-                    )
-                    )
-                )
+                    ))
+            
+            # print(debug_deck)
+            # for item in debug_deck.mainboard + debug_deck.sideboard:
+            #     print(f"Card: {item.card_name}, Count: {item.count}, Type: {type(item.count)}") 
+            # sum(item.count for item in debug_deck.mainboard) + sum(item.count for item in debug_deck.sideboard)
+            # for c in debug_deck.sideboard:
+            #     # print(c.card_name)
+            #     print(c.count)
+
+            decks.append(deck_ite)
             added_players.add(player)
         return decks if decks else None
     
@@ -246,13 +253,13 @@ class TournamentLoader:
         standings = []
 
         for standing in json_data["standings"]:
-            player = standing["login_name"]
-            player_id = standing["loginid"]
-            points = standing["score"]
-            rank = standing["rank"]
-            gwp = standing["gamewinpercentage"]
-            ogwp = standing["opponentgamewinpercentage"]
-            omwp = standing["opponentmatchwinpercentage"]
+            player: str = standing["login_name"]
+            player_id: int = int(standing["loginid"])  # Conversion en entier
+            points: int = int(standing["score"])  # Conversion en entier
+            rank: int = int(standing["rank"])  # Conversion en entier
+            gwp: float = float(standing["gamewinpercentage"])  # Conversion en flottant
+            ogwp: float = float(standing["opponentgamewinpercentage"])  # Conversion en flottant
+            omwp: float = float(standing["opponentmatchwinpercentage"]) 
 
             wins = 0
             losses = 0
@@ -321,5 +328,5 @@ class TournamentLoader:
                     matches=matches
                     ))
 
-        valid_brackets = [r for r in brackets if r["RoundName"] in {"Quarterfinals", "Semifinals", "Finals"}]
+        valid_brackets = [r for r in rounds if r.round_name in {"Quarterfinals", "Semifinals", "Finals"}]
         return valid_brackets if valid_brackets else None

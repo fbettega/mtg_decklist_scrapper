@@ -36,6 +36,7 @@ def main():
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur
         result = MTGO.TournamentLoader.get_tournament_details(tournament)
+        result.rounds
     except Exception as e:
         print(f"Error during get_players: {e}")
 

@@ -97,6 +97,12 @@ class RoundItem:
 
     def __str__(self):
         return f"{self.player1} {self.result} {self.player2}"
+    def __eq__(self, other):
+        if not isinstance(other, RoundItem):
+            return False
+        return (self.player1 == other.player1 and
+                self.player2 == other.player2 and
+                self.result == other.result)
     def to_dict(self):
         return {
             "Player1": self.player1,
@@ -111,6 +117,11 @@ class Round:
 
     def __str__(self):
         return f"Round: {self.round_name}, {len(self.matches)} matches"
+    def __eq__(self, other):
+        if not isinstance(other, Round):
+            return False
+        return (self.round_name == other.round_name and
+                self.matches == other.matches)
     def to_dict(self):
         return {
             "RoundName": self.round_name,
