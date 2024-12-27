@@ -82,7 +82,14 @@ def bracket_data(request):
             "Rounds":{
             "test_data": Data.rounds,
             "expected": None,
+            },
+        "Standing":{
+            "test_data": Data.standings,
+            "expected":{
+                "count":0,
+            "Standing":None
             }
+        }
         }
         return result
     elif request.param == "challenge":
@@ -163,10 +170,26 @@ def bracket_data(request):
                     ],
                 ),
             ],
+        },
+        "Standing":{
+            "test_data": Data.standings,
+            "expected":{
+                "count":32,
+            "Standing":Standing(
+                rank = 1,
+                player = "Baku_91",
+                points = 18,
+                omwp = 0.6735,
+                gwp = 0.6667,
+                ogwp = 0.6047,
+                wins = 9,
+                losses = 1)
+                }
         }
         }
         return result
 
+        
 # Testez pour les deux URLs : Uri_league_BracketLoader_test et Uri_challenge_BracketLoader_test
 @pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
 def test_bracket_data_present_when_expected(bracket_data):
@@ -233,7 +256,6 @@ def test_bracket_rounds_should_be_in_correct_order(bracket_data):
 
 ###########################################################################################
 # DeckLoaderTests 
-# bracket_data = result 
 @pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
 def test_deck_count_is_correct(bracket_data):
     """Vérifie que le nombre de decks est correct."""
@@ -277,3 +299,62 @@ def test_deck_data_is_correct(bracket_data):
     test_deck = bracket_data.get("Deck").get("test_data")[0]
     assert test_deck == bracket_data.get("Deck").get("expected").get("Deck")
 
+###########################################################################################
+# StandingsLoaderTests 
+# bracket_data = result 
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standings_count_is_correct(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        assert len(test_data) == bracket_data.get("Standing").get("expected").get('count')
+
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standings_have_players(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        for standing in test_data:
+            assert standing.player is not None and standing.player != ""
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standings_have_rank(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        for standing in test_data:
+            assert standing.rank > 0
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standings_have_points(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        assert max(standing.points for standing in test_data) > 0
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standings_have_omwp(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        assert max(standing.omwp for standing in test_data) > 0
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_decks_have_gwp(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        assert max(standing.gwp for standing in test_data) > 0
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_decks_have_ogwp(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        assert max(standing.ogwp for standing in test_data) > 0
+
+@pytest.mark.parametrize("bracket_data", ["league", "challenge"], indirect=True)
+def test_standing_data_is_correct(bracket_data):
+    test_data = bracket_data.get("Standing").get("test_data")
+    if test_data:
+        test_deck = bracket_data.get("Standing").get("test_data")[0] 
+        assert test_deck.player == bracket_data.get("Standing").get("expected").get("Standing").player
+        assert test_deck.rank == bracket_data.get("Standing").get("expected").get("Standing").rank
+        assert test_deck.points == bracket_data.get("Standing").get("expected").get("Standing").points
+        assert test_deck.omwp == bracket_data.get("Standing").get("expected").get("Standing").omwp
+        assert test_deck.gwp == bracket_data.get("Standing").get("expected").get("Standing").gwp
+        assert test_deck.ogwp == bracket_data.get("Standing").get("expected").get("Standing").ogwp
