@@ -10,7 +10,7 @@ from typing import List, Optional
 
 
 class Tournament:
-    def __init__(self, date: datetime, name: str, uri: str, json_file: Optional[str] = None, force_redownload: bool = False):
+    def __init__(self, date: Optional[datetime] = None, name: Optional[str] = None, uri:  Optional[str] = None, json_file: Optional[str] = None, force_redownload: bool = False):
         self.date = date
         self.name = name
         self.uri = uri
@@ -18,7 +18,11 @@ class Tournament:
         self.force_redownload = force_redownload
 
     def __str__(self):
-        return f"{self.name}|{self.date.strftime('%Y-%m-%d')}"
+        if self.date:
+            return f"{self.name}|{self.date.strftime('%Y-%m-%d')}"
+        else:
+            return f"{self.name}|No date available"
+        
     def to_dict(self):
         return {
             "Date": self.date.isoformat() if self.date else None,

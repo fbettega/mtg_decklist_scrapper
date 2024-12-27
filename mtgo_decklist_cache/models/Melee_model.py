@@ -7,6 +7,7 @@ Created on Sun Nov 24 18:39:50 2024
 from datetime import datetime
 from typing import List, Optional
 
+
 class MtgMeleePlayerInfo:
     def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
         self.username = username
