@@ -159,8 +159,21 @@ class Deck:
                    any(item.card_name == c for item in self.sideboard) for c in cards)
 
     def __str__(self):
-        total = sum(item.count for item in self.mainboard) + sum(item.count for item in self.sideboard)
-        return f"{total} cards"
+                # Calculer le nombre total de cartes
+        total_mainboard = sum(item.count for item in self.mainboard)
+        total_sideboard = sum(item.count for item in self.sideboard)
+        total = total_mainboard + total_sideboard
+        
+        # Créer une représentation sous forme de chaîne des cartes du mainboard et du sideboard
+        mainboard_cards = ', '.join(f"{item.card_name} ({item.count})" for item in self.mainboard)
+        sideboard_cards = ', '.join(f"{item.card_name} ({item.count})" for item in self.sideboard)
+        
+        # Afficher toutes les informations utiles
+        return (f"Deck for {self.player} ({self.result}) - {self.date}\n"
+                f"Total Cards: {total}\n"
+                f"Mainboard: {mainboard_cards}\n"
+                f"Sideboard: {sideboard_cards}\n"
+                f"Anchor URI: {self.anchor_uri}")
     
     def __eq__(self, other):
         if not isinstance(other, Deck):

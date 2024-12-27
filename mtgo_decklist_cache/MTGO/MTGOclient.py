@@ -83,6 +83,13 @@ class TournamentList:
 ##########################################################################################################################################################################
 # TournamentLoader
 class TournamentLoader:
+    def parse_event_date(event_date_str):
+    # Essayer le format "%Y-%m-%d %H:%M:%S.%f"
+        try:
+            return datetime.strptime(event_date_str, "%Y-%m-%d %H:%M:%S.%f")
+        # Si ça échoue, essayer le format "%Y-%m-%d"
+        except ValueError:
+            return datetime.strptime(event_date_str, "%Y-%m-%d")
     def get_tournament_details(tournament):
         """
         Récupère les détails d'un tournoi en téléchargeant et analysant les données JSON intégrées dans la page HTML.
@@ -155,8 +162,12 @@ class TournamentLoader:
         :return: Liste de Decks ou None si aucune donnée n'est disponible.
         """
         # Déterminer la date de l'événement
-        event_date = event_json.get("publish_date") if event_type == "league" else event_json.get("starttime")
+        event_date_str = event_json.get("publish_date") if event_type == "league" else event_json.get("starttime")
+        # Convertir cette chaîne en un objet datetime sans fuseau horaire
+        event_date_naive = TournamentLoader.parse_event_date(event_date_str)
+        event_date = event_date_naive.replace(tzinfo=timezone.utc)
 
+        # Ajouter un fuseau horaire UTC à l'objet datetime
         # Vérifier si les données de decklists existent
         if "decklists" not in event_json:
             return None

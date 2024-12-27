@@ -29,9 +29,9 @@ import MTGO.MTGOclient as MTGO
 
 def main():
     try:
-        uri_par = "https://www.mtgo.com/decklist/legacy-challenge-2022-10-2312488075"
         tournament = Tournament()
-        tournament.uri = uri_par
+        tournament.uri = "https://www.mtgo.com/decklist/modern-league-2020-08-045236"
+        Data = MTGO.TournamentLoader.get_tournament_details(tournament)
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur
