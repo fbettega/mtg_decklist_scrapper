@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urljoin
 import os
 import sys
 from typing import List, Optional
@@ -31,14 +32,29 @@ class MTGOSettings:
 
 
 class TournamentList:  
+    def increment_month(date: datetime) -> datetime:
+        """Increment the month, rolling over to the next year if needed."""
+        new_month = date.month + 1
+        new_year = date.year
+        if new_month > 12:  # If it's December, roll over to January
+            new_month = 1
+            new_year += 1
+        return date.replace(year=new_year, month=new_month, day=1)
+
     def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
         if end_date is None:
             end_date = datetime.utcnow()
 
         results = []
         current_date = start_date
-        while (current_date.year < end_date.year) or \
-              (current_date.year == end_date.year and current_date.month <= end_date.month):
+        # while (current_date.year < end_date.year) or \
+        #       (current_date.year == end_date.year and current_date.month <= end_date.month):
+        #     tournament_list_url = MTGOSettings.LIST_URL.format(
+        #         year=current_date.year,
+        #         month=f"{current_date.month:02}"
+        #     )
+
+        while current_date <= end_date:
             tournament_list_url = MTGOSettings.LIST_URL.format(
                 year=current_date.year,
                 month=f"{current_date.month:02}"
@@ -46,14 +62,14 @@ class TournamentList:
 
             response = requests.get(tournament_list_url)
             if response.status_code != 200:
-                current_date += timedelta(days=30)  # Increment by one month
+                current_date = TournamentList.increment_month(current_date)  # Increment to the next month
                 continue
 
             soup = BeautifulSoup(response.text, 'html.parser')
             tournament_nodes = soup.select("li.decklists-item")
 
             if not tournament_nodes:
-                current_date += timedelta(days=30)  # Increment by one month
+                current_date   = TournamentList.increment_month(current_date)   # Increment by one month
                 continue
 
             for tournament_node in tournament_nodes:
@@ -75,9 +91,9 @@ class TournamentList:
                                       (datetime.utcnow().date() - parsed_date).days < MTGOSettings.LEAGUE_REDOWNLOAD_DAYS)
                 ))
 
-            current_date = (current_date + timedelta(days=30)).replace(day=1)  # Move to the first day of the next month
+            current_date  = TournamentList.increment_month(current_date)   # Move to the first day of the next month
 
-        filtered_results = [t for t in results if start_date <= t.date <= end_date]
+        filtered_results = [t for t in results if start_date.date() <= t.date <= end_date.date()]
         return sorted(filtered_results, key=lambda t: t.date, reverse=True)
     
 ##########################################################################################################################################################################
