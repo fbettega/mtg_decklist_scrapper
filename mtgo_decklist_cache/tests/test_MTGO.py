@@ -4,7 +4,7 @@ import pdb
 import importlib
 from datetime import datetime, timezone
 from models.base_model import *
-import MTGO.MTGOclient as MTGO
+import Client.MTGOclient as MTGO
 import time
 # import MTGmelee.MtgMeleeClient
 # # Recharger le module

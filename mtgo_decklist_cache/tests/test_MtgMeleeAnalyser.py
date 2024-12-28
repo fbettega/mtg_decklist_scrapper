@@ -2,8 +2,8 @@ import pytest
 from datetime import datetime
 import pdb
 import importlib
-import MTGmelee.MtgMeleeClient
-from MTGmelee.MtgMeleeClient import *
+import Client.MtgMeleeClient
+from Client.MtgMeleeClient import *
 
 # pytest .\tests\MtgMeleeAnalyser.py    
 @pytest.fixture(scope="module")

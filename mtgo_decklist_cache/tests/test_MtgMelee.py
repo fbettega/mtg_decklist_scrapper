@@ -3,13 +3,13 @@ import pytest
 import pdb
 import importlib
 from datetime import datetime, timezone
-import MTGmelee.MtgMeleeClient
+import Client.MtgMeleeClient
 # Recharger le module
-importlib.reload(MTGmelee.MtgMeleeClient)
+importlib.reload(Client.MtgMeleeClient)
 # pytest .\tests\MtgMelee.py 
 # pytest .\tests\
 # Réimporter tous les objets exportés par le module
-from MTGmelee.MtgMeleeClient import *
+from Client.MtgMeleeClient import *
 
 ##############################################################################################################################################################################################################################################
 # MtgMeleeClient test

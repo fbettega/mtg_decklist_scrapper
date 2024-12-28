@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dateutil import parser
 import argparse
-import MTGmelee.MtgMeleeClient as MTGmelee
-import MTGO.MTGOclient as MTGO
+import Client.MtgMeleeClient as MTGmelee
+import Client.MTGOclient as MTGO
 import re
 # python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 mtgo keepleague
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 all keepleague
@@ -33,6 +33,7 @@ import re
 # python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-30 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-12-01 2024-12-31 all keepleague
 
+# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 mtgo keepleague
 
 def sanitize_filename(filename):
     """
@@ -94,8 +95,6 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
         with open(temp_file, 'w', encoding="utf-8") as f:
                 json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
         os.replace(temp_file, target_file) 
-        # with open(target_file, 'w', encoding="utf-8") as f:
-        #     json.dump(details.to_dict(), f, ensure_ascii=False, indent=2)
 
 # Retry function
 def run_with_retry(action, max_attempts: int):

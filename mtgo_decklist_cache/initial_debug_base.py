@@ -9,7 +9,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dateutil import parser
-import MTGmelee.MtgMeleeClient as MTGmelee
+import Client.MtgMeleeClient as MTGmelee
 # python base.py ./cache_folder 2024-11-01 2024-11-07 all keepleague
 
 # Update folder function

@@ -7,8 +7,6 @@ Created on Sun Nov 24 18:39:50 2024
 from datetime import datetime
 from typing import List, Optional
 
-
-
 class Tournament:
     def __init__(self, date: Optional[datetime] = None, name: Optional[str] = None, uri:  Optional[str] = None, json_file: Optional[str] = None, force_redownload: bool = False):
         self.date = date

@@ -11,7 +11,7 @@ from datetime import datetime
 # from MTGmelee.MtgMeleeClient import *
 from models.base_model import *
 from comon_tools.tools import *
-import MTGO.MTGOclient as MTGO
+import Client.MTGOclient as MTGO
 
 # try:
 #     client = MtgMeleeClient()
