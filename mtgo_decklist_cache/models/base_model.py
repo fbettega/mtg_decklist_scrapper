@@ -188,7 +188,7 @@ class Deck:
     def to_dict(self):
         return {
             # "Date": self.date.isoformat() if self.date else None,
-            "Date": self.date,
+            "Date": self.date.isoformat() if self.date else None,
             "Player": self.player,
             "Result": self.result,
             "AnchorUri": self.anchor_uri,
@@ -210,8 +210,12 @@ class CacheItem:
         return {
             "Tournament": self.tournament.to_dict(),
             "Decks": [deck.to_dict() for deck in self.decks],
-            "Rounds": [round_.to_dict() for round_ in self.rounds],
-            "Standings": [standing.to_dict() for standing in self.standings],
+            "Rounds": [
+            round_.to_dict() for round_ in self.rounds or [] if round_ is not None
+        ],
+            "Standings": [
+                standing.to_dict() for standing in (self.standings or []) if standing is not None
+        ],
         }
 
 

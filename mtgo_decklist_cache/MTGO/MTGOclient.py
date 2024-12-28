@@ -89,7 +89,7 @@ class TournamentList:
         filtered_results = [t for t in results if start_date.date() <= t.date <= end_date.date()]
         return sorted(filtered_results, key=lambda t: t.date, reverse=True)
 
-    def get_tournament_details(tournament):
+    def get_tournament_details(self,  tournament: Tournament) -> 'CacheItem':
         """
         Récupère les détails d'un tournoi en téléchargeant et analysant les données JSON intégrées dans la page HTML.
         :param tournament: Instance de Tournament.
