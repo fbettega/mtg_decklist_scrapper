@@ -13,9 +13,11 @@ import argparse
 import MTGmelee.MtgMeleeClient as MTGmelee
 import MTGO.MTGOclient as MTGO
 import re
-# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 all keepleague
+# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 mtgo keepleague
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 all keepleague
 
+
+# python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 melee keepleague
 #fait
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-01-31 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-02-01 2024-02-29 all keepleague
@@ -169,7 +171,7 @@ def main():
     # Update folders based on source
     if use_mtgo:
         print("Updating MTGO...")
-        # update_folder(cache_folder, MTGO, "MTGO", start_date, end_date)
+        update_folder(cache_folder, MTGO, "MTGO", start_date, end_date)
 
     if use_mtg_melee:
         print("Updating MTG Melee...")

@@ -43,17 +43,10 @@ class TournamentList:
 
     def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
         if end_date is None:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
 
         results = []
         current_date = start_date
-        # while (current_date.year < end_date.year) or \
-        #       (current_date.year == end_date.year and current_date.month <= end_date.month):
-        #     tournament_list_url = MTGOSettings.LIST_URL.format(
-        #         year=current_date.year,
-        #         month=f"{current_date.month:02}"
-        #     )
-
         while current_date <= end_date:
             tournament_list_url = MTGOSettings.LIST_URL.format(
                 year=current_date.year,
@@ -88,24 +81,14 @@ class TournamentList:
                     uri=uri,
                     json_file=os.path.splitext(os.path.basename(uri))[0] + ".json",
                     force_redownload=("league" in title.lower() and
-                                      (datetime.utcnow().date() - parsed_date).days < MTGOSettings.LEAGUE_REDOWNLOAD_DAYS)
+                                      (datetime.now(timezone.utc).date() - parsed_date).days < MTGOSettings.LEAGUE_REDOWNLOAD_DAYS)
                 ))
 
             current_date  = TournamentList.increment_month(current_date)   # Move to the first day of the next month
 
         filtered_results = [t for t in results if start_date.date() <= t.date <= end_date.date()]
         return sorted(filtered_results, key=lambda t: t.date, reverse=True)
-    
-##########################################################################################################################################################################
-# TournamentLoader
-class TournamentLoader:
-    def parse_event_date(event_date_str):
-    # Essayer le format "%Y-%m-%d %H:%M:%S.%f"
-        try:
-            return datetime.strptime(event_date_str, "%Y-%m-%d %H:%M:%S.%f")
-        # Si ça échoue, essayer le format "%Y-%m-%d"
-        except ValueError:
-            return datetime.strptime(event_date_str, "%Y-%m-%d")
+
     def get_tournament_details(tournament):
         """
         Récupère les détails d'un tournoi en téléchargeant et analysant les données JSON intégrées dans la page HTML.
@@ -148,7 +131,18 @@ class TournamentLoader:
                 rounds=bracket,
                 standings=standings
                 )
-    @staticmethod
+
+##########################################################################################################################################################################
+# TournamentLoader
+class TournamentLoader:
+    def parse_event_date(event_date_str):
+    # Essayer le format "%Y-%m-%d %H:%M:%S.%f"
+        try:
+            return datetime.strptime(event_date_str, "%Y-%m-%d %H:%M:%S.%f")
+        # Si ça échoue, essayer le format "%Y-%m-%d"
+        except ValueError:
+            return datetime.strptime(event_date_str, "%Y-%m-%d")
+
     def parse_winloss(event_json):
         """
         Parse les données de victoires/défaites pour chaque joueur à partir du JSON.
@@ -253,15 +247,6 @@ class TournamentLoader:
                         mainboard=mainboard,
                         sideboard=sideboard
                     ))
-            
-            # print(debug_deck)
-            # for item in debug_deck.mainboard + debug_deck.sideboard:
-            #     print(f"Card: {item.card_name}, Count: {item.count}, Type: {type(item.count)}") 
-            # sum(item.count for item in debug_deck.mainboard) + sum(item.count for item in debug_deck.sideboard)
-            # for c in debug_deck.sideboard:
-            #     # print(c.card_name)
-            #     print(c.count)
-
             decks.append(deck_ite)
             added_players.add(player)
         return decks if decks else None

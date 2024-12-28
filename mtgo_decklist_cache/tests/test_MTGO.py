@@ -21,7 +21,7 @@ import time
 
 def retry_get_tournament_details(tournament, retries=3, delay=2):
     for attempt in range(retries):
-        tournament_details = MTGO.TournamentLoader.get_tournament_details(tournament)
+        tournament_details = MTGO.TournamentList.get_tournament_details(tournament)
         if tournament_details:
             return tournament_details
         time.sleep(delay)  # Attendre un peu avant de réessayer

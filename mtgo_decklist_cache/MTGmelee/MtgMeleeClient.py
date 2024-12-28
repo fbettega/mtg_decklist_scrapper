@@ -542,7 +542,7 @@ class TournamentList:
         if start_date < datetime(2020, 1, 1, tzinfo=timezone.utc):
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
         if end_date is None:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         result = []
         while start_date < end_date:
             current_end_date = start_date + timedelta(days=7)
