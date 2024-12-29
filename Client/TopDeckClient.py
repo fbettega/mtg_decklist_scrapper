@@ -1,7 +1,7 @@
 from enum import Enum
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 from models.base_model import *
 from models.Topdeck_model import *
@@ -24,7 +24,7 @@ class TopDeckConstants:
         Historic = "Historic"
         Explorer = "Explorer"
         Oathbreaker = "Oathbreaker"
-    class Game(Enum):
+    class Game:
         MagicTheGathering = "Magic: The Gathering"
     class Misc:
         NO_DECKLISTS_TEXT = "No Decklist Available"
@@ -57,7 +57,6 @@ class TopDeckConstants:
 
     class Settings:
         API_KEY_FILE_PATH = "Client/api_topdeck.txt"
-        @staticmethod
         def get_api_key():
             try:
                 with open(TopDeckConstants.Settings.API_KEY_FILE_PATH, "r") as file:
@@ -163,23 +162,22 @@ class TopdeckClient:
         return results
     
 ###########################################################################################################################################
-# updater
+# TournamentList
 
-class TopdeckSource:
+class TournamentList:
     def __init__(self):
         self.provider = "topdeck.gg"
         self.client = TopdeckClient()
 
     def get_tournament_details(self, tournament):
         tournament_id = tournament.uri.split("/")[-1]
-
         tournament_data = self.client.get_tournament(tournament_id)
         tournament_data_from_list = self.client.get_tournament_list(TopdeckTournamentRequest(
             start=tournament_data.data.start_date,
             end=tournament_data.data.start_date + 1,
             game=tournament_data.data.game,
             format=tournament_data.data.format,
-            columns=[PlayerColumn.Name, PlayerColumn.Wins, PlayerColumn.Losses, PlayerColumn.Draws, PlayerColumn.DeckSnapshot]
+            columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins, TopDeckConstants.PlayerColumn.Losses, TopDeckConstants.PlayerColumn.Draws, TopDeckConstants.PlayerColumn.DeckSnapshot]
         ))[0]  # Assuming the tournament name matches
 
         rounds = []
@@ -236,29 +234,27 @@ class TopdeckSource:
 
         return CacheItem(tournament=tournament, standings=standings, rounds=rounds, decks=decks)
 
-    def get_tournaments(self, start_date, end_date=None):
-        if start_date < datetime(2020, 1, 1):
-            return []
-        if not end_date:
-            end_date = datetime.utcnow() + timedelta(days=1)
-
-        valid_formats = [Format.Standard, Format.Pioneer, Format.Modern, Format.Legacy, Format.Vintage, Format.Pauper]
+    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+        if start_date < datetime(2020, 1, 1, tzinfo=timezone.utc):
+            return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
+        if end_date is None:
+            end_date = datetime.now(timezone.utc) + timedelta(days=1)
+        valid_formats = [TopDeckConstants.Format.Standard, TopDeckConstants.Format.Pioneer, TopDeckConstants.Format.Modern, TopDeckConstants.Format.Legacy, TopDeckConstants.Format.Vintage, TopDeckConstants.Format.Pauper]
         result = []
-
         while start_date < end_date:
             current_end_date = start_date + timedelta(days=7)
             print(f"\r[Topdeck] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end='')
 
             for format in valid_formats:
                 tournaments = self.client.get_tournament_list(TopdeckTournamentRequest(
-                    start=start_date.timestamp(),
-                    end=current_end_date.timestamp(),
-                    game=Game.MagicTheGathering,
+                    start= start_date.timestamp(),
+                    end= current_end_date.timestamp(),
+                    game= TopDeckConstants.Game.MagicTheGathering,
                     format=format
                 ))
 
                 for tournament in tournaments:
-                    date = datetime.utcfromtimestamp(tournament.start_date)
+                    date = datetime.fromtimestamp(tournament.start_date, tz=timezone.utc)
                     result.append(Tournament(
                         name=tournament.name,
                         date=date,
@@ -269,6 +265,5 @@ class TopdeckSource:
                     ))
 
             start_date = start_date + timedelta(days=7)
-
         print("\r[Topdeck] Download finished")
         return result
