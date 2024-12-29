@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
-import pdb
-import importlib
-import Client.MtgMeleeClient
+# import pdb
+# import importlib
+# import Client.MtgMeleeClient
 from Client.MtgMeleeClient import *
 
 # pytest .\tests\MtgMeleeAnalyser.py    

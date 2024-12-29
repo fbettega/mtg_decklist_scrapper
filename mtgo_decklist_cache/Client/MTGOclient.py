@@ -8,12 +8,12 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone #, timedelta
 from urllib.parse import urljoin
 import os
-import sys
-from typing import List, Optional
-import html
+# import sys
+from typing import List #, Optional
+# import html
 from dataclasses import dataclass
 # from models.Melee_model import *
 from models.base_model import *
@@ -25,6 +25,7 @@ class MTGOSettings:
     LIST_URL = "https://www.mtgo.com/decklists/{year}/{month}"
     ROOT_URL = "https://www.mtgo.com"
     LEAGUE_REDOWNLOAD_DAYS = 3
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander"]
     @staticmethod
     def format_url(url, **params):
         return url.format(**params)
@@ -73,13 +74,14 @@ class TournamentList:
                 parsed_date = datetime.fromisoformat(date_string).date()
                 url = urljoin(MTGOSettings.ROOT_URL, url)
 
-                uri = url
-
+                format_ite = title.split()[0] 
+                
                 results.append(Tournament(
                     name=title,
                     date=parsed_date,
-                    uri=uri,
-                    json_file=os.path.splitext(os.path.basename(uri))[0] + ".json",
+                    uri=url,
+                    formats = format_ite if format_ite in MTGOSettings.ValidFormats else None,
+                    json_file=os.path.splitext(os.path.basename(url))[0] + ".json",
                     force_redownload=("league" in title.lower() and
                                       (datetime.now(timezone.utc).date() - parsed_date).days < MTGOSettings.LEAGUE_REDOWNLOAD_DAYS)
                 ))
@@ -125,6 +127,7 @@ class TournamentList:
         # Réorganiser les decks si nécessaire
         if standings:
             decks = OrderNormalizer.reorder_decks(decks, standings, bracket, bracket is not None)
+
         return CacheItem(
                 tournament=tournament,
                 decks=decks,

@@ -8,10 +8,11 @@ from datetime import datetime
 from typing import List, Optional
 
 class Tournament:
-    def __init__(self, date: Optional[datetime] = None, name: Optional[str] = None, uri:  Optional[str] = None, json_file: Optional[str] = None, force_redownload: bool = False):
+    def __init__(self, date: Optional[datetime] = None, name: Optional[str] = None, uri:  Optional[str] = None,formats: Optional[List[str]] = None, json_file: Optional[str] = None, force_redownload: bool = False):
         self.date = date
         self.name = name
         self.uri = uri
+        self.formats = formats
         self.json_file = json_file
         self.force_redownload = force_redownload
 
@@ -26,6 +27,7 @@ class Tournament:
             "Date": self.date.isoformat() if self.date else None,
             "Name": self.name,
             "Uri": self.uri,
+            "Formats": self.formats,
         }
 
 

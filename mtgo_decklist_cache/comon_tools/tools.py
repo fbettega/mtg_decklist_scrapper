@@ -5,7 +5,7 @@ Created on Sun Nov 24 18:10:12 2024
 @author: Francois
 """
 from datetime import datetime
-from typing import List,Optional
+from typing import List #,Optional
 import requests
 from urllib.parse import quote
 from collections import defaultdict

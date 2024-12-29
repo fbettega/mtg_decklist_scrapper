@@ -29,14 +29,13 @@ import Client.MTGOclient as MTGO
 
 def main():
     try:
-        tournament = Tournament()
-        tournament.uri = "https://www.mtgo.com/decklist/modern-league-2020-08-045236"
-        Data = MTGO.TournamentLoader.get_tournament_details(tournament)
+        test_data_CrossYearTests = MTGO.TournamentList.DL_tournaments(
+        start_date = datetime(2021, 12, 31, 0, 0, 0),
+        end_date = datetime(2022, 1, 1, 0, 0, 0)
+        )
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur
-        result = MTGO.TournamentLoader.get_tournament_details(tournament)
-        result.rounds
     except Exception as e:
         print(f"Error during get_players: {e}")
 

@@ -1,7 +1,7 @@
 import pytest
 # from  MTGmelee.MtgMeleeClient import *
-import pdb
-import importlib
+# import pdb
+# import importlib
 from datetime import datetime, timezone
 from models.base_model import *
 import Client.MTGOclient as MTGO
@@ -12,7 +12,7 @@ import time
 # # Réimporter tous les objets exportés par le module
 # from MTGmelee.MtgMeleeClient import *
 
-# pytest .\tests\MtgMelee.py 
+# pytest .\tests\test_MTGO.py
 # pytest .\tests\
 
 ###################################################################################################################
@@ -21,7 +21,7 @@ import time
 
 def retry_get_tournament_details(tournament, retries=3, delay=2):
     for attempt in range(retries):
-        tournament_details = MTGO.TournamentList.get_tournament_details(tournament)
+        tournament_details = MTGO.TournamentList().get_tournament_details(tournament)
         if tournament_details:
             return tournament_details
         time.sleep(delay)  # Attendre un peu avant de réessayer
