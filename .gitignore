@@ -1,5 +1,5 @@
 #ignore outpout
-mtgo_decklist_cache/cache_folder/
+cache_folder/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

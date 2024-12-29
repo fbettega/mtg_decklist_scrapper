@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Debug MtgMeleeClient",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/initial_debug.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
+// {
+//     "name": "Python: Test Current File",
+//     "type": "python",
+//     "request": "launch",
+//     "program": "${file}",
+//     "console": "integratedTerminal"
+// }
