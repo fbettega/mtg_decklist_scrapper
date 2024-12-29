@@ -8,138 +8,24 @@ import json
 from typing import List, Optional
 
 
-class TopdeckListTournamentStanding:
-    def __init__(self, standing_id=None):
-        self.standing_id = standing_id
+# class TopdeckListTournamentStanding:
+#     def __init__(self, standing_id=None):
+#         self.standing_id = standing_id
 
-    def normalize(self):
-        # Implémentez la logique de normalisation ici si nécessaire
-        pass
+#     def normalize(self):
+#         # Implémentez la logique de normalisation ici si nécessaire
+#         pass
 
-    def __str__(self):
-        return f"TopdeckListTournamentStanding(standing_id={self.standing_id})"
+#     def __str__(self):
+#         return f"TopdeckListTournamentStanding(standing_id={self.standing_id})"
 
-    def __eq__(self, other):
-        if not isinstance(other, TopdeckListTournamentStanding):
-            return False
-        return self.standing_id == other.standing_id
+#     def __eq__(self, other):
+#         if not isinstance(other, TopdeckListTournamentStanding):
+#             return False
+#         return self.standing_id == other.standing_id
 
-    def to_dict(self):
-        return {"standing_id": self.standing_id}
-
-
-class TopdeckListTournament:
-    def __init__(self, id=None, name=None, start_date=None, uri=None, standings=None):
-        self.id = id
-        self.name = name
-        self.start_date = start_date
-        self.uri = uri
-        self.standings = standings if standings is not None else []
-
-    def normalize(self):
-        if self.id is not None:
-            self.uri = Misc.TournamentPage.replace("{tournamentId}", self.id)
-        for standing in self.standings:
-            standing.normalize()
-
-    def __str__(self):
-        return (
-            f"TopdeckListTournament("
-            f"id={self.id}, name={self.name}, start_date={self.start_date}, "
-            f"uri={self.uri}, standings=[{', '.join(str(s) for s in self.standings)}]"
-            f")"
-        )
-
-    def __eq__(self, other):
-        if not isinstance(other, TopdeckListTournament):
-            return False
-        return (
-            self.id == other.id
-            and self.name == other.name
-            and self.start_date == other.start_date
-            and self.uri == other.uri
-            and self.standings == other.standings
-        )
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "start_date": self.start_date,
-            "uri": self.uri,
-            "standings": [standing.to_dict() for standing in self.standings],
-        }
-
-    @staticmethod
-    def from_json(data):
-        standings = data.get("standings", [])
-        standings_objects = [TopdeckListTournamentStanding(**standing) for standing in standings]
-        return TopdeckListTournament(
-            id=data.get("TID"),
-            name=data.get("tournamentName"),
-            start_date=data.get("startDate"),
-            standings=standings_objects,
-        )
-
-
-class TopdeckListTournamentDeckSnapshot:
-    def __init__(self, mainboard=None, sideboard=None):
-        """
-        Initialise les propriétés mainboard et sideboard.
-        :param mainboard: Dictionnaire représentant le mainboard.
-        :param sideboard: Dictionnaire représentant le sideboard.
-        """
-        self.mainboard = mainboard if mainboard is not None else {}
-        self.sideboard = sideboard if sideboard is not None else {}
-
-    def normalize(self):
-        """
-        Normalise les dictionnaires mainboard et sideboard :
-        - Remplace un dictionnaire vide par None.
-        """
-        if self.mainboard is not None and len(self.mainboard) == 0:
-            self.mainboard = None
-        if self.sideboard is not None and len(self.sideboard) == 0:
-            self.sideboard = None
-
-    def __str__(self):
-        """
-        Retourne une représentation lisible de l'objet.
-        """
-        return f"TopdeckListTournamentDeckSnapshot(mainboard={self.mainboard}, sideboard={self.sideboard})"
-
-    def __eq__(self, other):
-        """
-        Compare deux objets pour l'égalité.
-        :param other: Autre objet à comparer.
-        :return: True si les objets sont égaux, sinon False.
-        """
-        if not isinstance(other, TopdeckListTournamentDeckSnapshot):
-            return False
-        return self.mainboard == other.mainboard and self.sideboard == other.sideboard
-
-    def to_dict(self):
-        """
-        Convertit l'objet en dictionnaire.
-        :return: Dictionnaire contenant les propriétés mainboard et sideboard.
-        """
-        return {
-            "mainboard": self.mainboard,
-            "sideboard": self.sideboard,
-        }
-
-    @staticmethod
-    def from_dict(data):
-        """
-        Crée un objet à partir d'un dictionnaire.
-        :param data: Dictionnaire contenant les données.
-        :return: Instance de TopdeckListTournamentDeckSnapshot.
-        """
-        return TopdeckListTournamentDeckSnapshot(
-            mainboard=data.get("mainboard"),
-            sideboard=data.get("sideboard"),
-        )
-    
+#     def to_dict(self):
+#         return {"standing_id": self.standing_id}
 class TopdeckListTournamentStanding:
     def __init__(self, name=None, wins=None, losses=None, draws=None, deck_snapshot=None):
         """
@@ -226,6 +112,120 @@ class TopdeckListTournamentStanding:
             deck_snapshot=from_snapshot,
         )
     
+
+class TopdeckListTournament:
+    def __init__(self, id=None, name=None, start_date=None, uri=None, standings=None):
+        self.id = id
+        self.name = name
+        self.start_date = start_date
+        self.uri = uri
+        self.standings = standings if standings is not None else []
+
+    def normalize(self):
+        if self.id is not None:
+            self.uri = Misc.TournamentPage.replace("{tournamentId}", self.id)
+        for standing in self.standings:
+            standing.normalize()
+
+    def __str__(self):
+        return (
+            f"TopdeckListTournament("
+            f"id={self.id}, name={self.name}, start_date={self.start_date}, "
+            f"uri={self.uri}, standings=[{', '.join(str(s) for s in self.standings)}]"
+            f")"
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, TopdeckListTournament):
+            return False
+        return (
+            self.id == other.id
+            and self.name == other.name
+            and self.start_date == other.start_date
+            and self.uri == other.uri
+            and self.standings == other.standings
+        )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "start_date": self.start_date,
+            "uri": self.uri,
+            "standings": [standing.to_dict() for standing in self.standings],
+        }
+
+    @staticmethod
+    def from_json(data):
+        standings = data.get("standings", [])
+        standings_objects = [TopdeckListTournamentStanding(**standing) for standing in standings]
+        return TopdeckListTournament(
+            id=data.get("TID"),
+            name=data.get("tournamentName"),
+            start_date=data.get("startDate"),
+            standings=standings_objects,
+        )
+class TopdeckListTournamentDeckSnapshot:
+    def __init__(self, mainboard=None, sideboard=None):
+        """
+        Initialise les propriétés mainboard et sideboard.
+        :param mainboard: Dictionnaire représentant le mainboard.
+        :param sideboard: Dictionnaire représentant le sideboard.
+        """
+        self.mainboard = mainboard if mainboard is not None else {}
+        self.sideboard = sideboard if sideboard is not None else {}
+
+    def normalize(self):
+        """
+        Normalise les dictionnaires mainboard et sideboard :
+        - Remplace un dictionnaire vide par None.
+        """
+        if self.mainboard is not None and len(self.mainboard) == 0:
+            self.mainboard = None
+        if self.sideboard is not None and len(self.sideboard) == 0:
+            self.sideboard = None
+
+    def __str__(self):
+        """
+        Retourne une représentation lisible de l'objet.
+        """
+        return f"TopdeckListTournamentDeckSnapshot(mainboard={self.mainboard}, sideboard={self.sideboard})"
+
+    def __eq__(self, other):
+        """
+        Compare deux objets pour l'égalité.
+        :param other: Autre objet à comparer.
+        :return: True si les objets sont égaux, sinon False.
+        """
+        if not isinstance(other, TopdeckListTournamentDeckSnapshot):
+            return False
+        return self.mainboard == other.mainboard and self.sideboard == other.sideboard
+
+    def to_dict(self):
+        """
+        Convertit l'objet en dictionnaire.
+        :return: Dictionnaire contenant les propriétés mainboard et sideboard.
+        """
+        return {
+            "mainboard": self.mainboard,
+            "sideboard": self.sideboard,
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """
+        Crée un objet à partir d'un dictionnaire.
+        :param data: Dictionnaire contenant les données.
+        :return: Instance de TopdeckListTournamentDeckSnapshot.
+        """
+        return TopdeckListTournamentDeckSnapshot(
+            mainboard=data.get("mainboard"),
+            sideboard=data.get("sideboard"),
+        )
+    
+
+
+
 class TopdeckRoundTablePlayer:
     def __init__(self, name=None):
         """

@@ -3,6 +3,10 @@ import os
 import json
 from datetime import datetime, timedelta
 import requests
+from models.base_model import *
+from models.Topdeck_model import *
+from comon_tools.tools import *
+
 
 class TopDeckConstants:
     class Format(Enum):
@@ -75,7 +79,7 @@ class MissingApiKeyException(Exception):
 
 class TopdeckClient:
     def __init__(self):
-        self._api_key = os.getenv(Settings.API_KEY_ENV_VAR, "").strip()
+        self._api_key = TopDeckConstants.Settings.get_api_key()
         if not self._api_key:
             raise MissingApiKeyException()
 
