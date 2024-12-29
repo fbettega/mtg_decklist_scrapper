@@ -1,5 +1,6 @@
 #ignore outpout
 cache_folder/
+Client/api_topdeck.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
