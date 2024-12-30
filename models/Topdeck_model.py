@@ -7,8 +7,70 @@ Created on Sun Nov 24 18:39:50 2024
 import json
 from typing import List, Optional
 from datetime import datetime
+from enum import Enum
 
+class TopDeckConstants:
+    class Format(Enum):
+        EDH = "EDH"
+        PauperEDH = "Pauper EDH"
+        Standard = "Standard"
+        Pioneer = "Pioneer"
+        Modern = "Modern"
+        Legacy = "Legacy"
+        Pauper = "Pauper"
+        Vintage = "Vintage"
+        Premodern = "Premodern"
+        Limited = "Limited"
+        Timeless = "Timeless"
+        Historic = "Historic"
+        Explorer = "Explorer"
+        Oathbreaker = "Oathbreaker"
+    class Game:
+        MagicTheGathering = "Magic: The Gathering"
+    class Misc:
+        NO_DECKLISTS_TEXT = "No Decklist Available"
+        DRAW_TEXT = "Draw"
+        TOURNAMENT_PAGE = "https://topdeck.gg/event/{tournamentId}"
+    class PlayerColumn(Enum):
+        Name = "name"
+        Decklist = "decklist"
+        DeckSnapshot = "deckSnapshot"
+        Commanders = "commanders"
+        Wins = "wins"
+        WinsSwiss = "winsSwiss"
+        WinsBracket = "winsBracket"
+        WinRate = "winRate"
+        WinRateSwiss = "winRateSwiss"
+        WinRateBracket = "winRateBracket"
+        Draws = "draws"
+        Losses = "losses"
+        LossesSwiss = "lossesSwiss"
+        LossesBracket = "lossesBracket"
+        ID = "id"
 
+    class Routes:
+        ROOT_URL = "https://topdeck.gg/api"
+        TOURNAMENT_ROUTE = f"{ROOT_URL}/v2/tournaments"
+        STANDINGS_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/standings"
+        ROUNDS_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/rounds"
+        TOURNAMENT_INFO_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/info"
+        FULL_TOURNAMENT_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}"
+
+    class Settings:
+        API_KEY_FILE_PATH = "Client/api_topdeck.txt"
+        def get_api_key():
+            try:
+                with open(TopDeckConstants.Settings.API_KEY_FILE_PATH, "r") as file:
+                    api_key = file.read().strip()
+                    if api_key:
+                        return api_key
+                    else:
+                        raise ValueError("Le fichier API est vide.")
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Le fichier {TopDeckConstants.Settings.API_KEY_FILE_PATH} est introuvable.")
+            except Exception as e:
+                raise RuntimeError(f"Erreur lors de la récupération de l'API key : {e}")
+        
 
 class TopdeckListTournamentStanding:
     def __init__(
@@ -126,7 +188,7 @@ class TopdeckListTournament:
 
     def normalize(self):
         if self.id is not None:
-            self.uri = Misc.TournamentPage.replace("{tournamentId}", self.id)
+            self.uri = TopDeckConstants.Misc.TOURNAMENT_PAGE.replace("{tournamentId}", self.id)
         for standing in self.standings:
             standing.normalize()
 
@@ -161,7 +223,8 @@ class TopdeckListTournament:
     @classmethod
     def from_json(cls, data):
         standings = data.get("standings", [])
-        standings_objects = [TopdeckListTournamentStanding(**standing) for standing in standings]
+        # standings_objects = [TopdeckListTournamentStanding(**standing) for standing in standings]
+        standings_objects = [TopdeckListTournamentStanding.from_json(standing) for standing in standings]
         return cls(
             id=data.get("TID"),
             name=data.get("tournamentName"),

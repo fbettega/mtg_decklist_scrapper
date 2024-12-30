@@ -1,4 +1,4 @@
-from enum import Enum
+
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -10,68 +10,7 @@ from models.Topdeck_model import *
 from comon_tools.tools import *
 
 
-class TopDeckConstants:
-    class Format(Enum):
-        EDH = "EDH"
-        PauperEDH = "Pauper EDH"
-        Standard = "Standard"
-        Pioneer = "Pioneer"
-        Modern = "Modern"
-        Legacy = "Legacy"
-        Pauper = "Pauper"
-        Vintage = "Vintage"
-        Premodern = "Premodern"
-        Limited = "Limited"
-        Timeless = "Timeless"
-        Historic = "Historic"
-        Explorer = "Explorer"
-        Oathbreaker = "Oathbreaker"
-    class Game:
-        MagicTheGathering = "Magic: The Gathering"
-    class Misc:
-        NO_DECKLISTS_TEXT = "No Decklist Available"
-        DRAW_TEXT = "Draw"
-        TOURNAMENT_PAGE = "https://topdeck.gg/event/{tournamentId}"
-    class PlayerColumn(Enum):
-        Name = "name"
-        Decklist = "decklist"
-        DeckSnapshot = "deckSnapshot"
-        Commanders = "commanders"
-        Wins = "wins"
-        WinsSwiss = "winsSwiss"
-        WinsBracket = "winsBracket"
-        WinRate = "winRate"
-        WinRateSwiss = "winRateSwiss"
-        WinRateBracket = "winRateBracket"
-        Draws = "draws"
-        Losses = "losses"
-        LossesSwiss = "lossesSwiss"
-        LossesBracket = "lossesBracket"
-        ID = "id"
 
-    class Routes:
-        ROOT_URL = "https://topdeck.gg/api"
-        TOURNAMENT_ROUTE = f"{ROOT_URL}/v2/tournaments"
-        STANDINGS_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/standings"
-        ROUNDS_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/rounds"
-        TOURNAMENT_INFO_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}/info"
-        FULL_TOURNAMENT_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}"
-
-    class Settings:
-        API_KEY_FILE_PATH = "Client/api_topdeck.txt"
-        def get_api_key():
-            try:
-                with open(TopDeckConstants.Settings.API_KEY_FILE_PATH, "r") as file:
-                    api_key = file.read().strip()
-                    if api_key:
-                        return api_key
-                    else:
-                        raise ValueError("Le fichier API est vide.")
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Le fichier {TopDeckConstants.Settings.API_KEY_FILE_PATH} est introuvable.")
-            except Exception as e:
-                raise RuntimeError(f"Erreur lors de la récupération de l'API key : {e}")
-        
 
 class MissingApiKeyException(Exception):
     def __init__(self):
@@ -206,6 +145,9 @@ class TopdeckClient:
         if not isinstance(json_data, list):
             raise ValueError("Les données JSON doivent être une liste.")
         results = [cls.from_json(item) for item in json_data]
+
+        # a = results[0].standings[1]
+        # a.deckSnapshot
         for result in results:
             result.normalize()
         return results

@@ -222,10 +222,10 @@ def test_should_load_expected_data(tournamentsLoader):
     uri='https://topdeck.gg/event/HxSr6p4bZXYjUMTibl8i'
     )
     first_tournament = tournamentsLoader[0]
-    assert first_tournament.id == expected_tournament['id']
-    assert first_tournament.name == expected_tournament['name']
-    assert first_tournament.start_date == expected_tournament['start_date']
-    assert str(first_tournament.uri) == expected_tournament['uri']
+    assert first_tournament.id == expected_tournament.id
+    assert first_tournament.name == expected_tournament.name
+    assert first_tournament.start_date == expected_tournament.start_date
+    assert str(first_tournament.uri) == expected_tournament.uri
     
     # Vérification des standings
     assert len(first_tournament.standings) == 36
@@ -237,49 +237,50 @@ def test_should_load_expected_data(tournamentsLoader):
     
     # Vérification du deck snapshot pour le deuxième standing
     second_standing = first_tournament.standings[1]
-    assert second_standing.deck_snapshot.mainboard == {
+    assert second_standing.deckSnapshot.mainboard == {
         "Island": 1, "Plains": 1, "Forest": 1, "Uro, Titan of Nature's Wrath": 3, "Brainstorm": 4, "Daze": 1, 
         "Swords to Plowshares": 4, "Life from the Loam": 1, "Savannah": 1, "Tundra": 3, "Tropical Island": 2, 
         "Flooded Strand": 4, "Force of Will": 4, "Wasteland": 2, "Misty Rainforest": 4, "Phyrexian Dreadnought": 4,
         "Batterskull": 1, "Stoneforge Mystic": 4, "Stifle": 3, "Ponder": 4, "Prismatic Ending": 1, "Dress Down": 3,
         "Kaldra Compleat": 1, "Lórien Revealed": 1, "Hedge Maze": 1, "Cryptic Coat": 2
     }
-    assert second_standing.deck_snapshot.sideboard == {
+    assert second_standing.deckSnapshot.sideboard == {
         "Deafening Silence": 1, "Blue Elemental Blast": 1, "Carpet of Flowers": 1, "Containment Priest": 1,
         "Veil of Summer": 1, "Hydroblast": 1, "Surgical Extraction": 2, "Lavinia, Azorius Renegade": 1,
         "Flusterstorm": 1, "Force of Negation": 1, "Torpor Orb": 1, "Powder Keg": 1, "Hullbreacher": 1,
         "Boseiju, Who Endures": 1
     }
 
-def test_empty_decklists_should_be_null(tournaments):
-    for standing in (s for t in tournaments for s in t.standings if s.deck_snapshot):
-        assert standing.deck_snapshot.mainboard is not None and len(standing.deck_snapshot.mainboard) > 0
+def test_empty_decklists_should_be_null(tournamentsLoader):
+    for standing in (s for t in tournamentsLoader for s in t.standings if s.deckSnapshot):
+        assert standing.deckSnapshot.mainboard is not None and len(standing.deckSnapshot.mainboard) > 0
 
 ###########################################################################################################################################
 # TournamentLoaderTests
 @pytest.fixture(scope="module")
-def tournament():
+def TournamentLoader():
     client = TopdeckClient()
-    return client.get_tournament("SrJAEZ8vbglVge29fG7l")
+    TournamentLoader = client.get_tournament("SrJAEZ8vbglVge29fG7l")
+    return TournamentLoader
 
-def test_tournament_info_should_have_data(tournament):
-    assert tournament.data is not None
+def test_tournament_info_should_have_data(TournamentLoader):
+    assert TournamentLoader.data is not None
 
-def test_tournament_info_should_have_rounds(tournament):
-    assert tournament.rounds is not None
+def test_tournament_info_should_have_rounds(TournamentLoader):
+    assert TournamentLoader.rounds is not None
 
-def test_tournament_info_should_have_standings(tournament):
-    assert tournament.standings is not None
+def test_tournament_info_should_have_standings(TournamentLoader):
+    assert TournamentLoader.standings is not None
 
-def test_tournament_info_should_have_valid_data(tournament):
+def test_tournament_info_should_have_valid_data(TournamentLoader):
     expected_info = {
         'name': 'CCS Summer Showdown Modern 2k',
         'start_date': 1717934400,
         'game': TopDeckConstants.Game.MagicTheGathering,
         'format': TopDeckConstants.Format.Modern
     }
-    assert tournament.data.name == expected_info['name']
-    assert tournament.data.start_date == expected_info['start_date']
-    assert tournament.data.game == expected_info['game']
-    assert tournament.data.format == expected_info['format']
+    assert TournamentLoader.data.name == expected_info.name
+    assert TournamentLoader.data.start_date == expected_info.start_date
+    assert TournamentLoader.data.game == expected_info.game
+    assert TournamentLoader.data.format == expected_info.format
 
