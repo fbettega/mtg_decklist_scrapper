@@ -81,8 +81,29 @@ class MissingApiKeyException(Exception):
 class TopdeckClient:
     def __init__(self):
         self._api_key = TopDeckConstants.Settings.get_api_key()
+        self._call_timestamps = []  # Liste pour stocker les horodatages des appels
+        self._lock = Lock()         # Verrou pour sécuriser les accès multi-threads
         if not self._api_key:
             raise MissingApiKeyException()
+
+    def _response_to_json(self, response: requests.models.Response):
+        """
+        Gère la réponse HTTP : vérifie le code de statut et tente de désérialiser le JSON.
+        :param response: Réponse HTTP à traiter.
+        :return: Données JSON désérialisées.
+        :raises ValueError: Si le code de statut n'est pas 200 ou si le décodage JSON échoue.
+        """
+        # Vérifiez le code HTTP
+        if response.status_code != 200:
+            raise ValueError(f"Erreur lors de la récupération des données : {response.status_code}, {response.text}")
+        
+        # Assurez-vous que la réponse est bien un JSON
+        try:
+            server_data = response.json()  # Désérialise automatiquement en liste ou dict
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Erreur lors du décodage JSON : {e}, réponse : {response.text}")
+        
+        return server_data
 
     def get_tournament_list(self, request):
         """
@@ -118,7 +139,8 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Classements du tournoi (TopdeckStanding).
         """
-        server_data = self._get_client().get(TopDeckConstants.Routes.STANDINGS_ROUTE.replace("{TID}", tournament_id))
+        response = self._get_client().get(TopDeckConstants.Routes.STANDINGS_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._response_to_json(response)
         return self._normalize_array_result(TopdeckStanding, server_data)
 
     def get_rounds(self, tournament_id):
@@ -128,18 +150,9 @@ class TopdeckClient:
         :return: Rondes du tournoi (TopdeckRound).
         """
         response = self._get_client().get(TopDeckConstants.Routes.ROUNDS_ROUTE.replace("{TID}", tournament_id))
-        
         # Vérifiez le code HTTP
-        if response.status_code != 200:
-            raise ValueError(f"Erreur lors de la récupération des données : {response.status_code}, {response.text}")
-
-        # Assurez-vous que la réponse est bien un JSON
-        try:
-            server_data = response.json()  # Désérialise automatiquement en liste ou dict
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Erreur lors du décodage JSON : {e}, réponse : {response.text}")
-
-        return self._normalize_array_result(TopdeckRoundTable, server_data)
+        server_data = self._response_to_json(response)
+        return self._normalize_array_result(TopdeckRound, server_data)
 
     def _get_client(self):
         """
@@ -188,6 +201,9 @@ class TopdeckClient:
         :param json_data: Données JSON à désérialiser.
         :return: Liste d'objets normalisés de type `cls`.
         """   
+        # Assurez-vous que json_data est une liste
+        if not isinstance(json_data, list):
+            raise ValueError("Les données JSON doivent être une liste.")
         results = [cls.from_json(item) for item in json_data]
         for result in results:
             result.normalize()

@@ -2,6 +2,10 @@ import pytest
 from datetime import datetime, timezone
 import json
 from Client.TopDeckClient import *
+from models.Topdeck_model import *
+from comon_tools.tools import *
+
+
 ###########################################################################################################################################
 # RoundLoaderTests
 @pytest.fixture(scope="module")
@@ -36,7 +40,7 @@ def test_round_tables_should_have_winners(rounds):
 def test_round_tables_should_have_winners_matching_one_of_the_players_or_draw(rounds):
     for round in rounds:
         for table in round.tables:
-            assert table.winner in [player.name for player in table.players] + [Misc.DRAW_TEXT]
+            assert table.winner in [player.name for player in table.players] + [TopDeckConstants.Misc.DRAW_TEXT]
 
 def test_round_tables_should_have_player_names(rounds):
     for round in rounds:

@@ -266,8 +266,11 @@ class TopdeckRoundTablePlayer:
         return {"name": self.name}
 
 
+
+
+
 class TopdeckRoundTable:
-    def __init__(self, name=None, players=None, winner=None):
+    def __init__(self, name=None, players:Optional[List[TopdeckRoundTablePlayer]]=None, winner=None):
         """
         Initialise les propriétés de la table de tournoi.
         :param name: Nom de la table.
@@ -310,10 +313,10 @@ class TopdeckRoundTable:
         :return: Instance de TopdeckRoundTable.
         """
         name = f"Table {data.get('table')}"
-        players = [player.get("name") for player in data.get("players", [])]
+        players = [TopdeckRoundTablePlayer(player.get("name")) for player in data.get("players", [])]
         winner = data.get("winner")
         return cls(name=name, players=players, winner=winner)
-    
+
     def to_dict(self):
         """
         Convertit l'objet en dictionnaire.
@@ -325,6 +328,46 @@ class TopdeckRoundTable:
             "winner": self.winner
         }
 
+class TopdeckRound:
+    def __init__(self, name=None, tables: Optional[List[TopdeckRoundTable]]=None):
+        """
+        Initialise les propriétés de la ronde du tournoi.
+        :param name: Nom de la ronde.
+        :param tables: Liste des tables du tournoi.
+        """
+        self.name = name
+        self.tables = tables if tables is not None else []
+
+    def normalize(self):
+        """
+        Normalise la ronde de tournoi en normalisant chaque table.
+        """
+        for table in self.tables:
+            table.normalize()
+
+    @classmethod
+    def from_json(cls, data):
+        """
+        Crée une instance de TopdeckRound à partir d'une structure JSON.
+        :param data: Dictionnaire représentant une ronde de tournoi.
+        :return: Instance de TopdeckRound.
+        """
+        name = str(data.get("round"))
+        tables = [TopdeckRoundTable.from_json(table) for table in data.get("tables", [])]
+        return cls(name=name, tables=tables)
+
+    def __str__(self):
+        return f"TopdeckRound(name={self.name}, tables={self.tables})"
+
+    def to_dict(self):
+        """
+        Convertit l'objet en dictionnaire.
+        :return: Dictionnaire représentant l'objet.
+        """
+        return {
+            "name": self.name,
+            "tables": [table.to_dict() for table in self.tables]
+        }
 
 class TopdeckStanding:
     def __init__(self, standing=None, name=None, decklist=None, points=None, opponent_win_rate=None, game_win_rate=None, opponent_game_win_rate=None):
