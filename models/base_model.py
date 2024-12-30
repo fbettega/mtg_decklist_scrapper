@@ -21,6 +21,22 @@ class Tournament:
             return f"{self.name}|{self.date.strftime('%Y-%m-%d')}"
         else:
             return f"{self.name}|No date available"
+    def __eq__(self, other):
+        """
+        Compare deux objets Tournament pour l'égalité.
+        :param other: Autre objet à comparer.
+        :return: True si les objets sont égaux, sinon False.
+        """
+        if not isinstance(other, Tournament):
+            return False
+        return (
+            self.date == other.date
+            and self.name == other.name
+            and self.uri == other.uri
+            and self.formats == other.formats
+            and self.json_file == other.json_file
+            and self.force_redownload == other.force_redownload
+        )
         
     def to_dict(self):
         return {

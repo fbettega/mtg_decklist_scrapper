@@ -30,8 +30,13 @@ from Client.TopDeckClient import *
 
 def main():
     try:
-        client = TopdeckClient()
-        TournamentLoader = client.get_tournament("SrJAEZ8vbglVge29fG7l")
+        get_test_data = TournamentList().get_tournament_details(
+            Tournament(
+                name="CCS Summer Showdown Modern 2k",
+                date= datetime.fromtimestamp(1717934400, tz=timezone.utc),
+                uri="https://topdeck.gg/event/SrJAEZ8vbglVge29fG7l"
+        )
+        )
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur

@@ -169,7 +169,7 @@ class TournamentList:
             end=tournament_data.data.start_date + 1,
             game=tournament_data.data.game,
             format=tournament_data.data.format,
-            columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins, TopDeckConstants.PlayerColumn.Losses, TopDeckConstants.PlayerColumn.Draws, TopDeckConstants.PlayerColumn.DeckSnapshot]
+            columns=[TopDeckConstants.PlayerColumn.Name.value, TopDeckConstants.PlayerColumn.Wins.value, TopDeckConstants.PlayerColumn.Losses.value, TopDeckConstants.PlayerColumn.Draws.value, TopDeckConstants.PlayerColumn.DeckSnapshot.value]
         ))[0]  
 
         rounds = []
@@ -209,11 +209,11 @@ class TournamentList:
         for standing in tournament_data.standings:
             list_standing = next((s for s in tournament_data_from_list.standings if s.name == standing.name), None)
 
-            if list_standing.deck_snapshot and list_standing.deck_snapshot.mainboard:
+            if list_standing.deckSnapshot and list_standing.deckSnapshot.mainboard:
                 player_result = f"{standing.standing}th Place" if standing.standing > 3 else f"{standing.standing}st Place"  # or nd, rd depending on the rank
 
-                mainboard = [DeckItem(count=card['value'], card_name=card['key']) for card in list_standing.deck_snapshot.mainboard]
-                sideboard = [DeckItem(count=card['value'], card_name=card['key']) for card in list_standing.deck_snapshot.sideboard] if list_standing.deck_snapshot.sideboard else []
+                mainboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.mainboard.items()] if list_standing.deckSnapshot.mainboard else []
+                sideboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.sideboard.items()] if list_standing.deckSnapshot.sideboard else []
 
                 decks.append(Deck(
                     player=standing.name,
@@ -231,7 +231,7 @@ class TournamentList:
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
         if end_date is None:
             end_date = datetime.now(timezone.utc) + timedelta(days=1)
-        valid_formats = [TopDeckConstants.Format.Standard, TopDeckConstants.Format.Pioneer, TopDeckConstants.Format.Modern, TopDeckConstants.Format.Legacy, TopDeckConstants.Format.Vintage, TopDeckConstants.Format.Pauper]
+        valid_formats = [TopDeckConstants.Format.Standard.value, TopDeckConstants.Format.Pioneer.value, TopDeckConstants.Format.Modern.value, TopDeckConstants.Format.Legacy.value, TopDeckConstants.Format.Vintage.value, TopDeckConstants.Format.Pauper.value]
         client = TopdeckClient()
         result = []
         while start_date < end_date:
@@ -253,7 +253,7 @@ class TournamentList:
                         date=date,
                         uri=f"https://topdeck.gg/event/{tournament.id}",
                         json_file=FilenameGenerator.generate_file_name(
-                            tournament.id, tournament.name, date, format.name, [f.name for f in valid_formats], -1
+                            tournament.id, tournament.name, date, format, [f for f in valid_formats], -1
                         )
                     ))
 
