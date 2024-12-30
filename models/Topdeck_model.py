@@ -370,16 +370,23 @@ class TopdeckRound:
         }
 
 class TopdeckStanding:
-    def __init__(self, standing=None, name=None, decklist=None, points=None, opponent_win_rate=None, game_win_rate=None, opponent_game_win_rate=None):
+    def __init__(self, 
+                 standing: Optional[int] = None, 
+                 name: Optional[str] = None, 
+                 decklist: Optional[str] = None, 
+                 points: Optional[int] = None, 
+                 opponent_win_rate: Optional[float] = None, 
+                 game_win_rate: Optional[float] = None, 
+                 opponent_game_win_rate: Optional[float] = None):
         """
         Initialise les propriétés du classement.
-        :param standing: Position du joueur.
-        :param name: Nom du joueur.
-        :param decklist: URL du decklist.
-        :param points: Nombre de points du joueur.
-        :param opponent_win_rate: Taux de victoire contre les adversaires.
-        :param game_win_rate: Taux de victoire dans les parties.
-        :param opponent_game_win_rate: Taux de victoire contre les adversaires dans les parties.
+        :param standing: Position du joueur (int).
+        :param name: Nom du joueur (str).
+        :param decklist: URL du decklist (str).
+        :param points: Nombre de points du joueur (int).
+        :param opponent_win_rate: Taux de victoire contre les adversaires (float).
+        :param game_win_rate: Taux de victoire dans les parties (float).
+        :param opponent_game_win_rate: Taux de victoire contre les adversaires dans les parties (float).
         """
         self.standing = standing
         self.name = name
@@ -436,6 +443,31 @@ class TopdeckStanding:
             and self.opponent_game_win_rate == other.opponent_game_win_rate
         )
 
+    @classmethod
+    def from_json(cls, data) -> 'TopdeckStanding':
+        """
+        Crée une instance de TopdeckStanding à partir d'une structure JSON.
+        :param data: Dictionnaire représentant un classement.
+        :return: Instance de TopdeckStanding.
+        """
+        standing = data.get('standing')
+        name = data.get('name')
+        decklist = data.get('decklist')
+        points = data.get('points')
+        opponent_win_rate = data.get('opponentWinRate')
+        game_win_rate = data.get('gameWinRate')
+        opponent_game_win_rate = data.get('opponentGameWinRate')
+
+        return cls(
+            standing=standing,
+            name=name,
+            decklist=decklist,
+            points=points,
+            opponent_win_rate=opponent_win_rate,
+            game_win_rate=game_win_rate,
+            opponent_game_win_rate=opponent_game_win_rate
+        )
+    
     def to_dict(self):
         """
         Convertit l'objet en dictionnaire.

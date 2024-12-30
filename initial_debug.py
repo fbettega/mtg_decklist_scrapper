@@ -31,7 +31,7 @@ from Client.TopDeckClient import *
 def main():
     try:
         client = TopdeckClient()
-        rounds = client.get_rounds("iCMd298218qbEqeGt5d7")
+        standings = client.get_standings("SrJAEZ8vbglVge29fG7l")
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur

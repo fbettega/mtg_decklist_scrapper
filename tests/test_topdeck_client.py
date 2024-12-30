@@ -7,6 +7,37 @@ from comon_tools.tools import *
 
 
 ###########################################################################################################################################
+# SerializationTests
+def test_should_serialize_game_correctly( ):
+    json_object = json.loads(TopdeckTournamentRequest(game=TopDeckConstants.Game.MagicTheGathering).to_json())
+    game = json_object.get("game")
+    assert game == TopDeckConstants.Game.MagicTheGathering
+
+def test_should_serialize_format_correctly():
+    json_object = json.loads(TopdeckTournamentRequest(format=TopDeckConstants.Format).to_json())
+    format = json_object.get("format")
+    assert format == TopDeckConstants.Format
+
+def test_should_serialize_player_column_correctly():
+    json_object = json.loads(TopdeckTournamentRequest(columns=[TopDeckConstants.PlayerColumn]).to_json())
+    column = json_object.get("columns")[0]
+    assert column == TopDeckConstants.PlayerColumn
+
+def test_should_serialize_sample_tournament_request_correctly():
+    request = TopdeckTournamentRequest(
+        game=TopDeckConstants.Game.MagicTheGathering,
+        start=10000,
+        end=20000,
+        columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins]
+    )
+    json_object = json.loads(request.to_json())
+    assert json_object["game"] == request.game
+    assert json_object["start"] == request.start
+    assert json_object["end"] == request.end
+    assert json_object["columns"] == [column.value for column in request.columns]
+
+
+###########################################################################################################################################
 # RoundLoaderTests
 @pytest.fixture(scope="module")
 def rounds():
@@ -64,10 +95,11 @@ def test_standings_should_have_some_decklists(standings):
     decklists = [s for s in standings if s.decklist]
     assert decklists is not None and len(decklists) > 0
 
+
 def test_standings_should_have_only_valid_urls_for_decklists():
     client = TopdeckClient()
-    standings = client.get_standings("SszR1p5QxRzPHPkLayP5")
-    for standing in standings:
+    standings_test_url = client.get_standings("SszR1p5QxRzPHPkLayP5")
+    for standing in standings_test_url:
         if standing.decklist:
             assert standing.decklist.startswith("http://") or standing.decklist.startswith("https://")
 
@@ -97,17 +129,17 @@ def test_standings_should_have_game_win_rate(standings):
     assert any(s.game_win_rate > 0 for s in standings)
 
 def test_standings_should_have_valid_data(standings):
-    expected_standing = {
-        "standing": 1,
-        "points": 11,
-        "game_win_rate": 0.7407407407407407,
-        "opponent_game_win_rate": 0.68728956228956228,
-        "opponent_win_rate": 0.6333333333333333,
-        "name": "Kerry leamon",
-        "decklist": None
-    }
+    expected_standing = TopdeckStanding(
+        standing = 1,
+        points = 11,
+        game_win_rate = 0.7407407407407407,
+        opponent_game_win_rate = 0.68728956228956228,
+        opponent_win_rate = 0.6333333333333333,
+        name = "Kerry leamon",
+        decklist = None)
     # Vérification de l'équivalence des données pour le premier standing
     assert standings[0] == expected_standing
+    
 ###########################################################################################################################################
 # TournamentInfoLoaderTests
 @pytest.fixture(scope="module")
@@ -282,32 +314,3 @@ def test_tournament_info_should_have_valid_data(tournament):
     assert tournament.data.game == expected_info['game']
     assert tournament.data.format == expected_info['format']
 
-###########################################################################################################################################
-# SerializationTests
-def test_should_serialize_game_correctly( ):
-    json_object = json.loads(TopdeckTournamentRequest(game=TopDeckConstants.Game.MagicTheGathering).to_json())
-    game = json_object.get("game")
-    assert game == TopDeckConstants.Game.MagicTheGathering
-
-def test_should_serialize_format_correctly():
-    json_object = json.loads(TopdeckTournamentRequest(format=TopDeckConstants.Format).to_json())
-    format = json_object.get("format")
-    assert format == TopDeckConstants.Format
-
-def test_should_serialize_player_column_correctly():
-    json_object = json.loads(TopdeckTournamentRequest(columns=[TopDeckConstants.PlayerColumn]).to_json())
-    column = json_object.get("columns")[0]
-    assert column == TopDeckConstants.PlayerColumn
-
-def test_should_serialize_sample_tournament_request_correctly():
-    request = TopdeckTournamentRequest(
-        game=TopDeckConstants.Game.MagicTheGathering,
-        start=10000,
-        end=20000,
-        columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins]
-    )
-    json_object = json.loads(request.to_json())
-    assert json_object["game"] == request.game
-    assert json_object["start"] == request.start
-    assert json_object["end"] == request.end
-    assert json_object["columns"] == [column.value for column in request.columns]
