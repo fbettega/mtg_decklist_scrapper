@@ -26,6 +26,7 @@ from typing import List, Optional
 
 #     def to_dict(self):
 #         return {"standing_id": self.standing_id}
+
 class TopdeckListTournamentStanding:
     def __init__(self, name=None, wins=None, losses=None, draws=None, deck_snapshot=None):
         """
@@ -301,6 +302,18 @@ class TopdeckRoundTable:
             return False
         return self.name == other.name and self.players == other.players and self.winner == other.winner
 
+    @classmethod
+    def from_json(cls, data):
+        """
+        Crée une instance de TopdeckRoundTable à partir d'une structure JSON.
+        :param data: Dictionnaire représentant une table.
+        :return: Instance de TopdeckRoundTable.
+        """
+        name = f"Table {data.get('table')}"
+        players = [player.get("name") for player in data.get("players", [])]
+        winner = data.get("winner")
+        return cls(name=name, players=players, winner=winner)
+    
     def to_dict(self):
         """
         Convertit l'objet en dictionnaire.

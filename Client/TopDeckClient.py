@@ -3,6 +3,8 @@ import os
 import json
 from datetime import datetime, timedelta, timezone
 import requests
+import time
+from threading import Lock
 from models.base_model import *
 from models.Topdeck_model import *
 from comon_tools.tools import *
@@ -66,14 +68,14 @@ class TopDeckConstants:
                     else:
                         raise ValueError("Le fichier API est vide.")
             except FileNotFoundError:
-                raise FileNotFoundError(f"Le fichier {Settings.API_KEY_FILE_PATH} est introuvable.")
+                raise FileNotFoundError(f"Le fichier {TopDeckConstants.Settings.API_KEY_FILE_PATH} est introuvable.")
             except Exception as e:
                 raise RuntimeError(f"Erreur lors de la récupération de l'API key : {e}")
         
 
 class MissingApiKeyException(Exception):
     def __init__(self):
-        super().__init__(f"Could not load API key from environment variable {Settings.API_KEY_ENV_VAR}")
+        super().__init__(f"Could not load API key from environment variable {TopDeckConstants.Settings.API_KEY_ENV_VAR}")
 
 
 class TopdeckClient:
@@ -88,7 +90,8 @@ class TopdeckClient:
         :param request: Requête de tournoi (TopdeckTournamentRequest).
         :return: Liste des tournois (TopdeckListTournament).
         """
-        server_data = self._get_client().post(Routes.TOURNAMENT_ROUTE, json=request.to_dict())
+
+        server_data = self._get_client().post(TopDeckConstants.Routes.TOURNAMENT_ROUTE, json=request.to_dict())
         return self._normalize_array_result(TopdeckListTournament, server_data)
 
     def get_tournament(self, tournament_id):
@@ -97,7 +100,7 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Détails du tournoi (TopdeckTournament).
         """
-        server_data = self._get_client().get(Routes.FULL_TOURNAMENT_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._get_client().get(TopDeckConstants.Routes.FULL_TOURNAMENT_ROUTE.replace("{TID}", tournament_id))
         return self._normalize_result(TopdeckTournament, server_data)
 
     def get_tournament_info(self, tournament_id):
@@ -106,7 +109,7 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Informations du tournoi (TopdeckTournamentInfo).
         """
-        server_data = self._get_client().get(Routes.TOURNAMENT_INFO_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._get_client().get(TopDeckConstants.Routes.TOURNAMENT_INFO_ROUTE.replace("{TID}", tournament_id))
         return self._normalize_result(TopdeckTournamentInfo, server_data)
 
     def get_standings(self, tournament_id):
@@ -115,7 +118,7 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Classements du tournoi (TopdeckStanding).
         """
-        server_data = self._get_client().get(Routes.STANDINGS_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._get_client().get(TopDeckConstants.Routes.STANDINGS_ROUTE.replace("{TID}", tournament_id))
         return self._normalize_array_result(TopdeckStanding, server_data)
 
     def get_rounds(self, tournament_id):
@@ -124,19 +127,48 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Rondes du tournoi (TopdeckRound).
         """
-        server_data = self._get_client().get(Routes.ROUNDS_ROUTE.replace("{TID}", tournament_id))
-        return self._normalize_array_result(TopdeckRound, server_data)
+        response = self._get_client().get(TopDeckConstants.Routes.ROUNDS_ROUTE.replace("{TID}", tournament_id))
+        
+        # Vérifiez le code HTTP
+        if response.status_code != 200:
+            raise ValueError(f"Erreur lors de la récupération des données : {response.status_code}, {response.text}")
+
+        # Assurez-vous que la réponse est bien un JSON
+        try:
+            server_data = response.json()  # Désérialise automatiquement en liste ou dict
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Erreur lors du décodage JSON : {e}, réponse : {response.text}")
+
+        return self._normalize_array_result(TopdeckRoundTable, server_data)
 
     def _get_client(self):
         """
-        Crée un client HTTP pour effectuer les requêtes.
+        Crée un client HTTP pour effectuer les requêtes, en respectant une limite de 200 appels par minute.
         :return: Client HTTP configuré.
         """
-        headers = {
+        with self._lock:  # Protège l'accès à _call_timestamps
+            current_time = time.time()
+            one_minute_ago = current_time - 60
+
+            # Filtrer les horodatages pour conserver seulement ceux de la dernière minute
+            self._call_timestamps = [timestamp for timestamp in self._call_timestamps if timestamp > one_minute_ago]
+
+            # Vérifier si on dépasse la limite de 200 appels
+            if len(self._call_timestamps) >= 200:
+                sleep_time = 60 - (current_time - self._call_timestamps[0])  # Temps restant jusqu'à la prochaine disponibilité
+                print(f"Limite d'appels atteinte. Pause de {sleep_time:.2f} secondes...")
+                time.sleep(sleep_time)
+
+            # Ajouter l'horodatage de l'appel actuel
+            self._call_timestamps.append(current_time)
+
+        # Créer le client HTTP
+        session = requests.Session()
+        session.headers.update({
             "Authorization": self._api_key,
             "Content-Type": "application/json; charset=utf-8"
-        }
-        return requests.Session().headers.update(headers)
+        })
+        return session
 
     def _normalize_result(self, cls, json_data):
         """
@@ -155,7 +187,7 @@ class TopdeckClient:
         :param cls: Classe cible pour la désérialisation.
         :param json_data: Données JSON à désérialiser.
         :return: Liste d'objets normalisés de type `cls`.
-        """
+        """   
         results = [cls.from_json(item) for item in json_data]
         for result in results:
             result.normalize()
@@ -240,13 +272,14 @@ class TournamentList:
         if end_date is None:
             end_date = datetime.now(timezone.utc) + timedelta(days=1)
         valid_formats = [TopDeckConstants.Format.Standard, TopDeckConstants.Format.Pioneer, TopDeckConstants.Format.Modern, TopDeckConstants.Format.Legacy, TopDeckConstants.Format.Vintage, TopDeckConstants.Format.Pauper]
+        client = TopdeckClient()
         result = []
         while start_date < end_date:
             current_end_date = start_date + timedelta(days=7)
             print(f"\r[Topdeck] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end='')
 
             for format in valid_formats:
-                tournaments = self.client.get_tournament_list(TopdeckTournamentRequest(
+                tournaments = client.get_tournament_list(TopdeckTournamentRequest(
                     start= start_date.timestamp(),
                     end= current_end_date.timestamp(),
                     game= TopDeckConstants.Game.MagicTheGathering,

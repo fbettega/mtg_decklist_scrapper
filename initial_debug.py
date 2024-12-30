@@ -11,7 +11,8 @@ from datetime import datetime
 # from MTGmelee.MtgMeleeClient import *
 from models.base_model import *
 from comon_tools.tools import *
-import Client.MTGOclient as MTGO
+from models.Topdeck_model import *
+from Client.TopDeckClient import *
 
 # try:
 #     client = MtgMeleeClient()
@@ -29,10 +30,8 @@ import Client.MTGOclient as MTGO
 
 def main():
     try:
-        test_data_CrossYearTests = MTGO.TournamentList.DL_tournaments(
-        start_date = datetime(2021, 12, 31, 0, 0, 0),
-        end_date = datetime(2022, 1, 1, 0, 0, 0)
-        )
+        client = TopdeckClient()
+        rounds = client.get_rounds("iCMd298218qbEqeGt5d7")
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur
