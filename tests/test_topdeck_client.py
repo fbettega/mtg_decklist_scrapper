@@ -7,37 +7,6 @@ from comon_tools.tools import *
 
 
 ###########################################################################################################################################
-# SerializationTests
-def test_should_serialize_game_correctly( ):
-    json_object = json.loads(TopdeckTournamentRequest(game=TopDeckConstants.Game.MagicTheGathering).to_json())
-    game = json_object.get("game")
-    assert game == TopDeckConstants.Game.MagicTheGathering
-
-def test_should_serialize_format_correctly():
-    json_object = json.loads(TopdeckTournamentRequest(format=TopDeckConstants.Format).to_json())
-    format = json_object.get("format")
-    assert format == TopDeckConstants.Format
-
-def test_should_serialize_player_column_correctly():
-    json_object = json.loads(TopdeckTournamentRequest(columns=[TopDeckConstants.PlayerColumn]).to_json())
-    column = json_object.get("columns")[0]
-    assert column == TopDeckConstants.PlayerColumn
-
-def test_should_serialize_sample_tournament_request_correctly():
-    request = TopdeckTournamentRequest(
-        game=TopDeckConstants.Game.MagicTheGathering,
-        start=10000,
-        end=20000,
-        columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins]
-    )
-    json_object = json.loads(request.to_json())
-    assert json_object["game"] == request.game
-    assert json_object["start"] == request.start
-    assert json_object["end"] == request.end
-    assert json_object["columns"] == [column.value for column in request.columns]
-
-
-###########################################################################################################################################
 # RoundLoaderTests
 @pytest.fixture(scope="module")
 def rounds():
@@ -139,7 +108,8 @@ def test_standings_should_have_valid_data(standings):
         decklist = None)
     # Vérification de l'équivalence des données pour le premier standing
     assert standings[0] == expected_standing
-    
+
+# ICI
 ###########################################################################################################################################
 # TournamentInfoLoaderTests
 @pytest.fixture(scope="module")

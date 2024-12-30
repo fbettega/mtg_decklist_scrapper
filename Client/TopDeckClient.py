@@ -111,7 +111,6 @@ class TopdeckClient:
         :param request: Requête de tournoi (TopdeckTournamentRequest).
         :return: Liste des tournois (TopdeckListTournament).
         """
-
         server_data = self._get_client().post(TopDeckConstants.Routes.TOURNAMENT_ROUTE, json=request.to_dict())
         return self._normalize_array_result(TopdeckListTournament, server_data)
 
@@ -226,7 +225,7 @@ class TournamentList:
             game=tournament_data.data.game,
             format=tournament_data.data.format,
             columns=[TopDeckConstants.PlayerColumn.Name, TopDeckConstants.PlayerColumn.Wins, TopDeckConstants.PlayerColumn.Losses, TopDeckConstants.PlayerColumn.Draws, TopDeckConstants.PlayerColumn.DeckSnapshot]
-        ))[0]  # Assuming the tournament name matches
+        ))[0]  
 
         rounds = []
         for round in tournament_data.rounds:
