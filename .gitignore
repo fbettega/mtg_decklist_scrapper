@@ -1,6 +1,7 @@
 #ignore outpout
 cache_folder/
 Client/api_topdeck.txt
+initial_debug.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
