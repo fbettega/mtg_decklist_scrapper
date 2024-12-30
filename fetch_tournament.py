@@ -12,10 +12,17 @@ from dateutil import parser
 import argparse
 import Client.MtgMeleeClient as MTGmelee
 import Client.MTGOclient as MTGO
+import Client.TopDeckClient as TopDeck
 import re
-# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 mtgo keepleague
+
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 all keepleague
 
+# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 mtgo keepleague
+# python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 all keepleague
+# python fetch_tournament.py ./cache_folder 2024-11-01 2024-11-07 topdeck keepleague
+
+
+# python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 topdeck keepleague
 
 # python fetch_tournament.py ./cache_folder 2024-01-01 2024-12-01 melee keepleague
 #fait
@@ -178,7 +185,7 @@ def main():
 
     if use_topdeck:
         print("Updating Topdeck...")
-        # update_folder(cache_folder, TopdeckSource(), "Topdeck", start_date, end_date)
+        update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)
 
 if __name__ == "__main__":
     main()

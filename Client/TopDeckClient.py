@@ -251,6 +251,7 @@ class TournamentList:
                     result.append(Tournament(
                         name=tournament.name,
                         date=date,
+                        formats=format,
                         uri=f"https://topdeck.gg/event/{tournament.id}",
                         json_file=FilenameGenerator.generate_file_name(
                             tournament.id, tournament.name, date, format, [f for f in valid_formats], -1
