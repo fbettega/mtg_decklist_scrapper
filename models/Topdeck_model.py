@@ -678,6 +678,29 @@ class TopdeckTournament(NormalizableObject):
             "standings": [standing.to_dict() for standing in self.standings],
             "rounds": [round_.to_dict() for round_ in self.rounds]
         }
+    
+    @classmethod
+    def from_json(cls, data):
+        """
+        Crée une instance de TopdeckTournament à partir d'une structure JSON.
+        :param data: Dictionnaire représentant un tournoi.
+        :return: Instance de TopdeckTournament.
+        """
+        # Extraire les données principales
+        data_obj = TopdeckTournamentInfo.from_json(data["data"]) if data.get("data") else None
+        
+        # Traiter les standings (classements)
+        standings = [TopdeckStanding.from_json(standing) for standing in data.get("standings", [])]
+        
+        # Traiter les rounds (rondes)
+        rounds = [TopdeckRound.from_json(round_) for round_ in data.get("rounds", [])]
+        
+        # Créer l'instance de TopdeckTournament
+        return cls(
+            data=data_obj,
+            standings=standings,
+            rounds=rounds
+        )
 
 
 class TopdeckTournamentRequest:

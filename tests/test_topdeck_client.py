@@ -204,7 +204,7 @@ def test_should_load_tournament_standings_draws(tournamentsLoader):
 
 def test_should_load_tournament_deck_snapshot(tournamentsLoader):
     for tournament in tournamentsLoader:
-        assert any(standing.deck_snapshot and standing.deck_snapshot.mainboard and len(standing.deck_snapshot.mainboard) > 0
+        assert any(standing.deckSnapshot and standing.deckSnapshot.mainboard and len(standing.deckSnapshot.mainboard) > 0
                    for standing in tournament.standings)
 
 
@@ -273,12 +273,12 @@ def test_tournament_info_should_have_standings(TournamentLoader):
     assert TournamentLoader.standings is not None
 
 def test_tournament_info_should_have_valid_data(TournamentLoader):
-    expected_info = {
-        'name': 'CCS Summer Showdown Modern 2k',
-        'start_date': 1717934400,
-        'game': TopDeckConstants.Game.MagicTheGathering,
-        'format': TopDeckConstants.Format.Modern
-    }
+    expected_info = TopdeckTournamentInfo(
+        name= 'CCS Summer Showdown Modern 2k',
+        start_date= 1717934400,
+        game= TopDeckConstants.Game.MagicTheGathering,
+        format= TopDeckConstants.Format.Modern.value
+    )
     assert TournamentLoader.data.name == expected_info.name
     assert TournamentLoader.data.start_date == expected_info.start_date
     assert TournamentLoader.data.game == expected_info.game

@@ -60,7 +60,8 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Détails du tournoi (TopdeckTournament).
         """
-        server_data = self._get_client().get(TopDeckConstants.Routes.FULL_TOURNAMENT_ROUTE.replace("{TID}", tournament_id))
+        response = self._get_client().get(TopDeckConstants.Routes.FULL_TOURNAMENT_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._response_to_json(response)
         return self._normalize_result(TopdeckTournament, server_data)
 
     def get_tournament_info(self, tournament_id):
