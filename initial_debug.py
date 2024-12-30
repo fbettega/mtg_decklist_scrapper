@@ -31,7 +31,14 @@ from Client.TopDeckClient import *
 def main():
     try:
         client = TopdeckClient()
-        standings = client.get_standings("SrJAEZ8vbglVge29fG7l")
+        request = TopdeckTournamentRequest(
+        game='Magic: The Gathering',
+        format='Legacy',
+        start=int(datetime(2024, 3, 30, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
+        end=int(datetime(2024, 3, 31, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
+        columns=['name', 'id', 'decklist', 'wins', 'losses', 'draws', 'deckSnapshot']
+        )
+        tournamentsLoader = client.get_tournament_list(request)
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur

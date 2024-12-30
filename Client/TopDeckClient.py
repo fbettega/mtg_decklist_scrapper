@@ -111,7 +111,8 @@ class TopdeckClient:
         :param request: Requête de tournoi (TopdeckTournamentRequest).
         :return: Liste des tournois (TopdeckListTournament).
         """
-        server_data = self._get_client().post(TopDeckConstants.Routes.TOURNAMENT_ROUTE, json=request.to_dict())
+        response = self._get_client().post(TopDeckConstants.Routes.TOURNAMENT_ROUTE, json=request.to_dict())
+        server_data = self._response_to_json(response)
         return self._normalize_array_result(TopdeckListTournament, server_data)
 
     def get_tournament(self, tournament_id):
@@ -129,7 +130,8 @@ class TopdeckClient:
         :param tournament_id: Identifiant du tournoi.
         :return: Informations du tournoi (TopdeckTournamentInfo).
         """
-        server_data = self._get_client().get(TopDeckConstants.Routes.TOURNAMENT_INFO_ROUTE.replace("{TID}", tournament_id))
+        response = self._get_client().get(TopDeckConstants.Routes.TOURNAMENT_INFO_ROUTE.replace("{TID}", tournament_id))
+        server_data = self._response_to_json(response)
         return self._normalize_result(TopdeckTournamentInfo, server_data)
 
     def get_standings(self, tournament_id):

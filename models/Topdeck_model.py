@@ -6,65 +6,61 @@ Created on Sun Nov 24 18:39:50 2024
 """
 import json
 from typing import List, Optional
+from datetime import datetime
 
 
-# class TopdeckListTournamentStanding:
-#     def __init__(self, standing_id=None):
-#         self.standing_id = standing_id
-
-#     def normalize(self):
-#         # Implémentez la logique de normalisation ici si nécessaire
-#         pass
-
-#     def __str__(self):
-#         return f"TopdeckListTournamentStanding(standing_id={self.standing_id})"
-
-#     def __eq__(self, other):
-#         if not isinstance(other, TopdeckListTournamentStanding):
-#             return False
-#         return self.standing_id == other.standing_id
-
-#     def to_dict(self):
-#         return {"standing_id": self.standing_id}
 
 class TopdeckListTournamentStanding:
-    def __init__(self, name=None, wins=None, losses=None, draws=None, deck_snapshot=None):
+    def __init__(
+        self, 
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        decklist: Optional[str] = None,
+        wins: Optional[int] = None,
+        losses: Optional[int] = None,
+        draws: Optional[int] = None,
+        deckSnapshot: Optional['TopdeckListTournamentDeckSnapshot'] = None
+    ):
         """
         Initialise les propriétés de la classe.
+        :param id: Identifiant unique.
         :param name: Nom du joueur ou de l'équipe.
+        :param decklist: Identifiant ou URL du deck utilisé.
         :param wins: Nombre de victoires.
         :param losses: Nombre de défaites.
         :param draws: Nombre de matchs nuls.
-        :param deck_snapshot: Instance de TopdeckListTournamentDeckSnapshot représentant le deck.
+        :param deckSnapshot: Instance de TopdeckListTournamentDeckSnapshot représentant le deck.
         """
+        self.id = id
         self.name = name
+        self.decklist = decklist
         self.wins = wins
         self.losses = losses
         self.draws = draws
-        self.deck_snapshot = deck_snapshot
+        self.deckSnapshot = deckSnapshot
 
-    def normalize(self):
+    def normalize(self) -> None:
         """
         Normalise l'objet :
-        - Appelle `normalize` sur le deck_snapshot.
-        - Définit deck_snapshot à None si son mainboard est None après normalisation.
+        - Appelle `normalize` sur le deckSnapshot.
+        - Définit deckSnapshot à None si son mainboard est None après normalisation.
         """
-        if self.deck_snapshot is not None:
-            self.deck_snapshot.normalize()
-            if self.deck_snapshot.mainboard is None:
-                self.deck_snapshot = None
+        if self.deckSnapshot is not None:
+            self.deckSnapshot.normalize()
+            if self.deckSnapshot.mainboard is None:
+                self.deckSnapshot = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Retourne une représentation lisible de l'objet.
         """
         return (
-            f"TopdeckListTournamentStanding(name={self.name}, "
-            f"wins={self.wins}, losses={self.losses}, draws={self.draws}, "
-            f"deck_snapshot={self.deck_snapshot})"
+            f"TopdeckListTournamentStanding(id={self.id}, name={self.name}, "
+            f"decklist={self.decklist}, wins={self.wins}, losses={self.losses}, "
+            f"draws={self.draws}, deckSnapshot={self.deckSnapshot})"
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare deux objets pour l'égalité.
         :param other: Autre objet à comparer.
@@ -73,46 +69,52 @@ class TopdeckListTournamentStanding:
         if not isinstance(other, TopdeckListTournamentStanding):
             return False
         return (
-            self.name == other.name
+            self.id == other.id
+            and self.name == other.name
+            and self.decklist == other.decklist
             and self.wins == other.wins
             and self.losses == other.losses
             and self.draws == other.draws
-            and self.deck_snapshot == other.deck_snapshot
+            and self.deckSnapshot == other.deckSnapshot
         )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """
         Convertit l'objet en dictionnaire.
         :return: Dictionnaire contenant les propriétés de la classe.
         """
         return {
+            "id": self.id,
             "name": self.name,
+            "decklist": self.decklist,
             "wins": self.wins,
             "losses": self.losses,
             "draws": self.draws,
-            "deck_snapshot": self.deck_snapshot.to_dict() if self.deck_snapshot else None,
+            "deckSnapshot": self.deckSnapshot.to_dict() if self.deckSnapshot else None,
         }
 
-    @staticmethod
-    def from_dict(data):
+    @classmethod
+    def from_json(cls, data) -> 'TopdeckListTournamentStanding':
         """
         Crée une instance de la classe à partir d'un dictionnaire.
         :param data: Dictionnaire contenant les données.
         :return: Instance de TopdeckListTournamentStanding.
         """
         from_snapshot = (
-            TopdeckListTournamentDeckSnapshot.from_dict(data["deck_snapshot"])
-            if data.get("deck_snapshot")
+            TopdeckListTournamentDeckSnapshot.from_dict(data["deckSnapshot"])
+            if data.get("deckSnapshot")
             else None
         )
-        return TopdeckListTournamentStanding(
+        return cls(
+            id=data.get("id"),
             name=data.get("name"),
+            decklist=data.get("decklist"),
             wins=data.get("wins"),
             losses=data.get("losses"),
             draws=data.get("draws"),
-            deck_snapshot=from_snapshot,
+            deckSnapshot=from_snapshot,
         )
-    
+
 
 class TopdeckListTournament:
     def __init__(self, id=None, name=None, start_date=None, uri=None, standings=None):
@@ -156,16 +158,17 @@ class TopdeckListTournament:
             "standings": [standing.to_dict() for standing in self.standings],
         }
 
-    @staticmethod
-    def from_json(data):
+    @classmethod
+    def from_json(cls, data):
         standings = data.get("standings", [])
         standings_objects = [TopdeckListTournamentStanding(**standing) for standing in standings]
-        return TopdeckListTournament(
+        return cls(
             id=data.get("TID"),
             name=data.get("tournamentName"),
             start_date=data.get("startDate"),
             standings=standings_objects,
         )
+    
 class TopdeckListTournamentDeckSnapshot:
     def __init__(self, mainboard=None, sideboard=None):
         """
@@ -491,7 +494,13 @@ class NormalizableObject:
 
 
 class TopdeckTournamentInfo(NormalizableObject):
-    def __init__(self, name=None, game=None, format=None, start_date=None):
+    def __init__(
+        self, 
+        name: Optional[str] = None, 
+        game: Optional[str] = None, 
+        format: Optional[str] = None, 
+        start_date: Optional[int] =None
+    ):
         """
         Initialise les propriétés de l'information du tournoi.
         :param name: Nom du tournoi.
@@ -526,7 +535,24 @@ class TopdeckTournamentInfo(NormalizableObject):
         if not isinstance(other, TopdeckTournamentInfo):
             return False
         return self.name == other.name and self.game == other.game and self.format == other.format and self.start_date == other.start_date
-
+    @classmethod
+    def from_json(cls, data) -> 'TopdeckTournamentInfo':
+        """
+        Crée une instance de TopdeckTournamentInfo à partir d'une structure JSON.
+        :param data: Dictionnaire représentant les informations d'un tournoi.
+        :return: Instance de TopdeckTournamentInfo.
+        """
+        name = data.get('name')
+        game = data.get('game')
+        format = data.get('format')
+        start_date = data.get('startDate')
+        return cls(
+            name=name,
+            game=game,
+            format=format,
+            start_date=start_date
+        )
+    
     def to_dict(self):
         """
         Convertit l'objet en dictionnaire.
@@ -592,15 +618,23 @@ class TopdeckTournament(NormalizableObject):
 
 
 class TopdeckTournamentRequest:
-    def __init__(self, game=None, format=None, start=None, end=None, last=None, columns=None):
+    def __init__(
+        self, 
+        game: Optional[str] = None, 
+        format: Optional[str] = None, 
+        start: Optional[int] = None, 
+        end: Optional[int] = None, 
+        last: Optional[int] = None, 
+        columns: Optional[List[str]] = None
+    ):
         """
         Initialise la requête de tournoi.
         :param game: Jeu associé à la requête.
         :param format: Format du tournoi.
-        :param start: Date de début.
-        :param end: Date de fin.
+        :param start: Date de début en timestamp Unix.
+        :param end: Date de fin en timestamp Unix.
         :param last: Nombre de tournois à récupérer.
-        :param columns: Colonnes à inclure dans la réponse.
+        :param columns: Liste des colonnes à inclure dans la réponse.
         """
         self.game = game
         self.format = format
@@ -609,20 +643,24 @@ class TopdeckTournamentRequest:
         self.last = last
         self.columns = columns if columns is not None else []
 
-    def to_json(self):
+    def to_json(self) -> str:
         """
         Convertit l'objet en JSON.
         :return: Représentation JSON de l'objet.
         """
-        return json.dumps(self, default=lambda o: o.__dict__, ensure_ascii=False)
+        return json.dumps(self.to_dict(), ensure_ascii=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Retourne une représentation lisible de la requête.
         """
-        return f"TopdeckTournamentRequest(game={self.game}, format={self.format}, start={self.start}, end={self.end}, last={self.last}, columns={self.columns})"
+        return (
+            f"TopdeckTournamentRequest("
+            f"game={self.game}, format={self.format}, start={self.start}, "
+            f"end={self.end}, last={self.last}, columns={self.columns})"
+        )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare deux objets TopdeckTournamentRequest.
         :param other: Autre objet à comparer.
@@ -630,9 +668,16 @@ class TopdeckTournamentRequest:
         """
         if not isinstance(other, TopdeckTournamentRequest):
             return False
-        return self.game == other.game and self.format == other.format and self.start == other.start and self.end == other.end and self.last == other.last and self.columns == other.columns
+        return (
+            self.game == other.game 
+            and self.format == other.format 
+            and self.start == other.start 
+            and self.end == other.end 
+            and self.last == other.last 
+            and self.columns == other.columns
+        )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """
         Convertit l'objet en dictionnaire.
         :return: Dictionnaire représentant l'objet.
@@ -643,5 +688,5 @@ class TopdeckTournamentRequest:
             "start": self.start,
             "end": self.end,
             "last": self.last,
-            "columns": [column.to_dict() for column in self.columns] if self.columns else None
+            "columns": self.columns
         }
