@@ -68,6 +68,10 @@ def test_standings_should_have_names( get_test_data):
     for standing in get_test_data.standings:
         assert standing.player is not None and len(standing.player) > 0
 
+def test_standings_should_have_points( get_test_data):
+    for standing in get_test_data.standings:
+        assert standing.points is not None 
+
 def test_standings_should_have_ranks( get_test_data):
     for standing in get_test_data.standings:
         assert standing.rank > 0

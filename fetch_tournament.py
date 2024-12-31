@@ -21,8 +21,7 @@ import re
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 all keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 topdeck keepleague
 
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 topdeck keepleague
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 topdeck keepleague
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 melee keepleague
 #fait
