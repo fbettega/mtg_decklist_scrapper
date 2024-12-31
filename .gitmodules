@@ -1,0 +1,3 @@
+[submodule "MTG_decklistcache"]
+	path = MTG_decklistcache
+	url = git@github.com:fbettega/MTG_decklistcache.git
