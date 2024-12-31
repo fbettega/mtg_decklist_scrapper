@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import List #,Optional
 import requests
 from urllib.parse import quote
+import re
 from collections import defaultdict
 from models.base_model import *
 
@@ -162,7 +163,9 @@ class SlugGenerator:
     @staticmethod
     def generate_slug(text: str) -> str:
         # Exemple simple : remplacer les espaces par des tirets et mettre en minuscules.
-        return text.lower().replace(" ", "-")
+        text_with_multiple_dash = text.lower().replace(" ", "-")
+        text = re.sub(r"-+", "-", text_with_multiple_dash)
+        return text
 
 # a Verifier lourdement
 class OrderNormalizer:

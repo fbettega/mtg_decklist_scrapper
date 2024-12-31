@@ -32,7 +32,7 @@ import re
 # python fetch_tournament.py ./cache_folder 2024-03-01 2024-03-31 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-04-01 2024-04-30 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-05-01 2024-05-31 all keepleague
-# python fetch_tournament.py ./cache_folder 2024-06-01 2024-06-30 all keepleague
+# python fetch_tournament.py ./cache_folder 2024-06-01 2024-06-30 melee keepleague
 # python fetch_tournament.py ./cache_folder 2024-07-01 2024-07-31 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-08-01 2024-08-31 all keepleague
 # python fetch_tournament.py ./cache_folder 2024-09-01 2024-09-30 all keepleague
@@ -46,7 +46,7 @@ def sanitize_filename(filename):
     """
     Replace invalid characters in the filename with underscores.
     """
-    return re.sub(r'[<>:"/\\|?*]', '_', filename)
+    return re.sub(r'[<>:"/\\|?*]', '', filename)
 
 def clean_temp_files(cache_folder: str):
     """Delete all temporary files starting with 'Temp' and ending with '.tmp' in the cache folder."""
