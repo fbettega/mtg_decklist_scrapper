@@ -197,6 +197,7 @@ class TournamentList:
             standings.append(Standing(
                 player=standing.name,
                 rank=standing.standing,
+                points=standing.points,
                 wins=list_standing.wins,
                 losses=list_standing.losses,
                 draws=list_standing.draws,
