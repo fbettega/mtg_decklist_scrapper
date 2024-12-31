@@ -9,6 +9,7 @@ from typing import List #,Optional
 import requests
 from urllib.parse import quote
 import re
+import unicodedata
 from collections import defaultdict
 from models.base_model import *
 
@@ -163,9 +164,18 @@ class SlugGenerator:
     @staticmethod
     def generate_slug(text: str) -> str:
         # Exemple simple : remplacer les espaces par des tirets et mettre en minuscules.
-        text_with_multiple_dash = text.lower().replace(" ", "-")
-        text = re.sub(r"-+", "-", text_with_multiple_dash)
-        return text
+        normalized_text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+        # Convertir en minuscules
+        lowercase_text = normalized_text.lower()
+        # Supprimer les caractères non alphanumériques sauf les espaces et tirets
+        alphanumeric_text = re.sub(r"[^\w\s-]", "", lowercase_text)
+        # Remplacer les espaces et underscores par des tirets
+        hyphenated_text = re.sub(r"[\s_]+", "-", alphanumeric_text)
+        # Réduire les tirets multiples en un seul
+        compacted_text = re.sub(r"-+", "-", hyphenated_text)
+        # Supprimer les tirets en début et fin
+        slug = compacted_text.strip("-")
+        return slug
 
 # a Verifier lourdement
 class OrderNormalizer:
