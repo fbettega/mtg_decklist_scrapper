@@ -21,6 +21,7 @@ class TopDeckConstants:
         Vintage = "Vintage"
         Premodern = "Premodern"
         Limited = "Limited"
+        DuelCommander = "Duel Commander"
         Timeless = "Timeless"
         Historic = "Historic"
         Explorer = "Explorer"

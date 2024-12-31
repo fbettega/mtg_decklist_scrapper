@@ -1,0 +1,4 @@
+beautifulsoup4==4.12.3
+pytest==8.3.4
+python_dateutil==2.9.0.post0
+Requests==2.32.3
