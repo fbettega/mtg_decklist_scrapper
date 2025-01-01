@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 import time
 from threading import Lock
+import math 
 from models.base_model import *
 from models.Topdeck_model import *
 from comon_tools.tools import *
@@ -109,7 +110,7 @@ class TopdeckClient:
 
             # Vérifier si on dépasse la limite de 200 appels
             if len(self._call_timestamps) >= 200:
-                sleep_time = 60 - (current_time - self._call_timestamps[0])  # Temps restant jusqu'à la prochaine disponibilité
+                sleep_time = math.ceil(60 - (current_time - self._call_timestamps[0]))  # Temps restant jusqu'à la prochaine disponibilité arrondie a au moins une seconde
                 print(f"Limite d'appels atteinte. Pause de {sleep_time:.2f} secondes...")
                 time.sleep(sleep_time)
 
@@ -198,9 +199,9 @@ class TournamentList:
                 player=standing.name,
                 rank=standing.standing,
                 points=standing.points,
-                wins=list_standing.wins,
-                losses=list_standing.losses,
-                draws=list_standing.draws,
+                wins=list_standing.wins if list_standing else 0,
+                losses=list_standing.losses if list_standing else 0,
+                draws=list_standing.draws if list_standing else 0,
                 gwp=standing.game_win_rate,
                 omwp=standing.opponent_win_rate,
                 ogwp=standing.opponent_game_win_rate
@@ -209,8 +210,8 @@ class TournamentList:
         decks = []
         for standing in tournament_data.standings:
             list_standing = next((s for s in tournament_data_from_list.standings if s.name == standing.name), None)
-
-            if list_standing.deckSnapshot and list_standing.deckSnapshot.mainboard:
+            
+            if list_standing and list_standing.deckSnapshot and list_standing.deckSnapshot.mainboard:
                 player_result = f"{standing.standing}th Place" if standing.standing > 3 else f"{standing.standing}st Place"  # or nd, rd depending on the rank
 
                 mainboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.mainboard.items()] if list_standing.deckSnapshot.mainboard else []

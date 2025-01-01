@@ -15,7 +15,7 @@ import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import re
 
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 all keepleague
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 mtgo keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 all keepleague

@@ -12,7 +12,10 @@ from comon_tools.tools import *
 def rounds():
     client = TopdeckClient()
     rounds = client.get_rounds("iCMd298218qbEqeGt5d7")
+    # rounds = client.get_rounds("z97Wwe0sadHGT2ymc5Ss")
     return rounds
+
+
 
 def test_rounds_should_have_names(rounds):
     for round in rounds:
@@ -47,13 +50,13 @@ def test_round_tables_should_have_player_names(rounds):
         for table in round.tables:
             for player in table.players:
                 assert player.name is not None and player.name != ""
-
 ###########################################################################################################################################
 # StandingLoaderTests
 @pytest.fixture(scope="module")
 def standings():
     client = TopdeckClient()
     standings = client.get_standings("SrJAEZ8vbglVge29fG7l")
+    # standings = client.get_standings("z97Wwe0sadHGT2ymc5Ss")
     return standings 
 
 def test_standings_should_have_player_name(standings):
@@ -68,6 +71,7 @@ def test_standings_should_have_some_decklists(standings):
 def test_standings_should_have_only_valid_urls_for_decklists():
     client = TopdeckClient()
     standings_test_url = client.get_standings("SszR1p5QxRzPHPkLayP5")
+    # standings_test_url = client.get_standings("z97Wwe0sadHGT2ymc5Ss")
     for standing in standings_test_url:
         if standing.decklist:
             assert standing.decklist.startswith("http://") or standing.decklist.startswith("https://")
@@ -157,6 +161,16 @@ def tournamentsLoader():
     )
     tournamentsLoader = client.get_tournament_list(request)
     return tournamentsLoader
+
+# client = TopdeckClient()
+# request = TopdeckTournamentRequest(
+# game='Magic: The Gathering',
+# format='Legacy',
+# start=int(datetime(2024, 12, 6, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
+# end=int(datetime(2024, 12, 8, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
+# columns=['name', 'id', 'decklist', 'wins', 'losses', 'draws', 'deckSnapshot']
+# )
+# tournamentsLoader = client.get_tournament_list(request)
 
 
 def test_should_load_tournaments(tournamentsLoader):

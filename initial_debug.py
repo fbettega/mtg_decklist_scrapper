@@ -32,9 +32,9 @@ def main():
     try:
         get_test_data = TournamentList().get_tournament_details(
             Tournament(
-                name="CCS Summer Showdown Modern 2k",
-                date= datetime.fromtimestamp(1717934400, tz=timezone.utc),
-                uri="https://topdeck.gg/event/SrJAEZ8vbglVge29fG7l"
+                name="The Island Vacation",
+                date= datetime(2024, 12, 7, 0, 0, 0, tzinfo=timezone.utc),
+                uri="https://topdeck.gg/event/z97Wwe0sadHGT2ymc5Ss"
         )
         )
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
