@@ -10,6 +10,7 @@ import requests
 from urllib.parse import quote
 import re
 import unicodedata
+import json
 from collections import defaultdict
 from models.base_model import *
 
@@ -259,3 +260,66 @@ class OrderNormalizer:
         result.extend(remaining_players)
 
         return result
+
+
+
+class moxfieldparser:
+    @staticmethod
+    def proxy_client(deck_id):
+        url_flare_solver = "http://192.168.1.4:8191/v1"
+        headers = {"Content-Type": "application/json"}
+        data = {
+        "cmd": "request.get",
+        "url":  f"https://api.moxfield.com/v2/decks/all/{deck_id}",
+        "maxTimeout": 60000
+        }
+        # response = requests.get(url_flare_solver, json=data)
+        response = requests.post(url_flare_solver, headers=headers, json=data)
+        return response
+    def _download_deck(self,url):
+        # match = re.search(r'https://moxfield\.com/decks/([a-zA-Z0-9_-]+)', url)
+        match = re.search(r'([^/]+)$', url)
+        if match:
+            deck_id = match.group(1)
+            response = self.proxy_client(deck_id)
+            try:
+                result = json.loads(response.text)
+            except json.JSONDecodeError:
+                return None  # Retourne None si la réponse ne peut pas être décodée en JSON
+            return result
+        return None
+    
+    def parse_result_to_json(self,downloaded_data):
+        if not downloaded_data:
+            return None
+        raw_html = downloaded_data.get("solution").get('response')
+        json_match = re.search(r'<pre[^>]*>(.*?)</pre>', raw_html, re.DOTALL)
+        if json_match:
+            json_content = json_match.group(1)
+            try:
+                data_dict = json.loads(json_content)
+            except json.JSONDecodeError:
+                return None  # Retourne None si le JSON est mal formé
+            return data_dict
+        return None
+
+    def parse_deck(self,url):
+        downloaded_data = self._download_deck(url)
+        if not downloaded_data:
+            return None  # Retourne None si _download_deck retourne None
+
+        json_result = self.parse_result_to_json(downloaded_data)
+        if not json_result:
+            return None
+        
+        mainboard = [DeckItem(count=value["quantity"], card_name=key) for key, value in json_result.get("mainboard").items()] 
+        sideboard = [
+            DeckItem(count=value["quantity"], card_name=key)
+            for key, value in list(json_result.get("sideboard", {}).items()) + list(json_result.get("commanders", {}).items())
+        ]
+
+        return {"mainboard": mainboard, "sideboard": sideboard}
+
+
+
+

@@ -298,3 +298,11 @@ def test_tournament_info_should_have_valid_data(TournamentLoader):
     assert TournamentLoader.data.game == expected_info.game
     assert TournamentLoader.data.format == expected_info.format
 
+# Ecrire des test pour le cas ou je dois aller chercher des liste sur moxfield
+        # get_test_data = TournamentList().get_tournament_details(
+        #     Tournament(
+        #         name="The Island Vacation",
+        #         date= datetime(2024, 12, 7, 0, 0, 0, tzinfo=timezone.utc),
+        #         uri="https://topdeck.gg/event/z97Wwe0sadHGT2ymc5Ss"
+        # )
+        # )
