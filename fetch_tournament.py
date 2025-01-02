@@ -10,10 +10,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dateutil import parser
 import argparse
+import sys
+import re
 import Client.MtgMeleeClient as MTGmelee
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
-import re
+
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
 
@@ -43,6 +45,27 @@ import re
 
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-12 topdeck keepleague
+
+# Configure logging to file and console
+def configure_logging(log_file_path):
+    class Logger:
+        def __init__(self, log_file):
+            self.terminal = sys.stdout
+            self.log_file = open(log_file, "a", encoding="utf-8")
+
+        def write(self, message):
+            timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S] ")
+            self.terminal.write(message)
+            self.log_file.write(timestamp + message)
+            self.log_file.flush()  # Ensure immediate writing to the file
+
+        def flush(self):
+            self.terminal.flush()
+            self.log_file.flush()
+
+    sys.stdout = Logger(log_file_path)
+    sys.stderr = sys.stdout  # Redirect stderr to stdout for error logging
+
 def sanitize_filename(filename):
     """
     Replace invalid characters in the filename with underscores.
@@ -119,6 +142,7 @@ def run_with_retry(action, max_attempts: int):
 
 # Main function equivalent
 def main():
+    configure_logging("log_scraping.txt")  # Log file nam
     # Configure argparse
     arg_parser = argparse.ArgumentParser(
         description="MTGO Decklist Cache Updater"

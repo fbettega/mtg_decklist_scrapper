@@ -2,6 +2,7 @@
 cache_folder/
 Client/api_topdeck.txt
 initial_debug.py
+log_scraping.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
