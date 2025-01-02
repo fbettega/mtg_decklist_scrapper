@@ -209,25 +209,11 @@ class TournamentList:
         decks = []
         for standing in tournament_data.standings:
             list_standing = next((s for s in tournament_data_from_list.standings if s.name == standing.name), None)
-            mainboard = []
-            sideboard = []
+
             if list_standing and list_standing.deckSnapshot and list_standing.deckSnapshot.mainboard:
                 player_result = f"{standing.standing}th Place" if standing.standing > 3 else f"{standing.standing}st Place"  # or nd, rd depending on the rank
                 mainboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.mainboard.items()] if list_standing.deckSnapshot.mainboard else []
                 sideboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.sideboard.items()] if list_standing.deckSnapshot.sideboard else []
-
-
-            elif standing.decklist and re.search(r'https://www.moxfield.com/decks/[\w-]+', standing.decklist):
-                Deck_moxfield = moxfieldparser().parse_deck(standing.decklist)
-                player_result = f"{standing.standing}th Place" if standing.standing > 3 else f"{standing.standing}st Place"  # or nd, rd depending on the rank
-                
-                mainboard = Deck_moxfield.get("mainboard")   if Deck_moxfield else []
-                sideboard = Deck_moxfield.get("sideboard")   if Deck_moxfield else []
-            elif standing.decklist:
-                print(standing.decklist)
-
-            # Si l'une des conditions a été remplie, ajouter le deck à la liste
-            if mainboard or sideboard:
                 decks.append(Deck(
                     player=standing.name,
                     date=tournament.date,
