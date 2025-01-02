@@ -311,11 +311,12 @@ class moxfieldparser:
         json_result = self.parse_result_to_json(downloaded_data)
         if not json_result:
             return None
-        
-        mainboard = [DeckItem(count=value["quantity"], card_name=key) for key, value in json_result.get("mainboard").items()] 
+        mainboard_data = json_result.get("mainboard", {})  # Par défaut, un dictionnaire vide
+        sideboard_data = json_result.get("sideboard", {})
+        commanders_data = json_result.get("commanders", {})
+        mainboard = [DeckItem(count=value["quantity"], card_name=key) for key, value in mainboard_data.items()] 
         sideboard = [
-            DeckItem(count=value["quantity"], card_name=key)
-            for key, value in list(json_result.get("sideboard", {}).items()) + list(json_result.get("commanders", {}).items())
+            DeckItem(count=value["quantity"], card_name=key) for key, value in {**sideboard_data, **commanders_data}.items()
         ]
 
         return {"mainboard": mainboard, "sideboard": sideboard}

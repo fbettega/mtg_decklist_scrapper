@@ -23,7 +23,7 @@ import re
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 topdeck keepleague
 
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 melee keepleague
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 melee keepleague
 #fait
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-01-31 all keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-02-01 2024-02-29 all keepleague
@@ -41,6 +41,8 @@ import re
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 mtgo keepleague
 
+
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-12 topdeck keepleague
 def sanitize_filename(filename):
     """
     Replace invalid characters in the filename with underscores.

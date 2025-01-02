@@ -16,6 +16,17 @@ def get_test_data():
     )
     )
     return get_test_data
+# @pytest.fixture(scope="module")
+# def get_test_data_moxfield_deck():
+#     get_test_data_moxfield_deck = TournamentList().get_tournament_details(
+#             Tournament(
+#                 name="The Island Vacation",
+#                 date= datetime(2024, 12, 7, 0, 0, 0, tzinfo=timezone.utc),
+#                 uri="https://topdeck.gg/event/z97Wwe0sadHGT2ymc5Ss"
+#         )
+#         )
+#     return get_test_data_moxfield_deck
+
 
 def test_decks_should_load( get_test_data):
     assert get_test_data.decks is not None and len(get_test_data.decks) > 0
@@ -35,6 +46,11 @@ def test_decks_should_have_results( get_test_data):
 def test_decks_should_have_anchor_uris( get_test_data):
     for deck in get_test_data.decks:
         assert deck.anchor_uri is not None
+
+
+
+
+
 
 ###########################################################################################################################################
 # RoundsLoaderTest
