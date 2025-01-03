@@ -155,7 +155,7 @@ class MantraderClient:
             gwp = float(columns[6].text.strip('%')) / 100
             ogwp = float(columns[7].text.strip('%')) / 100
 
-            wins, losses, draws = map(int, columns[3].text.strip().split('/'))
+            nb_game ,wins, losses = map(int, columns[3].text.strip().split('/'))
 
 
             standings.append(Standing(
@@ -164,7 +164,7 @@ class MantraderClient:
                     points=points,
                     wins=wins,
                     losses=losses,
-                    draws=draws,  # Si nécessaire, ajustez ce champ
+                    draws= nb_game - (wins + losses),  # Si nécessaire, ajustez ce champ
                     omwp=omwp,
                     gwp=gwp,
                     ogwp=ogwp
@@ -194,8 +194,24 @@ class MantraderClient:
                 round_items.append(RoundItem(players[2], players[1], f"{wins[2]}-{wins[0]}-{wins[1]}"))
         # ici rest a définir round name
         # You can define the round name here (this could be dynamic or based on your logic)
-        round_name = "Round 1"
-        rounds.append(Round(round_name, round_items))
+        if len(round_items) == 7:
+            # No extra rounds
+            rounds.append(Round("Quarterfinals", round_items[:4]))
+            rounds.append(Round("Semifinals", round_items[4:6]))
+            rounds.append(Round("Finals", round_items[6:]))
+        else:
+            rounds.append(Round("Quarterfinals", round_items[:4]))
+            rounds.append(Round("Loser Semifinals", round_items[10:12]))
+            rounds.append(Round("Semifinals", round_items[4:6]))
+            rounds.append(Round("Match for 7th and 8th places", round_items[15:16]))
+            rounds.append(Round("Match for 5th and 6th places", round_items[12:13]))
+            rounds.append(Round("Match for 3rd and 4th places", round_items[9:10]))
+            rounds.append(Round("Finals", round_items[6:7]))
+        bracket_rounds = [r for r in rounds if len(r.matches) > 0]
+        return bracket_rounds
+
+        
+
 
     
     def parse_swiss(self,swiss_url):
@@ -211,10 +227,6 @@ class MantraderClient:
 
         return rounds
 
-    @staticmethod
-    def reorder_decks(decks, standings, bracket):
-        # Placeholder for custom sorting logic
-        return decks
 
 
 
@@ -239,7 +251,7 @@ class TournamentList:
         swiss = client.parse_swiss(swiss_url)
 
         rounds = swiss + bracket
-        decks = client.reorder_decks(decks, standings, bracket)
+        decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
 
 
         return CacheItem(

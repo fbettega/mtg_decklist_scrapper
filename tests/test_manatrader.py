@@ -11,131 +11,165 @@ from datetime import datetime
 from Client.ManatraderClient import *
 
 
+@pytest.fixture
+def mana_trader_get_tournament_details_data():
+    tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
+    mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+    return mana_trader_get_tournament_details_data
+
 #######################################################################################################
 # StandingsLoaderTests
 @pytest.fixture
-def standings_data():
-    tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-    standings_data = TournamentList().get_tournament_details(tournament).standings
+def standings_data(mana_trader_get_tournament_details_data):
+    standings_data = mana_trader_get_tournament_details_data.standings
     return standings_data
 
 
+# Test functions
 def test_standings_count_is_correct(standings_data):
     assert len(standings_data) == 195
 
-
 def test_standings_have_players(standings_data):
     for standing in standings_data:
-        assert standing['Player'] is not None and standing['Player'] != ''
-
+        assert standing.player is not None and standing.player.strip() != ''
 
 def test_standings_have_rank(standings_data):
     for standing in standings_data:
-        assert standing['Rank'] > 0
-
+        assert standing.rank is not None and standing.rank > 0
 
 def test_standings_have_points(standings_data):
     for standing in standings_data[:32]:
-        assert standing['Points'] > 0
-
+        assert standing.points is not None and standing.points > 0
 
 def test_standings_have_omwp(standings_data):
     for standing in standings_data[:32]:
-        assert standing['OMWP'] > 0
+        assert standing.omwp is not None and standing.omwp > 0
 
-
-def test_decks_have_gwp(standings_data):
+def test_standings_have_gwp(standings_data):
     for standing in standings_data[:32]:
-        assert standing['GWP'] > 0
+        assert standing.gwp is not None and standing.gwp > 0
 
-
-def test_decks_have_ogwp(standings_data):
+def test_standings_have_ogwp(standings_data):
     for standing in standings_data[:32]:
-        assert standing['OGWP'] > 0
-
+        assert standing.ogwp is not None and standing.ogwp > 0
 
 def test_standing_data_is_correct(standings_data):
     test_standing = standings_data[0]
-    assert test_standing == Standing(1, "Fink64", 21, 0.659, 0.75, 0.584, 7, 1, 0)
-
-
-
-
+    expected_standing = Standing(
+        rank=1, 
+        player="Fink64", 
+        points=21, 
+        wins=7, 
+        losses=1, 
+        draws=0, 
+        omwp=0.659, 
+        gwp=0.75, 
+        ogwp=0.584
+    )
+    assert test_standing == expected_standing
 #######################################################################################################
 # BracketWithExtraMatchesLoaderTests
 # Données de test
 @pytest.fixture
-def test_data():
-    source = Mock()
-    source.get_tournament_details = Mock(return_value={
-        "Rounds": [
-            Round("Quarterfinals", [
-                RoundItem("zuri1988", "Fink64", "2-1-0"),
-                RoundItem("kvza", "Harry13", "2-0-0"),
-                RoundItem("ModiSapiras", "Daking3603", "2-0-0"),
-                RoundItem("Cinciu", "ScouterTF2", "2-0-0")
-            ]),
-            Round("Semifinals", [
-                RoundItem("kvza", "zuri1988", "2-1-0"),
-                RoundItem("ModiSapiras", "Cinciu", "2-0-0")
-            ]),
-            Round("Finals", [
-                RoundItem("ModiSapiras", "kvza", "2-0-0")
-            ])
-        ]
-    })
-    return source.get_tournament_details(Mock())
+def rounds_ExtraMatches_data():
+    rounds_ExtraMatches_data = [
+    round_ for round_ in  mana_trader_get_tournament_details_data.rounds
+    if not round_.round_name.startswith("Round")
+    ]
+    return rounds_ExtraMatches_data
 
 # Tests
-def test_bracket_item_count_is_correct(test_data):
-    assert len(test_data[0].matches) == 4  # Quarterfinals
-    assert len(test_data[1].matches) == 2  # Semifinals
-    assert len(test_data[2].matches) == 1  # Finals
+def test_bracket_item_count_is_correct(rounds_ExtraMatches_data):
+    assert len(next(r for r in rounds_ExtraMatches_data if r.round_name == "Quarterfinals").matches) == 4
+    assert len(next(r for r in rounds_ExtraMatches_data if r.round_name == "Semifinals").matches) == 2
+    assert len(next(r for r in rounds_ExtraMatches_data if r.round_name == "Finals").matches) == 1
 
-def test_bracket_items_have_winning_player(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_winning_player(rounds_ExtraMatches_data):
+    for round_data in rounds_ExtraMatches_data:
         for match in round_data.matches:
             assert match.player1 is not None
             assert match.player1 != ""
 
-def test_bracket_items_have_losing_player(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_losing_player(rounds_ExtraMatches_data):
+    for round_data in rounds_ExtraMatches_data:
         for match in round_data.matches:
             assert match.player2 is not None
             assert match.player2 != ""
 
-def test_bracket_items_have_result(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_result(rounds_ExtraMatches_data):
+    for round_data in rounds_ExtraMatches_data:
         for match in round_data.matches:
             assert match.result is not None
             assert match.result != ""
 
-def test_bracket_rounds_should_be_in_correct_order(test_data):
-    expected_round_names = ["Quarterfinals", "Semifinals", "Finals"]
-    actual_round_names = [round_data.round_name for round_data in test_data]
+def test_bracket_rounds_should_be_in_correct_order(rounds_ExtraMatches_data):
+    expected_round_names = [
+    "Quarterfinals",
+    "Loser Semifinals",
+    "Semifinals",
+    "Match for 7th and 8th places",
+    "Match for 5th and 6th places",
+    "Match for 3rd and 4th places",
+    "Finals"
+    ]
+    actual_round_names = [round_data.round_name for round_data in rounds_ExtraMatches_data]
     assert actual_round_names == expected_round_names
 
-def test_should_contain_extra_brackets(test_data):
-    assert len(test_data) == 3  # Expected 3 rounds: Quarterfinals, Semifinals, Finals
+def test_should_contain_extra_brackets(rounds_ExtraMatches_data):
+    assert len(rounds_ExtraMatches_data) == 7  
 
-def test_bracket_items_data_is_correct(test_data):
+def test_bracket_items_data_is_correct(rounds_ExtraMatches_data):
     expected = [
-        Round("Quarterfinals", [
-            RoundItem("zuri1988", "Fink64", "2-1-0"),
-            RoundItem("kvza", "Harry13", "2-0-0"),
-            RoundItem("ModiSapiras", "Daking3603", "2-0-0"),
-            RoundItem("Cinciu", "ScouterTF2", "2-0-0")
-        ]),
-        Round("Semifinals", [
-            RoundItem("kvza", "zuri1988", "2-1-0"),
-            RoundItem("ModiSapiras", "Cinciu", "2-0-0")
-        ]),
-        Round("Finals", [
-            RoundItem("ModiSapiras", "kvza", "2-0-0")
-        ])
-    ]
+        Round(
+            round_name="Quarterfinals",
+            matches=[
+                RoundItem(player1="zuri1988", player2="Fink64", result="2-1-0"),
+                RoundItem(player1="kvza", player2="Harry13", result="2-0-0"),
+                RoundItem(player1="ModiSapiras", player2="Daking3603", result="2-0-0"),
+                RoundItem(player1="Cinciu", player2="ScouterTF2", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Loser Semifinals",
+            matches=[
+                RoundItem(player1="Harry13", player2="Fink64", result="2-0-0"),
+                RoundItem(player1="Daking3603", player2="ScouterTF2", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Semifinals",
+            matches=[
+                RoundItem(player1="kvza", player2="zuri1988", result="2-1-0"),
+                RoundItem(player1="ModiSapiras", player2="Cinciu", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Match for 7th and 8th places",
+            matches=[
+                RoundItem(player1="ScouterTF2", player2="Fink64", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Match for 5th and 6th places",
+            matches=[
+                RoundItem(player1="Daking3603", player2="Harry13", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Match for 3rd and 4th places",
+            matches=[
+                RoundItem(player1="Cinciu", player2="zuri1988", result="2-0-0"),
+            ],
+        ),
+        Round(
+            round_name="Finals",
+            matches=[
+                RoundItem(player1="ModiSapiras", player2="kvza", result="2-0-0"),
+            ],
+        ),
+        ]
 
-    for round_data, expected_round in zip(test_data, expected):
+    for round_data, expected_round in zip(rounds_ExtraMatches_data, expected):
         assert round_data.round_name == expected_round.round_name
         for match, expected_match in zip(round_data.matches, expected_round.matches):
             assert match.player1 == expected_match.player1
@@ -147,60 +181,51 @@ def test_bracket_items_data_is_correct(test_data):
 # BracketWithoutExtraMatchesLoaderTests
 # Fixture pour fournir les données de test
 @pytest.fixture
-def test_data():
-    source = Mock()
-    source.get_tournament_details = Mock(return_value={
-        "Rounds": [
-            Round("Quarterfinals", [
-                RoundItem("sandoiche", "MentalMisstep", "2-0-0"),
-                RoundItem("stefanogs", "Paradise_lost", "2-0-0"),
-                RoundItem("Darthkid", "Promidnightz", "2-0-0"),
-                RoundItem("lynnchalice", "joaofelipen72", "2-0-0"),
-            ]),
-            Round("Semifinals", [
-                RoundItem("sandoiche", "stefanogs", "2-1-0"),
-                RoundItem("lynnchalice", "Darthkid", "2-0-0"),
-            ]),
-            Round("Finals", [
-                RoundItem("sandoiche", "lynnchalice", "2-0-0"),
-            ]),
+def test_bracketwithoutextramatches_data():
+    tournament = Tournament(uri="https://www.manatraders.com/tournaments/15/", date=datetime(2021, 4, 30))
+    rounds_total = TournamentList().get_tournament_details(tournament).rounds
+    test_bracketwithoutextramatches_data = [
+        round_ for round_ in  rounds_total
+        if not round_.round_name.startswith("Round")
         ]
-    })
-    return source.get_tournament_details(Mock())
+
+    return test_bracketwithoutextramatches_data
+
+
 
 # Tests
-def test_bracket_item_count_is_correct(test_data):
-    assert len(test_data[0].matches) == 4  # Quarterfinals
-    assert len(test_data[1].matches) == 2  # Semifinals
-    assert len(test_data[2].matches) == 1  # Finals
+def test_bracket_item_count_is_correct(test_bracketwithoutextramatches_data):
+    assert len(test_bracketwithoutextramatches_data[0].matches) == 4  # Quarterfinals
+    assert len(test_bracketwithoutextramatches_data[1].matches) == 2  # Semifinals
+    assert len(test_bracketwithoutextramatches_data[2].matches) == 1  # Finals
 
-def test_bracket_items_have_winning_player(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_winning_player(test_bracketwithoutextramatches_data):
+    for round_data in test_bracketwithoutextramatches_data:
         for match in round_data.matches:
             assert match.player1 is not None
             assert match.player1 != ""
 
-def test_bracket_items_have_losing_player(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_losing_player(test_bracketwithoutextramatches_data):
+    for round_data in test_bracketwithoutextramatches_data:
         for match in round_data.matches:
             assert match.player2 is not None
             assert match.player2 != ""
 
-def test_bracket_items_have_result(test_data):
-    for round_data in test_data:
+def test_bracket_items_have_result(test_bracketwithoutextramatches_data):
+    for round_data in test_bracketwithoutextramatches_data:
         for match in round_data.matches:
             assert match.result is not None
             assert match.result != ""
 
-def test_bracket_rounds_should_be_in_correct_order(test_data):
+def test_bracket_rounds_should_be_in_correct_order(test_bracketwithoutextramatches_data):
     expected_round_names = ["Quarterfinals", "Semifinals", "Finals"]
-    actual_round_names = [round_data.round_name for round_data in test_data]
+    actual_round_names = [round_data.round_name for round_data in test_bracketwithoutextramatches_data]
     assert actual_round_names == expected_round_names
 
-def test_should_not_contain_extra_brackets(test_data):
-    assert len(test_data) == 3  # Expected 3 rounds: Quarterfinals, Semifinals, Finals
+def test_should_not_contain_extra_brackets(test_bracketwithoutextramatches_data):
+    assert len(test_bracketwithoutextramatches_data) == 3  # Expected 3 rounds: Quarterfinals, Semifinals, Finals
 
-def test_bracket_items_data_is_correct(test_data):
+def test_bracket_items_data_is_correct(test_bracketwithoutextramatches_data):
     expected = [
         Round("Quarterfinals", [
             RoundItem("sandoiche", "MentalMisstep", "2-0-0"),
@@ -216,66 +241,22 @@ def test_bracket_items_data_is_correct(test_data):
             RoundItem("sandoiche", "lynnchalice", "2-0-0"),
         ]),
     ]
-
-    for round_data, expected_round in zip(test_data, expected):
+    for round_data, expected_round in zip(test_bracketwithoutextramatches_data, expected):
         assert round_data.round_name == expected_round.round_name
         for match, expected_match in zip(round_data.matches, expected_round.matches):
             assert match.player1 == expected_match.player1
             assert match.player2 == expected_match.player2
             assert match.result == expected_match.result
 
-
+# ici 
 #######################################################################################################
 # DeckLoaderTests
-
 # Fixture pour fournir les données de test
 @pytest.fixture
-def test_data():
+def test_decks_data(mana_trader_get_tournament_details_data):
     # Mock de la source des données
-    decks = [
-        # Inclure ici des exemples simulés de decks (résumés pour simplifier)
-        Deck("Player1", None, None, "Result1", [DeckItem("CardA", 4)], [DeckItem("CardB", 2)]),
-        # Ajoutez d'autres decks si nécessaire, y compris le deck utilisé pour le test DeckDataIsCorrect
-        Deck(
-            "Fink64",
-            "https://www.manatraders.com/webshop/personal/874208",
-            None,
-            "8th Place",
-            [
-                DeckItem("Mausoleum Wanderer", 4),
-                DeckItem("Spectral Sailor", 4),
-                DeckItem("Rattlechains", 4),
-                DeckItem("Selfless Spirit", 1),
-                DeckItem("Shacklegeist", 4),
-                DeckItem("Supreme Phantom", 4),
-                DeckItem("Empyrean Eagle", 3),
-                DeckItem("Katilda, Dawnhart Martyr", 1),
-                DeckItem("Skyclave Apparition", 4),
-                DeckItem("Spell Queller", 4),
-                DeckItem("Collected Company", 4),
-                DeckItem("Botanical Sanctum", 4),
-                DeckItem("Branchloft Pathway", 4),
-                DeckItem("Breeding Pool", 1),
-                DeckItem("Eiganjo, Seat of the Empire", 1),
-                DeckItem("Hallowed Fountain", 4),
-                DeckItem("Hengegate Pathway", 4),
-                DeckItem("Island", 1),
-                DeckItem("Mana Confluence", 1),
-                DeckItem("Otawara, Soaring City", 1),
-                DeckItem("Secluded Courtyard", 1),
-                DeckItem("Temple Garden", 1),
-            ],
-            [
-                DeckItem("Portable Hole", 2),
-                DeckItem("Shapers' Sanctuary", 2),
-                DeckItem("Lofty Denial", 4),
-                DeckItem("Rest in Peace", 2),
-                DeckItem("Selfless Spirit", 1),
-                DeckItem("Extraction Specialist", 4),
-            ],
-        ),
-    ]
-    return decks
+    test_decks_data = mana_trader_get_tournament_details_data.decks
+    return test_decks_data
 
 # Tests
 def test_deck_count_is_correct(test_data):
