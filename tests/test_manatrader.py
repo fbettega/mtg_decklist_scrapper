@@ -248,7 +248,7 @@ def test_bracket_items_data_is_correct(test_bracketwithoutextramatches_data):
             assert match.player2 == expected_match.player2
             assert match.result == expected_match.result
 
-# ici 
+
 #######################################################################################################
 # DeckLoaderTests
 # Fixture pour fournir les données de test
@@ -259,36 +259,36 @@ def test_decks_data(mana_trader_get_tournament_details_data):
     return test_decks_data
 
 # Tests
-def test_deck_count_is_correct(test_data):
-    assert len(test_data) == 194  # Attendu : 194 decks
+def test_deck_count_is_correct(test_decks_data):
+    assert len(test_decks_data) == 194  # Attendu : 194 decks
 
-def test_decks_dont_have_date(test_data):
-    for deck in test_data:
+def test_decks_dont_have_date(test_decks_data):
+    for deck in test_decks_data:
         assert deck.date is None
 
-def test_decks_have_players(test_data):
-    for deck in test_data:
+def test_decks_have_players(test_decks_data):
+    for deck in test_decks_data:
         assert deck.player is not None
         assert deck.player != ""
 
-def test_decks_have_mainboards(test_data):
-    for deck in test_data:
+def test_decks_have_mainboards(test_decks_data):
+    for deck in test_decks_data:
         assert len(deck.mainboard) > 0
 
-def test_decks_have_sideboards(test_data):
-    for deck in test_data:
+def test_decks_have_sideboards(test_decks_data):
+    for deck in test_decks_data:
         assert len(deck.sideboard) > 0
 
-def test_decks_have_valid_mainboards(test_data):
-    for deck in test_data:
+def test_decks_have_valid_mainboards(test_decks_data):
+    for deck in test_decks_data:
         assert sum(item.count for item in deck.mainboard) >= 60
 
-def test_decks_have_valid_sideboards(test_data):
-    for deck in test_data:
+def test_decks_have_valid_sideboards(test_decks_data):
+    for deck in test_decks_data:
         assert sum(item.count for item in deck.sideboard) <= 15
 
-def test_deck_data_is_correct(test_data):
-    test_deck = test_data[1]  # L'exemple de test
+def test_deck_data_is_correct(test_decks_data):
+    test_deck = test_decks_data[7]  # L'exemple de test
     assert test_deck.player == "Fink64"
     assert test_deck.anchor_uri == "https://www.manatraders.com/webshop/personal/874208"
     assert test_deck.date is None
@@ -297,14 +297,14 @@ def test_deck_data_is_correct(test_data):
     assert len(test_deck.sideboard) == 6
     assert any(item.card_name == "Mausoleum Wanderer" and item.count == 4 for item in test_deck.mainboard)
 
-def test_should_apply_top8_ordering_to_decks(test_data):
+def test_should_apply_top8_ordering_to_decks(test_decks_data):
     top8 = ["ModiSapiras", "kvza", "Cinciu", "zuri1988", "Daking3603", "Harry13", "ScouterTF2", "Fink64"]
-    actual_top8 = [deck.player for deck in test_data[:8]]
+    actual_top8 = [deck.player for deck in test_decks_data[:8]]
     assert actual_top8 == top8
 
+# ici 
 #######################################################################################################
 # RoundsLoaderTests
-
 @pytest.fixture
 def test_data():
     source = ManaTradersSource()
