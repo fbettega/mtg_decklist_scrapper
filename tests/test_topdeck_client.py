@@ -164,17 +164,6 @@ def tournamentsLoader():
     tournamentsLoader = client.get_tournament_list(request)
     return tournamentsLoader
 
-# client = TopdeckClient()
-# request = TopdeckTournamentRequest(
-# game='Magic: The Gathering',
-# format='Legacy',
-# start=int(datetime(2024, 12, 6, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
-# end=int(datetime(2024, 12, 8, 0, 0, 0, tzinfo=timezone.utc).timestamp()),
-# columns=['name', 'id', 'decklist', 'wins', 'losses', 'draws', 'deckSnapshot']
-# )
-# tournamentsLoader = client.get_tournament_list(request)
-
-
 def test_should_load_tournaments(tournamentsLoader):
     assert tournamentsLoader is not None and len(tournamentsLoader) > 0
 

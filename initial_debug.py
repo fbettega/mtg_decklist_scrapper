@@ -12,7 +12,7 @@ from datetime import datetime
 from models.base_model import *
 from comon_tools.tools import *
 from models.Topdeck_model import *
-from Client.TopDeckClient import *
+from Client.ManatraderClient import *
 
 # try:
 #     client = MtgMeleeClient()
@@ -30,13 +30,8 @@ from Client.TopDeckClient import *
 
 def main():
     try:
-        get_test_data = TournamentList().get_tournament_details(
-            Tournament(
-                name="The Island Vacation",
-                date= datetime(2024, 12, 7, 0, 0, 0, tzinfo=timezone.utc),
-                uri="https://topdeck.gg/event/z97Wwe0sadHGT2ymc5Ss"
-        )
-        )
+        tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
+        standings_data = TournamentList().get_tournament_details(tournament)
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur

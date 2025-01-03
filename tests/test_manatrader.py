@@ -8,11 +8,61 @@ from datetime import datetime
 # pytest .\tests\MtgMelee.py 
 # pytest .\tests\
 # Réimporter tous les objets exportés par le module
-from Client.MtgMeleeClient import *
+from Client.ManatraderClient import *
+
+
+#######################################################################################################
+# StandingsLoaderTests
+@pytest.fixture
+def standings_data():
+    tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
+    standings_data = TournamentList().get_tournament_details(tournament).standings
+    return standings_data
+
+
+def test_standings_count_is_correct(standings_data):
+    assert len(standings_data) == 195
+
+
+def test_standings_have_players(standings_data):
+    for standing in standings_data:
+        assert standing['Player'] is not None and standing['Player'] != ''
+
+
+def test_standings_have_rank(standings_data):
+    for standing in standings_data:
+        assert standing['Rank'] > 0
+
+
+def test_standings_have_points(standings_data):
+    for standing in standings_data[:32]:
+        assert standing['Points'] > 0
+
+
+def test_standings_have_omwp(standings_data):
+    for standing in standings_data[:32]:
+        assert standing['OMWP'] > 0
+
+
+def test_decks_have_gwp(standings_data):
+    for standing in standings_data[:32]:
+        assert standing['GWP'] > 0
+
+
+def test_decks_have_ogwp(standings_data):
+    for standing in standings_data[:32]:
+        assert standing['OGWP'] > 0
+
+
+def test_standing_data_is_correct(standings_data):
+    test_standing = standings_data[0]
+    assert test_standing == Standing(1, "Fink64", 21, 0.659, 0.75, 0.584, 7, 1, 0)
+
+
+
 
 #######################################################################################################
 # BracketWithExtraMatchesLoaderTests
-
 # Données de test
 @pytest.fixture
 def test_data():
@@ -329,54 +379,6 @@ def test_round_data_is_correct_no_bracket(test_data_no_bracket):
     test_round = test_data_no_bracket[0]
     assert test_round['RoundName'] == "Round 1"
     assert test_round['Matches'][0] == RoundItem("sneakymisato", "Mogged", "0-2-0")
-
-
-#######################################################################################################
-# StandingsLoaderTests
-@pytest.fixture
-def standings_data():
-    source = ManaTradersSource()
-    tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-    return source.GetTournamentDetails(tournament).Standings
-
-
-def test_standings_count_is_correct(standings_data):
-    assert len(standings_data) == 195
-
-
-def test_standings_have_players(standings_data):
-    for standing in standings_data:
-        assert standing['Player'] is not None and standing['Player'] != ''
-
-
-def test_standings_have_rank(standings_data):
-    for standing in standings_data:
-        assert standing['Rank'] > 0
-
-
-def test_standings_have_points(standings_data):
-    for standing in standings_data[:32]:
-        assert standing['Points'] > 0
-
-
-def test_standings_have_omwp(standings_data):
-    for standing in standings_data[:32]:
-        assert standing['OMWP'] > 0
-
-
-def test_decks_have_gwp(standings_data):
-    for standing in standings_data[:32]:
-        assert standing['GWP'] > 0
-
-
-def test_decks_have_ogwp(standings_data):
-    for standing in standings_data[:32]:
-        assert standing['OGWP'] > 0
-
-
-def test_standing_data_is_correct(standings_data):
-    test_standing = standings_data[0]
-    assert test_standing == Standing(1, "Fink64", 21, 0.659, 0.75, 0.584, 7, 1, 0)
 
 
 
