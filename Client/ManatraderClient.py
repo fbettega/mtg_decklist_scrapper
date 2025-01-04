@@ -268,27 +268,20 @@ class MantraderClient:
 
     def calculate_stats_for_matches(self,matches: List[RoundItem], standings: List[Standing]):
         # Initialiser les stats
-        stats = {
-            "Rank": None,
-            "Points": 0,
-            "Wins": 0,
-            "Losses": 0,
-            "Draws": 0,
-            "OMP": 0.0,
-            "GWP": 0.0,
-            "OGP": 0.0,
-        }
-        # Variables auxiliaires pour GWP et OGP
+        points = 0
+        wins = 0
+        losses = 0
+        draws = 0
         total_games_played = 0
         total_games_won = 0
         opponents = set()
 
-        # Parcourir les matchs
+        # Variables auxiliaires pour GWP et OGP
         player_names = {standing.player for standing in standings}
 
         # Parcourir les matchs
         for match in matches:
-            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+            p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
 
             # Identifier le joueur et son adversaire
             if match.player1 in player_names:
@@ -303,23 +296,22 @@ class MantraderClient:
                 continue  # Ignorer les matchs dont les joueurs ne sont pas dans standings
 
             # Calculer les victoires, défaites et égalités
-            stats["Wins"] += player_wins
-            stats["Losses"] += player_losses
-            stats["Draws"] += draws
+            wins += player_wins
+            losses += player_losses
+            draws += draws_
 
             # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
-            stats["Points"] += 3 * player_wins + draws
+            points += 3 * player_wins + draws_
 
             # Ajouter aux jeux joués et gagnés
-            total_games_played += player_wins + player_losses + draws
+            total_games_played += player_wins + player_losses + draws_
             total_games_won += player_wins
 
             # Ajouter l'adversaire à la liste
             opponents.add(opponent)
 
         # Calculer GWP (Game-Win Percentage)
-        if total_games_played > 0:
-            stats["GWP"] = total_games_won / total_games_played
+        gwp = total_games_won / total_games_played if total_games_played > 0 else 0.33
 
         # Calculer OMP (Opponents’ Match-Win Percentage)
         opponent_match_points = 0
@@ -330,8 +322,7 @@ class MantraderClient:
                 opponent_match_points += opponent_standing.points
                 opponent_total_matches += 3 * len(matches)  # Nombre de rounds (approximé ici)
 
-        if opponent_total_matches > 0:
-            stats["OMP"] = opponent_match_points / opponent_total_matches
+        omwp = opponent_match_points / opponent_total_matches if opponent_total_matches > 0 else 0.33
 
         # Calculer OGP (Opponents’ Game-Win Percentage)
         opponent_game_wins = 0
@@ -342,20 +333,31 @@ class MantraderClient:
                 opponent_game_wins += opponent_standing.wins
                 opponent_game_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
 
-        if opponent_game_total > 0:
-            stats["OGP"] = opponent_game_wins / opponent_game_total
+        ogwp = opponent_game_wins / opponent_game_total if opponent_game_total > 0 else 0.33
 
         # Calculer le rang du joueur en fonction des points
         standings_with_updated_points = sorted(
-            standings + [Standing(player=player, points=stats["Points"])],
+            standings + [Standing(player=player, points=points)],
             key=lambda s: s.points,
             reverse=True,
         )
-        stats["Rank"] = next(
+        rank = next(
             (i + 1 for i, s in enumerate(standings_with_updated_points) if s.player == player),
             None,
         )
-        return stats
+
+        # Créer et retourner l'objet Standing avec les valeurs calculées
+        return Standing(
+            rank=rank,
+            player=player,
+            points=points,
+            wins=wins,
+            losses=losses,
+            draws=draws,
+            omwp=omwp,
+            gwp=gwp,
+            ogwp=ogwp
+        )
     
 
     def calculate_player_stats(self, rounds: List[Round], standings: List[Standing]) -> Tuple[Dict[str, List[Dict]], List[str], List[str]]: 
@@ -396,7 +398,7 @@ class MantraderClient:
 
                     # Obtenir toutes les permutations possibles des joueurs réels pour ce round
                     for perm in permutations(actual_players, len(matches)):
-                        replaced_matches = []
+                        replaced_matches = defaultdict(list) 
                         for (role, match), player in zip(matches, perm):
                             # Créer une copie du match avec le joueur masqué remplacé
                             new_match = RoundItem(
@@ -404,7 +406,7 @@ class MantraderClient:
                                 player2=match.player2 if role != 'player2' else player,
                                 result=match.result,
                             )
-                            replaced_matches.append(new_match)
+                            replaced_matches[player].append(new_match)
                         
                         # Ajouter la combinaison de matchs pour ce round
                         round_combinations.append(replaced_matches)
@@ -415,39 +417,20 @@ class MantraderClient:
                 # Générer toutes les combinaisons possibles entre les rounds
                 assignments_per_masked[masked] = list(product(*per_round_assignments))            
 
-            # for masked, matches_info in masked_matches.items():
-            #     actual_players = masked_to_actual[masked]
-            #     per_round_assignments = []  # Contient les combinaisons possibles par round
-            #     # Organiser les matchs par round
-            #     matches_by_round = defaultdict(list)
-            #     for role, round_name, match in matches_info:
-            #         matches_by_round[round_name].append((role, match))
-            #     # Générer les permutations pour chaque round
-            #     for round_name, matches in matches_by_round.items():
-            #         round_combinations = []
-            #         for match_info in matches:
-            #             role, match = match_info
-            #             # Créer toutes les permutations en remplaçant le joueur masqué
-            #             for player in actual_players:
-            #                 # Copier le match pour éviter d'écraser les données originales
-            #                 new_match = RoundItem(
-            #                     player1=match.player1 if role != 'player1' else player,
-            #                     player2=match.player2 if role != 'player2' else player,
-            #                     result=match.result,
-            #                 )
-            #                 round_combinations.append(new_match)
-            #         # Ajouter les combinaisons de ce round aux résultats globaux
-            #         per_round_assignments.append(round_combinations)
-                # Générer toutes les combinaisons possibles entre les rounds
-                # assignments_per_masked[masked] = list(product(*per_round_assignments))
 
+            # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
             recalculated_stats = {}
+
             for masked_name, match_combinations in assignments_per_masked.items():
                 player_stats_for_combinations = []
 
+                # Parcourir chaque combinaison de matchs
                 for combination in match_combinations:
-                    # Chaque combination est une liste de RoundItem correspondant aux 9 rounds.
-                    all_matches = list(combination)  # Extraire directement les RoundItem de la combinaison.
+                    all_matches = []
+
+                    # Pour chaque round dans la combinaison, ajouter les matchs
+                    for round_matches in combination:
+                        all_matches.extend(round_matches)  # Étendre pour inclure tous les matchs du round
 
                     # Recalculer les statistiques pour ces matchs
                     stats = self.calculate_stats_for_matches(all_matches, standings)
@@ -457,6 +440,9 @@ class MantraderClient:
 
                 # Stocker les statistiques recalculées pour ce joueur masqué
                 recalculated_stats[masked_name] = player_stats_for_combinations
+
+            # Comparaison des recalculated_stats avec les standings pour identifier la permutation correcte
+            correct_assignments = {}
 
 
 

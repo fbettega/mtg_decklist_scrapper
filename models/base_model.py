@@ -76,9 +76,26 @@ class Standing:
             f"OMWP={self.omwp:.2f}, GWP={self.gwp:.2f}, OGWP={self.ogwp:.2f})"
         )
 
+    def get_significant_digits(self, value: float) -> int:
+        """Calcule le nombre de chiffres significatifs d'un nombre flottant."""
+        if value is None:
+            return 0
+        d = decimal.Decimal(str(value))
+        # Exclure les parties non significatives après la virgule
+        return max(d.as_tuple().exponent, -d.as_tuple().exponent)  # Nombre de chiffres après la virgule
+
     def __eq__(self, other):
         if not isinstance(other, Standing):
             return NotImplemented
+        
+        def float_equals(a, b):
+            # Calculer le nombre de chiffres significatifs de chaque nombre
+            digits_a = self.get_significant_digits(a)
+            digits_b = self.get_significant_digits(b)
+            # La tolérance est donnée par le plus petit nombre de chiffres significatifs entre les deux valeurs
+            tolerance = 10 ** -min(digits_a, digits_b)
+            return abs(a - b) <= tolerance
+
         return (
             self.rank == other.rank and
             self.player == other.player and
@@ -86,9 +103,9 @@ class Standing:
             self.wins == other.wins and
             self.losses == other.losses and
             self.draws == other.draws and
-            self.omwp == other.omwp and
-            self.gwp == other.gwp and
-            self.ogwp == other.ogwp
+            float_equals(self.omwp, other.omwp) and
+            float_equals(self.gwp, other.gwp) and
+            float_equals(self.ogwp, other.ogwp)
         )
     
     def to_dict(self):
