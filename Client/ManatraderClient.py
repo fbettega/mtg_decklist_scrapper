@@ -380,33 +380,66 @@ class MantraderClient:
 
             # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
             assignments_per_masked = {}
+
             for masked, matches_info in masked_matches.items():
                 actual_players = masked_to_actual[masked]
                 per_round_assignments = []  # Contient les combinaisons possibles par round
+
                 # Organiser les matchs par round
                 matches_by_round = defaultdict(list)
                 for role, round_name, match in matches_info:
                     matches_by_round[round_name].append((role, match))
-
+                
                 # Générer les permutations pour chaque round
                 for round_name, matches in matches_by_round.items():
                     round_combinations = []
-                    for match_info in matches:
-                        role, match = match_info
 
-                        # Créer toutes les permutations en remplaçant le joueur masqué
-                        for player in actual_players:
-                            # Copier le match pour éviter d'écraser les données originales
+                    # Obtenir toutes les permutations possibles des joueurs réels pour ce round
+                    for perm in permutations(actual_players, len(matches)):
+                        replaced_matches = []
+                        for (role, match), player in zip(matches, perm):
+                            # Créer une copie du match avec le joueur masqué remplacé
                             new_match = RoundItem(
                                 player1=match.player1 if role != 'player1' else player,
                                 player2=match.player2 if role != 'player2' else player,
                                 result=match.result,
                             )
-                            round_combinations.append(new_match)
+                            replaced_matches.append(new_match)
+                        
+                        # Ajouter la combinaison de matchs pour ce round
+                        round_combinations.append(replaced_matches)
+
                     # Ajouter les combinaisons de ce round aux résultats globaux
                     per_round_assignments.append(round_combinations)
+                
                 # Générer toutes les combinaisons possibles entre les rounds
-                assignments_per_masked[masked] = list(product(*per_round_assignments))
+                assignments_per_masked[masked] = list(product(*per_round_assignments))            
+
+            # for masked, matches_info in masked_matches.items():
+            #     actual_players = masked_to_actual[masked]
+            #     per_round_assignments = []  # Contient les combinaisons possibles par round
+            #     # Organiser les matchs par round
+            #     matches_by_round = defaultdict(list)
+            #     for role, round_name, match in matches_info:
+            #         matches_by_round[round_name].append((role, match))
+            #     # Générer les permutations pour chaque round
+            #     for round_name, matches in matches_by_round.items():
+            #         round_combinations = []
+            #         for match_info in matches:
+            #             role, match = match_info
+            #             # Créer toutes les permutations en remplaçant le joueur masqué
+            #             for player in actual_players:
+            #                 # Copier le match pour éviter d'écraser les données originales
+            #                 new_match = RoundItem(
+            #                     player1=match.player1 if role != 'player1' else player,
+            #                     player2=match.player2 if role != 'player2' else player,
+            #                     result=match.result,
+            #                 )
+            #                 round_combinations.append(new_match)
+            #         # Ajouter les combinaisons de ce round aux résultats globaux
+            #         per_round_assignments.append(round_combinations)
+                # Générer toutes les combinaisons possibles entre les rounds
+                # assignments_per_masked[masked] = list(product(*per_round_assignments))
 
             recalculated_stats = {}
             for masked_name, match_combinations in assignments_per_masked.items():
