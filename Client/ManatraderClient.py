@@ -266,7 +266,7 @@ class MantraderClient:
 #test1
 #########################################################################################################
 
-    def calculate_stats_for_matches(self,matches: List[RoundItem], standings: List[Standing]):
+    def calculate_stats_for_matches(self, player: str, matches: List[RoundItem], standings: List[Standing]):
         # Initialiser les stats
         points = 0
         wins = 0
@@ -283,17 +283,15 @@ class MantraderClient:
         for match in matches:
             p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
 
-            # Identifier le joueur et son adversaire
-            if match.player1 in player_names:
-                player = match.player1
+            # Identifier l'adversaire
+            if match.player1 == player:
                 opponent = match.player2
                 player_wins, player_losses = p1_wins, p2_wins
-            elif match.player2 in player_names:
-                player = match.player2
+            elif match.player2 == player:
                 opponent = match.player1
                 player_wins, player_losses = p2_wins, p1_wins
             else:
-                continue  # Ignorer les matchs dont les joueurs ne sont pas dans standings
+                continue  # Ignorer les matchs où le joueur n'est pas impliqué
 
             # Calculer les victoires, défaites et égalités
             wins += player_wins
@@ -334,7 +332,7 @@ class MantraderClient:
                 opponent_game_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
 
         ogwp = opponent_game_wins / opponent_game_total if opponent_game_total > 0 else 0.33
-
+        
         # Calculer le rang du joueur en fonction des points
         standings_with_updated_points = sorted(
             standings + [Standing(player=player, points=points)],
@@ -345,10 +343,9 @@ class MantraderClient:
             (i + 1 for i, s in enumerate(standings_with_updated_points) if s.player == player),
             None,
         )
-
         # Créer et retourner l'objet Standing avec les valeurs calculées
         return Standing(
-            rank=rank,
+            rank=rank,  # Le classement est optionnel ici
             player=player,
             points=points,
             wins=wins,
@@ -425,29 +422,86 @@ class MantraderClient:
                 # Parcourir chaque combinaison (liste de tuples contenant des dictionnaires)
                 for combination in match_combinations:
                     stats_for_combination = {}  # Dictionnaire pour stocker les stats des joueurs/pairs dans cette combinaison
-
                     # Parcourir les dictionnaires dans le tuple
                     for player_dict in combination:
                         # Chaque `player_dict` est un dictionnaire où la clé est le joueur ou la paire
                         # et la valeur est la liste de matchs associée
                         for player, matches in player_dict.items():
                             # Recalculer les statistiques pour ce joueur ou cette paire
-                            stats = self.calculate_stats_for_matches(matches, standings)
-
+                            stats = self.calculate_stats_for_matches(player,matches, standings)
                             # Ajouter les statistiques recalculées pour ce joueur/pair
                             stats_for_combination[player] = stats
-
                     # Ajouter les stats pour cette combinaison aux résultats globaux
                     player_stats_for_combinations.append(stats_for_combination)
-
                 # Stocker les statistiques recalculées pour ce joueur masqué
                 recalculated_stats[masked_name] = player_stats_for_combinations
 
+            # Créer un dictionnaire pour un accès rapide aux standings réels par joueur
+            real_standings_by_player = {standing.player: standing for standing in standings}
+            # Résultat final : joueur masqué -> liste des combinaisons correspondantes
+
+            matching_combinations = {}
+            for masked_name, player_combinations in recalculated_stats.items():
+                matching_combinations[masked_name] = []
+                # Parcourir chaque combinaison
+                for combination_index, combination in enumerate(player_combinations):
+                    is_matching = True
+                    # Vérifier uniquement les standings pour les joueurs correspondants
+                    list_of_combination = list(combination.items())
+                    for player, recalculated_standing in list_of_combination:
+                        real_standing = real_standings_by_player.get(player)
+                        # Si le standing réel n'existe pas, ou si le standing recalculé ne correspond pas, marquer comme invalide
+                        print(f"Comparing {player}: Real standing = {real_standing}, Recalculated standing = {recalculated_standing}")
+                        if not real_standing:
+                            is_matching = False
+                            break
+                        if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
+                            is_matching = False
+                            break
+                    # Si tous les standings correspondent, l'ajouter à la liste des combinaisons valides
+                    if is_matching:
+                        matching_combinations[masked_name].append(combination_index)
 
 
 
+            # matching_combinations = {}
+
+            # for masked_name, player_combinations in recalculated_stats.items():
+            #     matching_combinations[masked_name] = []
+            #     # Parcourir chaque combinaison
+            #     for combination_index, combination in enumerate(player_combinations):
+            #         is_matching = True
+            #         # Vérifier uniquement les standings pour les joueurs correspondants
+            #         for player, recalculated_standing in combination.items():
+            #             real_standing = real_standings_by_player.get(player)
+            #             # Si le standing réel n'existe pas ou ne correspond pas, la combinaison est invalide
+            #             if real_standing and real_standing.points == recalculated_standing.points:
+            #                 print(f"Comparing {player}: Real standing = {real_standing}, Recalculated standing = {recalculated_standing}")
+            #             if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
+            #             #if not real_standing or real_standing != recalculated_standing:
+            #                 is_matching = False
+            #                 break
+            #             # Si la combinaison correspond exactement, l'ajouter à la liste
+            #             if is_matching:
+            #                 matching_combinations[masked_name].append(combination_index)
+
+            print("aaaaaaa")
+            return matching_combinations
 
 
+
+    def compare_standings(self,real_standing, recalculated_standing):
+        """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
+        return (
+            # real_standing.rank == recalculated_standing.rank and
+            real_standing.points == recalculated_standing.points # and
+            # real_standing.wins == recalculated_standing.wins and
+            # real_standing.losses == recalculated_standing.losses  and
+            # real_standing.draws == recalculated_standing.draws  and
+            # real_standing.omwp == recalculated_standing.omwp and
+            # real_standing.gwp == recalculated_standing.gwp and
+            # real_standing.ogwp == recalculated_standing.ogwp
+        )
 
 
 
