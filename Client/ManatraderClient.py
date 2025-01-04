@@ -416,33 +416,37 @@ class MantraderClient:
                 
                 # Générer toutes les combinaisons possibles entre les rounds
                 assignments_per_masked[masked] = list(product(*per_round_assignments))            
-
-
             # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
             recalculated_stats = {}
 
             for masked_name, match_combinations in assignments_per_masked.items():
                 player_stats_for_combinations = []
 
-                # Parcourir chaque combinaison de matchs
+                # Parcourir chaque combinaison (liste de tuples contenant des dictionnaires)
                 for combination in match_combinations:
-                    all_matches = []
+                    stats_for_combination = {}  # Dictionnaire pour stocker les stats des joueurs/pairs dans cette combinaison
 
-                    # Pour chaque round dans la combinaison, ajouter les matchs
-                    for round_matches in combination:
-                        all_matches.extend(round_matches)  # Étendre pour inclure tous les matchs du round
+                    # Parcourir les dictionnaires dans le tuple
+                    for player_dict in combination:
+                        # Chaque `player_dict` est un dictionnaire où la clé est le joueur ou la paire
+                        # et la valeur est la liste de matchs associée
+                        for player, matches in player_dict.items():
+                            # Recalculer les statistiques pour ce joueur ou cette paire
+                            stats = self.calculate_stats_for_matches(matches, standings)
 
-                    # Recalculer les statistiques pour ces matchs
-                    stats = self.calculate_stats_for_matches(all_matches, standings)
+                            # Ajouter les statistiques recalculées pour ce joueur/pair
+                            stats_for_combination[player] = stats
 
-                    # Ajouter les statistiques recalculées aux résultats
-                    player_stats_for_combinations.append(stats)
+                    # Ajouter les stats pour cette combinaison aux résultats globaux
+                    player_stats_for_combinations.append(stats_for_combination)
 
                 # Stocker les statistiques recalculées pour ce joueur masqué
                 recalculated_stats[masked_name] = player_stats_for_combinations
 
-            # Comparaison des recalculated_stats avec les standings pour identifier la permutation correcte
-            correct_assignments = {}
+
+
+
+
 
 
 
