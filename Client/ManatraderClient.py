@@ -414,11 +414,12 @@ class MantraderClient:
                 # Générer toutes les combinaisons possibles entre les rounds
                 assignments_per_masked[masked] = list(product(*per_round_assignments))            
             # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
-            recalculated_stats = {}
 
+# j'en suis ici il y a au moins 2 problème adapté calculate_stats_for_matches pour qu'il prenne l'ensemble des match d'un joueurs et lui passer l'ensemble des matchs
+#  au passage ont peut optimiser les combinaisons si un joueurs drop seul 1 joueurs peux continuer
+            recalculated_stats = {}
             for masked_name, match_combinations in assignments_per_masked.items():
                 player_stats_for_combinations = []
-
                 # Parcourir chaque combinaison (liste de tuples contenant des dictionnaires)
                 for combination in match_combinations:
                     stats_for_combination = {}  # Dictionnaire pour stocker les stats des joueurs/pairs dans cette combinaison
