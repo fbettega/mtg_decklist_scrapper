@@ -278,27 +278,29 @@ class MantraderClient:
             "GWP": 0.0,
             "OGP": 0.0,
         }
-
         # Variables auxiliaires pour GWP et OGP
         total_games_played = 0
         total_games_won = 0
         opponents = set()
 
         # Parcourir les matchs
+        player_names = {standing.player for standing in standings}
+
+        # Parcourir les matchs
         for match in matches:
             p1_wins, p2_wins, draws = map(int, match.result.split('-'))
 
             # Identifier le joueur et son adversaire
-            if match.player1 in stats:
+            if match.player1 in player_names:
                 player = match.player1
                 opponent = match.player2
                 player_wins, player_losses = p1_wins, p2_wins
-            elif match.player2 in stats:
+            elif match.player2 in player_names:
                 player = match.player2
                 opponent = match.player1
                 player_wins, player_losses = p2_wins, p1_wins
             else:
-                continue
+                continue  # Ignorer les matchs dont les joueurs ne sont pas dans standings
 
             # Calculer les victoires, défaites et égalités
             stats["Wins"] += player_wins
@@ -317,7 +319,7 @@ class MantraderClient:
 
         # Calculer GWP (Game-Win Percentage)
         if total_games_played > 0:
-            stats["GWP"] = max(total_games_won / total_games_played, 0.33)
+            stats["GWP"] = total_games_won / total_games_played
 
         # Calculer OMP (Opponents’ Match-Win Percentage)
         opponent_match_points = 0
@@ -329,7 +331,7 @@ class MantraderClient:
                 opponent_total_matches += 3 * len(matches)  # Nombre de rounds (approximé ici)
 
         if opponent_total_matches > 0:
-            stats["OMP"] = max(opponent_match_points / opponent_total_matches, 0.33)
+            stats["OMP"] = opponent_match_points / opponent_total_matches
 
         # Calculer OGP (Opponents’ Game-Win Percentage)
         opponent_game_wins = 0
@@ -341,20 +343,20 @@ class MantraderClient:
                 opponent_game_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
 
         if opponent_game_total > 0:
-            stats["OGP"] = max(opponent_game_wins / opponent_game_total, 0.33)
+            stats["OGP"] = opponent_game_wins / opponent_game_total
 
+        # Calculer le rang du joueur en fonction des points
+        standings_with_updated_points = sorted(
+            standings + [Standing(player=player, points=stats["Points"])],
+            key=lambda s: s.points,
+            reverse=True,
+        )
+        stats["Rank"] = next(
+            (i + 1 for i, s in enumerate(standings_with_updated_points) if s.player == player),
+            None,
+        )
         return stats
     
-    def get_opponents(self, player: str, rounds: List[Round]) -> List[str]:
-        """Retourne la liste des adversaires d'un joueur dans tous les rounds."""
-        opponents = set()
-        for rnd in rounds:
-            for match in rnd.matches:
-                if match.player1 == player:
-                    opponents.add(match.player2)
-                elif match.player2 == player:
-                    opponents.add(match.player1)
-        return list(opponents)
 
     def calculate_player_stats(self, rounds: List[Round], standings: List[Standing]) -> Tuple[Dict[str, List[Dict]], List[str], List[str]]: 
             # Étape 1 : Mapper les noms masqués aux joueurs réels
@@ -363,14 +365,6 @@ class MantraderClient:
                 if standing.player:
                     masked_name = f"{standing.player[0]}{'*' * 10}{standing.player[-1]}"
                     masked_to_actual[masked_name].append(standing.player)
-            
-            # Étape 2 : Collecter les matchs par joueur
-            # player_matches = defaultdict(list)
-            # for rnd in rounds:
-            #     for match in rnd.matches:
-            #         player_matches[match.player1].append(match)
-            #         player_matches[match.player2].append(match)
-            
             # Étape 3 : Identifier les joueurs dupliqués (nom masqué avec plusieurs joueurs réels)
             duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}
             
@@ -383,15 +377,12 @@ class MantraderClient:
                             masked_matches[masked].append(('player1', rnd.round_name, match))
                         if match.player2 == masked:
                             masked_matches[masked].append(('player2', rnd.round_name, match))
-            
 
             # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
             assignments_per_masked = {}
-
             for masked, matches_info in masked_matches.items():
                 actual_players = masked_to_actual[masked]
                 per_round_assignments = []  # Contient les combinaisons possibles par round
-
                 # Organiser les matchs par round
                 matches_by_round = defaultdict(list)
                 for role, round_name, match in matches_info:
@@ -412,74 +403,27 @@ class MantraderClient:
                                 result=match.result,
                             )
                             round_combinations.append(new_match)
-
                     # Ajouter les combinaisons de ce round aux résultats globaux
                     per_round_assignments.append(round_combinations)
-
                 # Générer toutes les combinaisons possibles entre les rounds
                 assignments_per_masked[masked] = list(product(*per_round_assignments))
 
-            # a = assignments_per_masked.get('O**********s')[1]
-            
-            # for m in a:
-            #     print(m)
-            #     print("##################")
-            #     for i in m:
-            #         print(i)
+            recalculated_stats = {}
+            for masked_name, match_combinations in assignments_per_masked.items():
+                player_stats_for_combinations = []
 
-            # Étape 7 : Appliquer chaque combinaison d'assignations et calculer les stats
-            all_masked_names = list(assignments_per_masked.keys())
-            player_stats = defaultdict(list)
-            iteration_count = 0
+                for combination in match_combinations:
+                    # Chaque combination est une liste de RoundItem correspondant aux 9 rounds.
+                    all_matches = list(combination)  # Extraire directement les RoundItem de la combinaison.
 
-            # Assumer que assignments_per_masked est déjà peuplé avec les bonnes combinaisons pour chaque joueur masqué
-            for assignment_combo in assignments_per_masked.values():
-                # Créer une copie des rounds pour appliquer les assignations
-                new_rounds = copy.deepcopy(rounds)
-                # Appliquer chaque assignation
-                for i, masked in enumerate(all_masked_names):
-                    assigned_players = assignment_combo[i]  # Cela contient une assignation spécifique pour le joueur masqué
+                    # Recalculer les statistiques pour ces matchs
+                    stats = self.calculate_stats_for_matches(all_matches, standings)
 
-                    # Appliquer les assignations de joueurs réels aux matchs de ce joueur masqué
-                    for j, (role, round_name, match) in enumerate(masked_matches[masked]):
-                        # Trouver le round correspondant dans la copie des rounds
-                        for rnd in new_rounds:
-                            if rnd.round_name == round_name:
-                                for m in rnd.matches:
-                                    iteration_count += 1
-                                    # print(iteration_count)
-                                    if iteration_count == 131 or 1:
-                                        print(f"Iteration {iteration_count} reached!")
-                                        print(f"Assigned Players: {assigned_players}")
-                                        print(f"Masked Matches for {masked}: {masked_matches[masked]}")
-                                        print(f"Round: {rnd.round_name}")
-                                        print(f"Match: {m}")
-                                        print(f"Role: {role}")
-                                    if m == match:
-                                        if role == 'player1':
-                                            m.player1 = assigned_players[j]  # Assigner le joueur à player1
-                                        elif role == 'player2':
-                                            m.player2 = assigned_players[j]  # Assigner le joueur à player2
+                    # Ajouter les statistiques recalculées aux résultats
+                    player_stats_for_combinations.append(stats)
 
-                # Calculer les stats pour cette assignation
-                stats = self.calculate_stats_for_matches(new_rounds, standings)
-
-                # Assignation des stats aux joueurs
-                for player, stat in stats.items():
-                    player_stats[player].append(stat)
-            
-            # Étape 8 : Identifier les joueurs non appariés dans les standings
-            players_in_stats = set(player_stats.keys())
-            unmatched_standings = [s.player for s in standings if s.player not in players_in_stats]
-            
-            # Étape 9 : Identifier les matchs non appariés (si nécessaire)
-            # Dans ce contexte, tous les matchs devraient être appariés via les assignations
-            unmatched_matches = []
-            
-            return player_stats, unmatched_standings, unmatched_matches
-
-
-
+                # Stocker les statistiques recalculées pour ce joueur masqué
+                recalculated_stats[masked_name] = player_stats_for_combinations
 
 
 
