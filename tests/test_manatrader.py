@@ -306,30 +306,29 @@ def test_should_apply_top8_ordering_to_decks(test_decks_data):
 #######################################################################################################
 # RoundsLoaderTests
 @pytest.fixture
-def test_data():
-    source = ManaTradersSource()
-    tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-    return source.GetTournamentDetails(tournament).Rounds
+def test_RoundsLoader_data(mana_trader_get_tournament_details_data):
+    test_RoundsLoader_data = mana_trader_get_tournament_details_data.rounds
+    return test_RoundsLoader_data
+
+def test_round_count_is_correct(test_RoundsLoader_data):
+    assert len(test_RoundsLoader_data) == 15
 
 
-def test_round_count_is_correct(test_data):
-    assert len(test_data) == 15
-
-
-def test_rounds_have_number(test_data):
-    for round in test_data:
+def test_rounds_have_number(test_RoundsLoader_data):
+    for round in test_RoundsLoader_data:
         assert round['RoundName'] is not None and round['RoundName'] != ''
 
 
-def test_rounds_have_matches(test_data):
-    for round in test_data:
+def test_rounds_have_matches(test_RoundsLoader_data):
+    for round in test_RoundsLoader_data:
         assert len(round['Matches']) > 0
 
 
-def test_round_data_is_correct(test_data):
-    test_round = test_data[0]
-    assert test_round['RoundName'] == "Round 1"
-    assert test_round['Matches'][0] == RoundItem("SuperCow12653", "Demrakh", "2-0-0")
+# problem
+def test_round_data_is_correct(test_RoundsLoader_data):
+    test_round = test_RoundsLoader_data[0]
+    assert test_round.round_name == "Round 1"
+    assert test_round.matches[0] == RoundItem("SuperCow12653", "Demrakh", "2-0-0")
 
 
 #######################################################################################################
@@ -337,9 +336,9 @@ def test_round_data_is_correct(test_data):
 
 @pytest.fixture
 def test_data_no_bracket():
-    source = ManaTradersSource()
-    tournament = Tournament(uri="https://www.manatraders.com/tournaments/34/", date=datetime(2022, 12, 31))
-    return source.GetTournamentDetails(tournament).Rounds
+    tournament_no_bracket = Tournament(uri="https://www.manatraders.com/tournaments/34/", date=datetime(2022, 12, 31))
+    test_data_no_bracket = TournamentList().get_tournament_details(tournament_no_bracket).rounds
+    return test_data_no_bracket
 
 
 def test_round_count_is_correct_no_bracket(test_data_no_bracket):
@@ -358,19 +357,17 @@ def test_rounds_have_matches_no_bracket(test_data_no_bracket):
 
 def test_round_data_is_correct_no_bracket(test_data_no_bracket):
     test_round = test_data_no_bracket[0]
-    assert test_round['RoundName'] == "Round 1"
-    assert test_round['Matches'][0] == RoundItem("sneakymisato", "Mogged", "0-2-0")
+    assert test_round.round_name == "Round 1"
+    assert test_round.matches[0] == RoundItem("sneakymisato", "Mogged", "0-2-0")
 
 
 
 #######################################################################################################
 # TournamentLoaderTests
-
-
 @pytest.fixture
-def tournament_data():
-    source = ManaTradersSource()
-    return source.GetTournaments(datetime(2001, 1, 1))
+def TournamentLoaderTests_data():
+    TournamentLoaderTests_data = TournamentList().DL_tournaments(datetime(2022, 12, 31))
+    return TournamentLoaderTests_data
 
 
 def test_tournament_count_is_correct(tournament_data):

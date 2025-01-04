@@ -12,8 +12,10 @@ from datetime import datetime, timedelta, timezone
 # import os
 # import sys
 import csv
-from typing import List, Optional
+from typing import List,Tuple,Dict, Optional
 from urllib.parse import urljoin
+from itertools import permutations,product
+import copy
 # import html
 from dataclasses import dataclass
 from models.base_model import *
@@ -150,7 +152,6 @@ class MantraderClient:
             rank = int(columns[0].text.strip())
             player = columns[1].text.strip()
             points = int(columns[2].text.strip())
-
             omwp = float(columns[5].text.strip('%')) / 100
             gwp = float(columns[6].text.strip('%')) / 100
             ogwp = float(columns[7].text.strip('%')) / 100
@@ -174,7 +175,7 @@ class MantraderClient:
         return standings
 
 
-    def parse_bracket(self,bracket_url):
+    def parse_bracket(self,bracket_url,standings:Standing):
         response = requests.get(bracket_url)
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -210,22 +211,274 @@ class MantraderClient:
         bracket_rounds = [r for r in rounds if len(r.matches) > 0]
         return bracket_rounds
 
-        
+    def resolve_player_name(self,masked_name, standings, matched_standings, unmatched_matches):
+        if masked_name is None:
+            return None
+
+        # Extraire les premiers et derniers caractères
+        first_char, last_char = masked_name[0], masked_name[-1]
+        # Trouver les joueurs correspondants dans standings
+        matching_players = [
+            standing for standing in standings
+            if standing.player[0] == first_char and standing.player[-1] == last_char
+            ]
+
+        if len(matching_players) == 1:
+            matched_standings.add(matching_players[0].player)  # Marquer comme apparié
+            return matching_players[0].player
+        else:
+            # Ajouter à la liste des noms masqués non appariés
+            unmatched_matches.append(masked_name)
+            return masked_name
 
 
-    
-    def parse_swiss(self,swiss_url):
+
+    def parse_swiss(self,swiss_url, standings):
+        # Récupérer les données des matchs
         response = requests.get(swiss_url)
         data = response.json()
-
+        # Variables pour suivre les joueurs appariés et non appariés
+        matched_standings = set()
+        unmatched_matches = []
         rounds = []
         for round_name, matches in data.items():
             round_items = [
-                RoundItem(match["p1"], match["p2"], match["res"]) for match in matches
+                RoundItem(
+                    self.resolve_player_name(match["p1"], standings, matched_standings, unmatched_matches),
+                    self.resolve_player_name(match["p2"], standings, matched_standings, unmatched_matches),
+                    match["res"]
+                )
+                for match in matches
             ]
             rounds.append(Round(round_name, round_items))
 
+
+        test = self.calculate_player_stats(rounds,standings)
+        # Identifier les joueurs non appariés dans standings
+        unmatched_standings = [
+            standing.player for standing in standings if standing.player not in matched_standings
+        ]
+        unmatched_standings = [
+            standing for standing in standings if standing.player not in matched_standings
+        ]
         return rounds
+    
+#test1
+#########################################################################################################
+
+    def calculate_stats_for_matches(self,matches: List[RoundItem], standings: List[Standing]):
+        # Initialiser les stats
+        stats = {
+            "Rank": None,
+            "Points": 0,
+            "Wins": 0,
+            "Losses": 0,
+            "Draws": 0,
+            "OMP": 0.0,
+            "GWP": 0.0,
+            "OGP": 0.0,
+        }
+
+        # Variables auxiliaires pour GWP et OGP
+        total_games_played = 0
+        total_games_won = 0
+        opponents = set()
+
+        # Parcourir les matchs
+        for match in matches:
+            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+
+            # Identifier le joueur et son adversaire
+            if match.player1 in stats:
+                player = match.player1
+                opponent = match.player2
+                player_wins, player_losses = p1_wins, p2_wins
+            elif match.player2 in stats:
+                player = match.player2
+                opponent = match.player1
+                player_wins, player_losses = p2_wins, p1_wins
+            else:
+                continue
+
+            # Calculer les victoires, défaites et égalités
+            stats["Wins"] += player_wins
+            stats["Losses"] += player_losses
+            stats["Draws"] += draws
+
+            # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
+            stats["Points"] += 3 * player_wins + draws
+
+            # Ajouter aux jeux joués et gagnés
+            total_games_played += player_wins + player_losses + draws
+            total_games_won += player_wins
+
+            # Ajouter l'adversaire à la liste
+            opponents.add(opponent)
+
+        # Calculer GWP (Game-Win Percentage)
+        if total_games_played > 0:
+            stats["GWP"] = max(total_games_won / total_games_played, 0.33)
+
+        # Calculer OMP (Opponents’ Match-Win Percentage)
+        opponent_match_points = 0
+        opponent_total_matches = 0
+        for opponent in opponents:
+            opponent_standing = next((s for s in standings if s.player == opponent), None)
+            if opponent_standing:
+                opponent_match_points += opponent_standing.points
+                opponent_total_matches += 3 * len(matches)  # Nombre de rounds (approximé ici)
+
+        if opponent_total_matches > 0:
+            stats["OMP"] = max(opponent_match_points / opponent_total_matches, 0.33)
+
+        # Calculer OGP (Opponents’ Game-Win Percentage)
+        opponent_game_wins = 0
+        opponent_game_total = 0
+        for opponent in opponents:
+            opponent_standing = next((s for s in standings if s.player == opponent), None)
+            if opponent_standing:
+                opponent_game_wins += opponent_standing.wins
+                opponent_game_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
+
+        if opponent_game_total > 0:
+            stats["OGP"] = max(opponent_game_wins / opponent_game_total, 0.33)
+
+        return stats
+    
+    def get_opponents(self, player: str, rounds: List[Round]) -> List[str]:
+        """Retourne la liste des adversaires d'un joueur dans tous les rounds."""
+        opponents = set()
+        for rnd in rounds:
+            for match in rnd.matches:
+                if match.player1 == player:
+                    opponents.add(match.player2)
+                elif match.player2 == player:
+                    opponents.add(match.player1)
+        return list(opponents)
+
+    def calculate_player_stats(self, rounds: List[Round], standings: List[Standing]) -> Tuple[Dict[str, List[Dict]], List[str], List[str]]: 
+            # Étape 1 : Mapper les noms masqués aux joueurs réels
+            masked_to_actual = defaultdict(list)
+            for standing in standings:
+                if standing.player:
+                    masked_name = f"{standing.player[0]}{'*' * 10}{standing.player[-1]}"
+                    masked_to_actual[masked_name].append(standing.player)
+            
+            # Étape 2 : Collecter les matchs par joueur
+            # player_matches = defaultdict(list)
+            # for rnd in rounds:
+            #     for match in rnd.matches:
+            #         player_matches[match.player1].append(match)
+            #         player_matches[match.player2].append(match)
+            
+            # Étape 3 : Identifier les joueurs dupliqués (nom masqué avec plusieurs joueurs réels)
+            duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}
+            
+            # Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués
+            masked_matches = defaultdict(list)  # masked_name -> list of (role, round_name, match)
+            for masked in duplicated_masked_names:
+                for rnd in rounds:
+                    for match in rnd.matches:
+                        if match.player1 == masked:
+                            masked_matches[masked].append(('player1', rnd.round_name, match))
+                        if match.player2 == masked:
+                            masked_matches[masked].append(('player2', rnd.round_name, match))
+            
+
+            # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
+            assignments_per_masked = {}
+
+            for masked, matches_info in masked_matches.items():
+                actual_players = masked_to_actual[masked]
+                per_round_assignments = []  # Contient les combinaisons possibles par round
+
+                # Organiser les matchs par round
+                matches_by_round = defaultdict(list)
+                for role, round_name, match in matches_info:
+                    matches_by_round[round_name].append((role, match))
+
+                # Générer les permutations pour chaque round
+                for round_name, matches in matches_by_round.items():
+                    round_combinations = []
+                    for match_info in matches:
+                        role, match = match_info
+
+                        # Créer toutes les permutations en remplaçant le joueur masqué
+                        for player in actual_players:
+                            # Copier le match pour éviter d'écraser les données originales
+                            new_match = RoundItem(
+                                player1=match.player1 if role != 'player1' else player,
+                                player2=match.player2 if role != 'player2' else player,
+                                result=match.result,
+                            )
+                            round_combinations.append(new_match)
+
+                    # Ajouter les combinaisons de ce round aux résultats globaux
+                    per_round_assignments.append(round_combinations)
+
+                # Générer toutes les combinaisons possibles entre les rounds
+                assignments_per_masked[masked] = list(product(*per_round_assignments))
+
+            # a = assignments_per_masked.get('O**********s')[1]
+            
+            # for m in a:
+            #     print(m)
+            #     print("##################")
+            #     for i in m:
+            #         print(i)
+
+            # Étape 7 : Appliquer chaque combinaison d'assignations et calculer les stats
+            all_masked_names = list(assignments_per_masked.keys())
+            player_stats = defaultdict(list)
+            iteration_count = 0
+
+            # Assumer que assignments_per_masked est déjà peuplé avec les bonnes combinaisons pour chaque joueur masqué
+            for assignment_combo in assignments_per_masked.values():
+                # Créer une copie des rounds pour appliquer les assignations
+                new_rounds = copy.deepcopy(rounds)
+                # Appliquer chaque assignation
+                for i, masked in enumerate(all_masked_names):
+                    assigned_players = assignment_combo[i]  # Cela contient une assignation spécifique pour le joueur masqué
+
+                    # Appliquer les assignations de joueurs réels aux matchs de ce joueur masqué
+                    for j, (role, round_name, match) in enumerate(masked_matches[masked]):
+                        # Trouver le round correspondant dans la copie des rounds
+                        for rnd in new_rounds:
+                            if rnd.round_name == round_name:
+                                for m in rnd.matches:
+                                    iteration_count += 1
+                                    # print(iteration_count)
+                                    if iteration_count == 131 or 1:
+                                        print(f"Iteration {iteration_count} reached!")
+                                        print(f"Assigned Players: {assigned_players}")
+                                        print(f"Masked Matches for {masked}: {masked_matches[masked]}")
+                                        print(f"Round: {rnd.round_name}")
+                                        print(f"Match: {m}")
+                                        print(f"Role: {role}")
+                                    if m == match:
+                                        if role == 'player1':
+                                            m.player1 = assigned_players[j]  # Assigner le joueur à player1
+                                        elif role == 'player2':
+                                            m.player2 = assigned_players[j]  # Assigner le joueur à player2
+
+                # Calculer les stats pour cette assignation
+                stats = self.calculate_stats_for_matches(new_rounds, standings)
+
+                # Assignation des stats aux joueurs
+                for player, stat in stats.items():
+                    player_stats[player].append(stat)
+            
+            # Étape 8 : Identifier les joueurs non appariés dans les standings
+            players_in_stats = set(player_stats.keys())
+            unmatched_standings = [s.player for s in standings if s.player not in players_in_stats]
+            
+            # Étape 9 : Identifier les matchs non appariés (si nécessaire)
+            # Dans ce contexte, tous les matchs devraient être appariés via les assignations
+            unmatched_matches = []
+            
+            return player_stats, unmatched_standings, unmatched_matches
+
+
 
 
 
@@ -242,17 +495,22 @@ class TournamentList:
         swiss_url = self._swiss_root.format(month=tournament.date.month, year=tournament.date.year)
         standings_url = f"{tournament.uri}swiss"
         bracket_url = f"{tournament.uri}finals"
-
         standings = client.parse_standings(standings_url)
 
         deck_uris = client.parse_deck_uris(tournament.uri)
         decks = client.parse_decks(csv_url, standings, deck_uris)
-        bracket = client.parse_bracket(bracket_url)
-        swiss = client.parse_swiss(swiss_url)
+        bracket = client.parse_bracket(bracket_url,standings)
+        swiss = client.parse_swiss(swiss_url,standings)
 
         rounds = swiss + bracket
         decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
-
+# for r in bracket:
+#     for m in r.matches:
+#         print(m)
+# for d in decks:
+#     print(d)
+# for s in standings:
+#         print(s)
 
         return CacheItem(
             tournament=tournament,

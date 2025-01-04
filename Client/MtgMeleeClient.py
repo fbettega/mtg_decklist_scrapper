@@ -537,7 +537,7 @@ class TournamentList:
         )
 
 
-    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+    def DL_tournaments(self,start_date: datetime, end_date: datetime = None) -> List[dict]:
         """Récupérer les tournois entre les dates start_date et end_date."""
         if start_date < datetime(2020, 1, 1, tzinfo=timezone.utc):
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
