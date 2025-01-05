@@ -10,7 +10,7 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 # import os
-# import sys
+import sys
 import csv
 from typing import List,Tuple,Dict, DefaultDict,Optional
 from urllib.parse import urljoin
@@ -233,7 +233,7 @@ class MantraderClient:
 
 
 
-    def parse_swiss(self,swiss_url, standings):
+    def parse_swiss(self,swiss_url, standings,bracket):
         # Récupérer les données des matchs
         response = requests.get(swiss_url)
         data = response.json()
@@ -252,15 +252,10 @@ class MantraderClient:
             ]
             rounds.append(Round(round_name, round_items))
 
+        if unmatched_matches:
+            rounds = Manatrader_fix_hidden_duplicate_name().Find_name_form_player_stats(rounds,standings,bracket)
 
-        test = Manatrader_fix_hidden_duplicate_name().calculate_player_stats(rounds,standings)
-        # Identifier les joueurs non appariés dans standings
-        unmatched_standings = [
-            standing.player for standing in standings if standing.player not in matched_standings
-        ]
-        unmatched_standings = [
-            standing for standing in standings if standing.player not in matched_standings
-        ]
+
         return rounds
     
 
@@ -281,7 +276,7 @@ class TournamentList:
         deck_uris = client.parse_deck_uris(tournament.uri)
         decks = client.parse_decks(csv_url, standings, deck_uris)
         bracket = client.parse_bracket(bracket_url,standings)
-        swiss = client.parse_swiss(swiss_url,standings)
+        swiss = client.parse_swiss(swiss_url,standings,bracket)
 
         rounds = swiss + bracket
         decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
@@ -468,28 +463,86 @@ class Manatrader_fix_hidden_duplicate_name:
 
 
 
-    def map_masked_to_actual(self,standings):
-        """Étape 1 : Mapper les noms masqués aux joueurs réels."""
+    def map_masked_to_actual(self, standings: List[Standing], rounds: List[Round]):
+        """Étape 1 : Mapper les noms masqués aux joueurs réels, en considérant uniquement les joueurs des rounds au format spécifique."""
         masked_to_actual = defaultdict(list)
+
+            # Définir un pattern regex pour les noms au format valide
+        masked_pattern = re.compile(r'^.\*{10}.$')
+
+        # Collecter les joueurs des rounds qui ont un format valide (premier caractère, 10 *, dernier caractère)
+        valid_masked_players = set()
+        for rnd in rounds:
+            for match in rnd.matches:
+                for player in [match.player1, match.player2]:
+                    if player and masked_pattern.match(player):
+                        valid_masked_players.add(player)
+
+        # Mapper uniquement les joueurs valides des standings
         for standing in standings:
             if standing.player:
                 masked_name = f"{standing.player[0]}{'*' * 10}{standing.player[-1]}"
-                masked_to_actual[masked_name].append(standing.player)
+                if masked_name in valid_masked_players:
+                    masked_to_actual[masked_name].append(standing.player)
+
         return masked_to_actual
 
-    def generate_round_combinations(self, matches, actual_players):
-        """Générer les permutations pour chaque round."""
+
+    def generate_round_combinations(self, matches, actual_players, standings):
+        """Générer les permutations pour chaque round en tenant compte du nombre de matchs du joueur."""
         round_combinations = []
+        # Calculer le nombre total de matchs pour chaque joueur
+        # Convertir standings en un dictionnaire, où la clé est le nom du joueur
+        standings_dict = {standing.player: standing for standing in standings}
+
+        # Calculer le nombre total de matchs pour chaque joueur
+        player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in actual_players}
+        player_wins = {player: standings_dict[player].wins for player in actual_players}
+        player_losses = {player: standings_dict[player].losses for player in actual_players}
+           # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
+
+
         for perm in permutations(actual_players, len(matches)):
             replaced_matches = defaultdict(list)
+            valid_combination = True
+            temp_player_wins = {player: 0 for player in actual_players}
+            temp_player_losses = {player: 0 for player in actual_players}
             for (role, match), player in zip(matches, perm):
+                # Vérifier si le joueur a déjà joué assez de matchs (selon son nombre de victoires et défaites)
+                # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
+                match_round = int(role[-1])  # Extraire le round de la clé du rôle (ex: 'player1-1' -> 1)
+                if player_match_count[player] < match_round:
+                    valid_combination = False
+                    break
+                
+                result1, result2, _ = map(int, match.result.split('-'))  
+                if role == 'player1':
+                    if result1 > result2:
+                        temp_player_wins[player] += 1
+                    elif result1 < result2:
+                        temp_player_losses[player] += 1
+                elif role == 'player2':
+                    if result2 > result1:
+                        temp_player_wins[player] += 1
+                    elif result2 < result1:
+                        temp_player_losses[player] += 1
+                # Mettre à jour le match avec le joueur
+                if player_losses[player] < temp_player_losses[player]:
+                    valid_combination = False
+                    break
+                if player_wins[player] < temp_player_wins[player]:
+                    valid_combination = False
+                    break
                 new_match = RoundItem(
                     player1=match.player1 if role != 'player1' else player,
                     player2=match.player2 if role != 'player2' else player,
                     result=match.result,
                 )
                 replaced_matches[player].append(new_match)
-            round_combinations.append(replaced_matches)
+
+            if valid_combination:
+                round_combinations.append(replaced_matches)
+
         return round_combinations
 
     def organize_matches_by_round(self, matches_info):
@@ -499,58 +552,100 @@ class Manatrader_fix_hidden_duplicate_name:
             matches_by_round[round_name].append((role, match))
         return matches_by_round
 
-    def generate_assignments(self, masked_matches, masked_to_actual):
+    def generate_assignments(self, masked_matches, masked_to_actual,standings):
         """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
         assignments_per_masked = {}
 
         for masked, matches_info in masked_matches.items():
             actual_players = masked_to_actual[masked]
             per_round_assignments = []
-
             matches_by_round = self.organize_matches_by_round(matches_info)
-
             for round_name, matches in matches_by_round.items():
-                round_combinations = self.generate_round_combinations(matches, actual_players)
+                round_combinations = self.generate_round_combinations(matches, actual_players,standings)
                 per_round_assignments.append(round_combinations)
+                print(len(round_combinations))
             # Générer toutes les combinaisons possibles entre les rounds
             assignments_per_masked[masked] = list(product(*per_round_assignments))
 
         return assignments_per_masked
 
-    def calculate_player_stats(self, rounds: List[Round], standings: List[Standing]) -> Tuple[Dict[str, List[Dict]], List[str], List[str]]: 
-            
-            masked_to_actual = self.map_masked_to_actual(standings)
 
+    def create_modified_rounds(self,rounds, unique_matching_perm, assignments_per_masked):
+        """
+        Crée de nouveaux objets Round avec les modifications apportées par les permutations sélectionnées.
+
+        Args:
+            rounds (List[Round]): Liste des rounds d'origine.
+            unique_matching_perm (dict): Contient les joueurs masqués et leurs indices de permutation sélectionnés.
+            assignments_per_masked (dict): Contient les permutations possibles pour chaque joueur masqué.
+
+        Returns:
+            List[Round]: Nouvelle liste d'objets Round avec les modifications appliquées.
+        """
+        # Créer une copie des rounds pour les modifications
+        modified_rounds = [
+            Round(
+                rnd.round_name,
+                [RoundItem(match.player1, match.player2, match.result) for match in rnd.matches]
+            )
+            for rnd in rounds
+        ]
+        # Avant de modifier les matchs, vérifier que la longueur des rounds et des matchs est correcte
+        initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
+        for masked_name, selected_index in unique_matching_perm.items():
+            # Récupérer la permutation sélectionnée
+            if isinstance(selected_index, list):  # Si c'est une liste, utiliser l'index 0
+                selected_permutation = assignments_per_masked[masked_name][selected_index[0]]
+            else:  # Si c'est un entier, on peut directement l'utiliser
+                selected_permutation = assignments_per_masked[masked_name][selected_index]           
+            # Parcourir les combinaisons par round dans la permutation sélectionnée
+            for round_index, round_combinations in enumerate(selected_permutation):
+                modified_round = modified_rounds[round_index]  # Le round à modifier
+                for player, updated_matches in round_combinations.items():
+                    for updated_match in updated_matches:
+                        # Mettre à jour les matchs dans le round correspondant
+                        for match in modified_round.matches:
+                            if match.player1 == masked_name:
+                                match.player1 = updated_match.player1
+                            if match.player2 == masked_name:
+                                match.player2 = updated_match.player2
+        # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
+        final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
+
+        # Vérification que les longueurs des rounds sont restées identiques
+        for initial, final in zip(initial_lengths, final_lengths):
+            if initial != final:
+                raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
+
+        # Vérifier que les matchs dans chaque round n'ont pas été modifiés
+        # for initial_round, modified_round in zip(rounds, modified_rounds):
+        #     for initial_match, modified_match in zip(initial_round.matches, modified_round.matches):
+        #         if initial_match != modified_match:
+        #             print(f"Match modifié : {initial_match} -> {modified_match}")
+        return modified_rounds
+
+
+    def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
+            masked_to_actual = self.map_masked_to_actual(standings,rounds)
             duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}       
-
             masked_matches = self.collect_matches_for_duplicated_masked_names(duplicated_masked_names,rounds)
             # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
-            assignments_per_masked = self.generate_assignments(masked_matches, masked_to_actual)
-
+            assignments_per_masked = self.generate_assignments(masked_matches, masked_to_actual,standings)
             # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
             real_standings_by_player = {standing.player: standing for standing in standings}
             recalculated_stats = self.calculate_recalculated_stats(assignments_per_masked,standings)
             matching_permutation = self.find_best_combinations(recalculated_stats,real_standings_by_player)
+                # Étape 6 : Identifier les permutations uniques
+            unique_matching_perm = {
+                masked_name: match_permutation_res[0]  # Prendre la première permutation s'il y a plusieurs options
+                if len(match_permutation_res) > 1 else match_permutation_res[0]  # Sinon prendre celle qui est unique
+                for masked_name, match_permutation_res in matching_permutation.items()
+            }
+
+            new_rounds = self.create_modified_rounds(rounds, unique_matching_perm, assignments_per_masked)
+
             
-            unique_matching_perm = dict((masque_name, match_permutation_res) for masque_name, match_permutation_res in matching_permutation.items() if len(match_permutation_res) == 1)
-
-            for masked_name, selected_index in unique_matching_perm.items():
-                # Récupérer la permutation sélectionnée
-                selected_permutation = assignments_per_masked[masked_name][selected_index[0]]
-                
-                # Parcourir les matchs dans les permutations sélectionnées
-                for round_combinations in selected_permutation:
-                    for player, updated_matches in round_combinations.items():
-                        # Mettre à jour les matchs dans les rounds d'origine
-                        for updated_match in updated_matches:
-                            for rnd in rounds:
-                                for match in rnd.matches:
-                                    # Comparer et remplacer les joueurs masqués
-                                    if match.player1 == masked_name:
-                                        match.player1 = updated_match.player1
-                                    if match.player2 == masked_name:
-                                        match.player2 = updated_match.player2
-
+            return new_rounds
 
 
 
@@ -559,69 +654,76 @@ class Manatrader_fix_hidden_duplicate_name:
         for masked_name, player_combinations in recalculated_stats.items():
             matching_combinations[masked_name] = []
             closest_combination = None
+            min_gwp_difference = float('inf')
             min_ogwp_difference = float('inf')
 
             for combination_index, combination in enumerate(player_combinations):
                 is_matching = True
                 ogwp_differences = []
+                gwp_differences = []  # Liste pour stocker les différences de gwp
                 comparison_details = []
-                # Vérifier uniquement les standings pour les joueurs correspondants
+
                 for player, recalculated_standing in combination.items():
                     real_standing = real_standings_by_player.get(player)
-                    # Ignorer si le standing réel est manquant ou si les critères principaux ne sont pas respectés
+
                     if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
                         is_matching = False
                         break
-                    # Calculer la différence de `ogwp` pour ce joueur
+
+                    # Calculer la différence de gwp pour ce joueur
+                    if real_standing.gwp is not None and recalculated_standing.gwp is not None:
+                        gwp_differences.append(abs(real_standing.gwp - recalculated_standing.gwp))
+
+                    # Calculer la différence de ogwp pour ce joueur
                     if real_standing.ogwp is not None and recalculated_standing.ogwp is not None:
                         ogwp_differences.append(abs(real_standing.ogwp - recalculated_standing.ogwp))
+
                     # Collecter les détails pour le débogage
                     comparison_details.append((player, real_standing, recalculated_standing))
+
                 # Si la combinaison correspond aux critères principaux
                 if is_matching:
-                    matching_combinations[masked_name].append(combination_index)
-        #             # Vérifier si cette combinaison est plus proche en termes de `ogwp`
-        #             avg_ogwp_difference = sum(ogwp_differences) / len(ogwp_differences) if ogwp_differences else float('inf')
-        #             if avg_ogwp_difference < min_ogwp_difference:
-        #                 min_ogwp_difference = avg_ogwp_difference
-        #                 closest_combination = combination_index
-        #                 closest_details = comparison_details 
-        # # Ajouter la meilleure combinaison pour ce joueur masqué
-        # if closest_combination is not None:
-        #     matching_combinations[masked_name].append(("closest", closest_combination))
-        #     # Print uniquement pour la combinaison "closest"
-        #     print(f"Masked Name: {masked_name}, Closest Combination Index: {closest_combination}")
-        #     for player, real_standing, recalculated_standing in closest_details:
-        #         print(f"Player: {player}")
-        #         print(f"  Real Standing: {real_standing.__dict__}")
-        #         print(f"  Recalculated Standing: {recalculated_standing.__dict__}")
+                    # Calculer la moyenne des différences de gwp et ogwp pour la combinaison
+                    avg_gwp_diff = sum(gwp_differences) / len(gwp_differences) if gwp_differences else float('inf')
+                    avg_ogwp_diff = sum(ogwp_differences) / len(ogwp_differences) if ogwp_differences else float('inf')
+
+                    # Comparer et sélectionner la meilleure combinaison en fonction des critères
+                    if avg_gwp_diff < min_gwp_difference:
+                        min_gwp_difference = avg_gwp_diff
+                        min_ogwp_difference = avg_ogwp_diff
+                        closest_combination = [combination_index]
+                    elif avg_gwp_diff == min_gwp_difference and avg_ogwp_diff < min_ogwp_difference:
+                        min_ogwp_difference = avg_ogwp_diff
+                        closest_combination = [combination_index]
+                    elif avg_gwp_diff == min_gwp_difference and avg_ogwp_diff == min_ogwp_difference:
+                        closest_combination.append(combination_index)  # Ajouter l'indice si égalité
+
+            # Si plusieurs permutations sont trouvées pour le joueur masqué, on sélectionne la meilleure
+            if closest_combination:
+                matching_combinations[masked_name] = closest_combination
+
+        return matching_combinations
+
+
+
 
         return matching_combinations
 
     def compare_standings(self,real_standing, recalculated_standing, compare_ogwp=False):
         """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
-        def float_equals(a, b):
-            # Calculer le nombre de chiffres significatifs de chaque nombre
-            def get_significant_digits( value: float) -> int:
-                """Calcule le nombre de chiffres significatifs d'un nombre flottant."""
-                if value is None:
-                    return 0
-                d = decimal.Decimal(str(value))
-                # Exclure les parties non significatives après la virgule
-                return max(d.as_tuple().exponent, -d.as_tuple().exponent)  # Nombre de chiffres après la virgule  
-            digits_a = get_significant_digits(a)
-            digits_b = get_significant_digits(b)
-            # La tolérance est donnée par le plus petit nombre de chiffres significatifs entre les deux valeurs
-            tolerance = 10 ** -min(digits_a, digits_b)
-            return abs(a - b) <= tolerance
+        def float_equals(a, b, precision=2):
+            """Compare deux floats avec une précision donnée (par défaut 3 chiffres après la virgule)."""
+            if a is None or b is None:
+                return False  # Considérer None comme non égal à toute autre valeur
+            return round(a, precision) == round(b, precision)
         # Comparaison stricte sur certains critères
         matches = (
             real_standing.rank == recalculated_standing.rank and
             real_standing.points == recalculated_standing.points and
             real_standing.wins == recalculated_standing.wins and
             real_standing.losses == recalculated_standing.losses and
-            real_standing.draws == recalculated_standing.draws and
-            float_equals(real_standing.gwp, recalculated_standing.gwp)
+            real_standing.draws == recalculated_standing.draws # and
+            # float_equals(real_standing.gwp, recalculated_standing.gwp)
         )
         # Comparaison optionnelle de `ogwp`
         if compare_ogwp:

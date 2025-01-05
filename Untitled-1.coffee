@@ -157,3 +157,63 @@
 
                 # Stocker les statistiques recalculées pour ce joueur masqué
                 recalculated_stats[masked_name] = player_stats_for_combinations
+
+
+special variables
+function variables
+0 =
+'player2'
+1 =
+'Round 6'
+2 =
+<models.base_model.RoundItem object at 0x0000020C15C32D50>
+special variables
+function variables
+player1 =
+'k**********a'
+player2 =
+'O**********s'
+result =
+'2-0-0'
+len() =
+3
+11 =
+('player1', 'Round 6', <models.base_model.RoundItem object at 0x0000020C15C32E70>)
+special variables
+function variables
+0 =
+'player1'
+1 =
+'Round 6'
+2 =
+<models.base_model.RoundItem object at 0x0000020C15C32E70>
+special variables
+function variables
+player1 =
+'O**********s'
+player2 =
+'salvatto'
+result =
+'2-1-0'
+len() =
+3
+12 =
+('player1', 'Round 6', <models.base_model.RoundItem object at 0x0000020C15C33050>)
+special variables
+function variables
+0 =
+'player1'
+1 =
+'Round 6'
+2 =
+<models.base_model.RoundItem object at 0x0000020C15C33050>
+special variables
+function variables
+player1 =
+'O**********s'
+player2 =
+'Capriccioso'
+result =
+'0-2-0'
+len() =
+3

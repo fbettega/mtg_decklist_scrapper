@@ -333,7 +333,6 @@ def test_round_data_is_correct(test_RoundsLoader_data):
 
 #######################################################################################################
 # RoundsWithNoBracketLoaderTests
-
 @pytest.fixture
 def test_data_no_bracket():
     tournament_no_bracket = Tournament(uri="https://www.manatraders.com/tournaments/34/", date=datetime(2022, 12, 31))
@@ -347,12 +346,12 @@ def test_round_count_is_correct_no_bracket(test_data_no_bracket):
 
 def test_rounds_have_number_no_bracket(test_data_no_bracket):
     for round in test_data_no_bracket:
-        assert round['RoundName'] is not None and round['RoundName'] != ''
+        assert round.round_name is not None and round.round_name != ''
 
 
 def test_rounds_have_matches_no_bracket(test_data_no_bracket):
     for round in test_data_no_bracket:
-        assert len(round['Matches']) > 0
+        assert len(round.matches) > 0
 
 
 def test_round_data_is_correct_no_bracket(test_data_no_bracket):

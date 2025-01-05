@@ -55,9 +55,12 @@ class Standing:
                  wins: Optional[int] = None, 
                  losses: Optional[int] = None, 
                  draws: Optional[int] = None, 
-                 omwp: Optional[float] = None, # OMP - Opponents’ Match-Win Percentage. A player’s match-win percentage is that player’s accumulated match points divided by X times the number of rounds in which he or she competed, or 0.33, whichever is greater.
-                 gwp: Optional[float] = None,  # GWP - Game-Win Percentage. Similar to the match-win percentage, a player’s game-win percentage is the total number of game points he or she earned divided by X times the number of games played.
-                 ogwp: Optional[float] = None): #OGP - Opponents’ Game-Win Percentage. Similar to opponents’ match-win percentage, a player’s opponents’ game-win percentage is simply the average game-win percentage of all of that player’s opponents. And, as with opponents’ match-win percentage, each opponent has a minimum game-win percentage of 0.33.
+                 omwp: Optional[float] = None, 
+                # OMP - Opponents’ Match-Win Percentage. A player’s match-win percentage is that player’s accumulated match points divided by X times the number of rounds in which he or she competed, or 0.33, whichever is greater.
+                 gwp: Optional[float] = None, 
+                # GWP - Game-Win Percentage. Similar to the match-win percentage, a player’s game-win percentage is the total number of game points he or she earned divided by X times the number of games played.
+                 ogwp: Optional[float] = None):
+                #OGP - Opponents’ Game-Win Percentage. Similar to opponents’ match-win percentage, a player’s opponents’ game-win percentage is simply the average game-win percentage of all of that player’s opponents. And, as with opponents’ match-win percentage, each opponent has a minimum game-win percentage of 0.33.
         # Assign default values if None
         self.rank = rank
         self.player = player
