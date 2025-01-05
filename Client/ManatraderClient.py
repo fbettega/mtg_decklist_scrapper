@@ -253,7 +253,7 @@ class MantraderClient:
             rounds.append(Round(round_name, round_items))
 
 
-        test = self.calculate_player_stats(rounds,standings)
+        test = Manatrader_fix_hidden_duplicate_name().calculate_player_stats(rounds,standings)
         # Identifier les joueurs non appariés dans standings
         unmatched_standings = [
             standing.player for standing in standings if standing.player not in matched_standings
@@ -263,8 +263,64 @@ class MantraderClient:
         ]
         return rounds
     
-#test1
-#########################################################################################################
+
+
+class TournamentList:
+    _csv_root = "https://www.manatraders.com/tournaments/download_csv_by_month_and_year?month={month}&year={year}"
+    _swiss_root = "https://www.manatraders.com/tournaments/swiss_json_by_month_and_year?month={month}&year={year}"
+
+
+    def get_tournament_details(self,tournament):
+        client = MantraderClient()
+        csv_url = self._csv_root.format(month=tournament.date.month, year=tournament.date.year)
+        swiss_url = self._swiss_root.format(month=tournament.date.month, year=tournament.date.year)
+        standings_url = f"{tournament.uri}swiss"
+        bracket_url = f"{tournament.uri}finals"
+        standings = client.parse_standings(standings_url)
+
+        deck_uris = client.parse_deck_uris(tournament.uri)
+        decks = client.parse_decks(csv_url, standings, deck_uris)
+        bracket = client.parse_bracket(bracket_url,standings)
+        swiss = client.parse_swiss(swiss_url,standings)
+
+        rounds = swiss + bracket
+        decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
+# for r in bracket:
+#     for m in r.matches:
+#         print(m)
+# for d in decks:
+#     print(d)
+# for s in standings:
+#         print(s)
+
+        return CacheItem(
+            tournament=tournament,
+            decks=decks,
+            standings=standings,
+            rounds=rounds
+        )
+
+    
+
+
+    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+        tournaments = MantraderClient.get_tournaments()
+        filtered_tournaments = [t for t in tournaments if t.date >= start_date]
+        if end_date:
+            filtered_tournaments = [t for t in filtered_tournaments if t.date <= end_date]
+        return filtered_tournaments
+    
+@dataclass
+class ManaTradersCsvRecord:
+    count: int  # Correspond à la propriété Count
+    card: str   # Correspond à la propriété Card
+    sideboard: bool  # Correspond à la propriété Sideboard
+    player: str  # Correspond à la propriété Player
+
+
+
+class Manatrader_fix_hidden_duplicate_name: 
+
     def calculate_stats_for_matches(self, player: str, matches: List[RoundItem], standings: List[Standing]):
         # Initialiser les stats
         points = 0
@@ -398,90 +454,149 @@ class MantraderClient:
             recalculated_stats[masked_name] = player_stats_for_combinations
         return recalculated_stats
 
+    def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
+        """Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués."""
+        masked_matches = defaultdict(list)
+        for masked in duplicated_masked_names:
+            for rnd in rounds:
+                for match in rnd.matches:
+                    if match.player1 == masked:
+                        masked_matches[masked].append(('player1', rnd.round_name, match))
+                    if match.player2 == masked:
+                        masked_matches[masked].append(('player2', rnd.round_name, match))
+        return masked_matches
+
+
+
+    def map_masked_to_actual(self,standings):
+        """Étape 1 : Mapper les noms masqués aux joueurs réels."""
+        masked_to_actual = defaultdict(list)
+        for standing in standings:
+            if standing.player:
+                masked_name = f"{standing.player[0]}{'*' * 10}{standing.player[-1]}"
+                masked_to_actual[masked_name].append(standing.player)
+        return masked_to_actual
+
+    def generate_round_combinations(self, matches, actual_players):
+        """Générer les permutations pour chaque round."""
+        round_combinations = []
+        for perm in permutations(actual_players, len(matches)):
+            replaced_matches = defaultdict(list)
+            for (role, match), player in zip(matches, perm):
+                new_match = RoundItem(
+                    player1=match.player1 if role != 'player1' else player,
+                    player2=match.player2 if role != 'player2' else player,
+                    result=match.result,
+                )
+                replaced_matches[player].append(new_match)
+            round_combinations.append(replaced_matches)
+        return round_combinations
+
+    def organize_matches_by_round(self, matches_info):
+        """Organiser les matchs par round."""
+        matches_by_round = defaultdict(list)
+        for role, round_name, match in matches_info:
+            matches_by_round[round_name].append((role, match))
+        return matches_by_round
+
+    def generate_assignments(self, masked_matches, masked_to_actual):
+        """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
+        assignments_per_masked = {}
+
+        for masked, matches_info in masked_matches.items():
+            actual_players = masked_to_actual[masked]
+            per_round_assignments = []
+
+            matches_by_round = self.organize_matches_by_round(matches_info)
+
+            for round_name, matches in matches_by_round.items():
+                round_combinations = self.generate_round_combinations(matches, actual_players)
+                per_round_assignments.append(round_combinations)
+            # Générer toutes les combinaisons possibles entre les rounds
+            assignments_per_masked[masked] = list(product(*per_round_assignments))
+
+        return assignments_per_masked
+
     def calculate_player_stats(self, rounds: List[Round], standings: List[Standing]) -> Tuple[Dict[str, List[Dict]], List[str], List[str]]: 
-            # Étape 1 : Mapper les noms masqués aux joueurs réels
-            masked_to_actual = defaultdict(list)
-            for standing in standings:
-                if standing.player:
-                    masked_name = f"{standing.player[0]}{'*' * 10}{standing.player[-1]}"
-                    masked_to_actual[masked_name].append(standing.player)
-            # Étape 3 : Identifier les joueurs dupliqués (nom masqué avec plusieurs joueurs réels)
-            duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}
             
-            # Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués
-            masked_matches = defaultdict(list)  # masked_name -> list of (role, round_name, match)
-            for masked in duplicated_masked_names:
-                for rnd in rounds:
-                    for match in rnd.matches:
-                        if match.player1 == masked:
-                            masked_matches[masked].append(('player1', rnd.round_name, match))
-                        if match.player2 == masked:
-                            masked_matches[masked].append(('player2', rnd.round_name, match))
+            masked_to_actual = self.map_masked_to_actual(standings)
 
+            duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}       
+
+            masked_matches = self.collect_matches_for_duplicated_masked_names(duplicated_masked_names,rounds)
             # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
-            assignments_per_masked = {}
+            assignments_per_masked = self.generate_assignments(masked_matches, masked_to_actual)
 
-            for masked, matches_info in masked_matches.items():
-                actual_players = masked_to_actual[masked]
-                per_round_assignments = []  # Contient les combinaisons possibles par round
-
-                # Organiser les matchs par round
-                matches_by_round = defaultdict(list)
-                for role, round_name, match in matches_info:
-                    matches_by_round[round_name].append((role, match))
-                #  au passage ont peut optimiser les combinaisons si un joueurs drop seul 1 joueurs peux continuer
-                # Générer les permutations pour chaque round
-                for round_name, matches in matches_by_round.items():
-                    round_combinations = []
-
-                    # Obtenir toutes les permutations possibles des joueurs réels pour ce round
-                    for perm in permutations(actual_players, len(matches)):
-                        replaced_matches = defaultdict(list) 
-                        for (role, match), player in zip(matches, perm):
-                            # Créer une copie du match avec le joueur masqué remplacé
-                            new_match = RoundItem(
-                                player1=match.player1 if role != 'player1' else player,
-                                player2=match.player2 if role != 'player2' else player,
-                                result=match.result,
-                            )
-                            replaced_matches[player].append(new_match)
-                        
-                        # Ajouter la combinaison de matchs pour ce round
-                        round_combinations.append(replaced_matches)
-
-                    # Ajouter les combinaisons de ce round aux résultats globaux
-                    per_round_assignments.append(round_combinations)
-                
-                # Générer toutes les combinaisons possibles entre les rounds
-                assignments_per_masked[masked] = list(product(*per_round_assignments))            
             # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
             real_standings_by_player = {standing.player: standing for standing in standings}
             recalculated_stats = self.calculate_recalculated_stats(assignments_per_masked,standings)
+            matching_permutation = self.find_best_combinations(recalculated_stats,real_standings_by_player)
             
-            matching_combinations = {}
-            for masked_name, player_combinations in recalculated_stats.items():
-                matching_combinations[masked_name] = []
-                # Parcourir chaque combinaison
-                for combination_index, combination in enumerate(player_combinations):
-                    is_matching = True
-                    # Vérifier uniquement les standings pour les joueurs correspondants
-                    list_of_combination = list(combination.items())
-                    for player, recalculated_standing in list_of_combination:
-                        real_standing = real_standings_by_player.get(player)
-                        # Si le standing réel n'existe pas, ou si le standing recalculé ne correspond pas, marquer comme invalide                    
-                        if not real_standing:
-                            is_matching = False
-                            break
-                        # if not real_standing or real_standing != recalculated_standing:
-                        if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
-                            is_matching = False
-                            break
-                    # Si tous les standings correspondent, l'ajouter à la liste des combinaisons valides
-                    if is_matching:
-                        print(f"Comparing {player}: Real standing = {real_standing}, Recalculated standing = {recalculated_standing}")
-                        matching_combinations[masked_name].append(combination_index)
-            
-            return matching_combinations
+            unique_matching_perm = dict((masque_name, match_permutation_res) for masque_name, match_permutation_res in matching_permutation.items() if len(match_permutation_res) == 1)
+
+            for masked_name, selected_index in unique_matching_perm.items():
+                # Récupérer la permutation sélectionnée
+                selected_permutation = assignments_per_masked[masked_name][selected_index[0]]
+                
+                # Parcourir les matchs dans les permutations sélectionnées
+                for round_combinations in selected_permutation:
+                    for player, updated_matches in round_combinations.items():
+                        # Mettre à jour les matchs dans les rounds d'origine
+                        for updated_match in updated_matches:
+                            for rnd in rounds:
+                                for match in rnd.matches:
+                                    # Comparer et remplacer les joueurs masqués
+                                    if match.player1 == masked_name:
+                                        match.player1 = updated_match.player1
+                                    if match.player2 == masked_name:
+                                        match.player2 = updated_match.player2
+
+
+
+
+    def find_best_combinations(self, recalculated_stats, real_standings_by_player):
+        matching_combinations = {}
+        for masked_name, player_combinations in recalculated_stats.items():
+            matching_combinations[masked_name] = []
+            closest_combination = None
+            min_ogwp_difference = float('inf')
+
+            for combination_index, combination in enumerate(player_combinations):
+                is_matching = True
+                ogwp_differences = []
+                comparison_details = []
+                # Vérifier uniquement les standings pour les joueurs correspondants
+                for player, recalculated_standing in combination.items():
+                    real_standing = real_standings_by_player.get(player)
+                    # Ignorer si le standing réel est manquant ou si les critères principaux ne sont pas respectés
+                    if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
+                        is_matching = False
+                        break
+                    # Calculer la différence de `ogwp` pour ce joueur
+                    if real_standing.ogwp is not None and recalculated_standing.ogwp is not None:
+                        ogwp_differences.append(abs(real_standing.ogwp - recalculated_standing.ogwp))
+                    # Collecter les détails pour le débogage
+                    comparison_details.append((player, real_standing, recalculated_standing))
+                # Si la combinaison correspond aux critères principaux
+                if is_matching:
+                    matching_combinations[masked_name].append(combination_index)
+        #             # Vérifier si cette combinaison est plus proche en termes de `ogwp`
+        #             avg_ogwp_difference = sum(ogwp_differences) / len(ogwp_differences) if ogwp_differences else float('inf')
+        #             if avg_ogwp_difference < min_ogwp_difference:
+        #                 min_ogwp_difference = avg_ogwp_difference
+        #                 closest_combination = combination_index
+        #                 closest_details = comparison_details 
+        # # Ajouter la meilleure combinaison pour ce joueur masqué
+        # if closest_combination is not None:
+        #     matching_combinations[masked_name].append(("closest", closest_combination))
+        #     # Print uniquement pour la combinaison "closest"
+        #     print(f"Masked Name: {masked_name}, Closest Combination Index: {closest_combination}")
+        #     for player, real_standing, recalculated_standing in closest_details:
+        #         print(f"Player: {player}")
+        #         print(f"  Real Standing: {real_standing.__dict__}")
+        #         print(f"  Recalculated Standing: {recalculated_standing.__dict__}")
+
+        return matching_combinations
 
     def compare_standings(self,real_standing, recalculated_standing, compare_ogwp=False):
         """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
@@ -513,56 +628,3 @@ class MantraderClient:
             matches = matches and float_equals(real_standing.ogwp, recalculated_standing.ogwp)
 
         return matches
-
-
-class TournamentList:
-    _csv_root = "https://www.manatraders.com/tournaments/download_csv_by_month_and_year?month={month}&year={year}"
-    _swiss_root = "https://www.manatraders.com/tournaments/swiss_json_by_month_and_year?month={month}&year={year}"
-
-
-    def get_tournament_details(self,tournament):
-        client = MantraderClient()
-        csv_url = self._csv_root.format(month=tournament.date.month, year=tournament.date.year)
-        swiss_url = self._swiss_root.format(month=tournament.date.month, year=tournament.date.year)
-        standings_url = f"{tournament.uri}swiss"
-        bracket_url = f"{tournament.uri}finals"
-        standings = client.parse_standings(standings_url)
-
-        deck_uris = client.parse_deck_uris(tournament.uri)
-        decks = client.parse_decks(csv_url, standings, deck_uris)
-        bracket = client.parse_bracket(bracket_url,standings)
-        swiss = client.parse_swiss(swiss_url,standings)
-
-        rounds = swiss + bracket
-        decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
-# for r in bracket:
-#     for m in r.matches:
-#         print(m)
-# for d in decks:
-#     print(d)
-# for s in standings:
-#         print(s)
-
-        return CacheItem(
-            tournament=tournament,
-            decks=decks,
-            standings=standings,
-            rounds=rounds
-        )
-
-    
-
-
-    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
-        tournaments = MantraderClient.get_tournaments()
-        filtered_tournaments = [t for t in tournaments if t.date >= start_date]
-        if end_date:
-            filtered_tournaments = [t for t in filtered_tournaments if t.date <= end_date]
-        return filtered_tournaments
-    
-@dataclass
-class ManaTradersCsvRecord:
-    count: int  # Correspond à la propriété Count
-    card: str   # Correspond à la propriété Card
-    sideboard: bool  # Correspond à la propriété Sideboard
-    player: str  # Correspond à la propriété Player
