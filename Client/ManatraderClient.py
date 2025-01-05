@@ -488,7 +488,7 @@ class Manatrader_fix_hidden_duplicate_name:
         return masked_to_actual
 
 
-    def generate_round_combinations(self, matches, actual_players, standings):
+    def generate_round_combinations(self, matches, actual_players, standings,round_name):
         """Générer les permutations pour chaque round en tenant compte du nombre de matchs du joueur."""
         round_combinations = []
         # Calculer le nombre total de matchs pour chaque joueur
@@ -507,30 +507,11 @@ class Manatrader_fix_hidden_duplicate_name:
             valid_combination = True
             temp_player_wins = {player: 0 for player in actual_players}
             temp_player_losses = {player: 0 for player in actual_players}
+            match_round = int(round_name.replace('Round ', ''))
             for (role, match), player in zip(matches, perm):
-                # Vérifier si le joueur a déjà joué assez de matchs (selon son nombre de victoires et défaites)
                 # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
-                match_round = int(role[-1])  # Extraire le round de la clé du rôle (ex: 'player1-1' -> 1)
                 if player_match_count[player] < match_round:
-                    valid_combination = False
-                    break
-                
-                result1, result2, _ = map(int, match.result.split('-'))  
-                if role == 'player1':
-                    if result1 > result2:
-                        temp_player_wins[player] += 1
-                    elif result1 < result2:
-                        temp_player_losses[player] += 1
-                elif role == 'player2':
-                    if result2 > result1:
-                        temp_player_wins[player] += 1
-                    elif result2 < result1:
-                        temp_player_losses[player] += 1
-                # Mettre à jour le match avec le joueur
-                if player_losses[player] < temp_player_losses[player]:
-                    valid_combination = False
-                    break
-                if player_wins[player] < temp_player_wins[player]:
+                    # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
                     valid_combination = False
                     break
                 new_match = RoundItem(
@@ -561,11 +542,11 @@ class Manatrader_fix_hidden_duplicate_name:
             per_round_assignments = []
             matches_by_round = self.organize_matches_by_round(matches_info)
             for round_name, matches in matches_by_round.items():
-                round_combinations = self.generate_round_combinations(matches, actual_players,standings)
+                round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
                 per_round_assignments.append(round_combinations)
-                print(len(round_combinations))
-            # Générer toutes les combinaisons possibles entre les rounds
-            assignments_per_masked[masked] = list(product(*per_round_assignments))
+                # Générer toutes les combinaisons possibles entre les rounds
+            per_round_assignments_non_empty = [item for item in per_round_assignments if item]
+            assignments_per_masked[masked] = list(product(*per_round_assignments_non_empty))
 
         return assignments_per_masked
 
@@ -617,35 +598,85 @@ class Manatrader_fix_hidden_duplicate_name:
             if initial != final:
                 raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
 
-        # Vérifier que les matchs dans chaque round n'ont pas été modifiés
-        # for initial_round, modified_round in zip(rounds, modified_rounds):
-        #     for initial_match, modified_match in zip(initial_round.matches, modified_round.matches):
-        #         if initial_match != modified_match:
-        #             print(f"Match modifié : {initial_match} -> {modified_match}")
+
         return modified_rounds
 
 
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
-            masked_to_actual = self.map_masked_to_actual(standings,rounds)
-            duplicated_masked_names = {masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1}       
-            masked_matches = self.collect_matches_for_duplicated_masked_names(duplicated_masked_names,rounds)
-            # Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué
-            assignments_per_masked = self.generate_assignments(masked_matches, masked_to_actual,standings)
-            # Partie modifiée pour calculer et comparer les statistiques recalculées pour chaque permutation d'actual_players
-            real_standings_by_player = {standing.player: standing for standing in standings}
-            recalculated_stats = self.calculate_recalculated_stats(assignments_per_masked,standings)
-            matching_permutation = self.find_best_combinations(recalculated_stats,real_standings_by_player)
-                # Étape 6 : Identifier les permutations uniques
-            unique_matching_perm = {
-                masked_name: match_permutation_res[0]  # Prendre la première permutation s'il y a plusieurs options
-                if len(match_permutation_res) > 1 else match_permutation_res[0]  # Sinon prendre celle qui est unique
-                for masked_name, match_permutation_res in matching_permutation.items()
+
+        masked_to_actual = self.map_masked_to_actual(standings,rounds)
+
+        Shorter_masked_to_actual_list = []
+        max_length_for_list = max(len(group) for group in masked_to_actual.values())
+
+        # Itération sur les indices par blocs de 2
+        for i in range(0, max_length_for_list, 2):
+            temp_dict = {}
+            for key, group in masked_to_actual.items():
+                # Ajout des éléments dans la plage [i:i+2]
+                if i < len(group):
+                    temp_dict[key] = group[i:i+2]
+            if temp_dict:  # Ajouter uniquement si non vide
+                Shorter_masked_to_actual_list.append(temp_dict)
+        final_rounds = self.process_rounds_with_masked_data(
+                Shorter_masked_to_actual_list, rounds, standings
+                )
+        return final_rounds
+
+
+    # Fonction ou méthode principale
+    def process_rounds_with_masked_data(self,list_of_masked_to_actual, rounds, standings):
+        # Initialiser les rounds pour les mises à jour successives
+        updated_rounds = rounds
+
+        for i, masked_to_actual in enumerate(list_of_masked_to_actual):
+            print(f"Processing masked_to_actual for block {i + 1}...")
+
+            # Étape 1 : Identifier les noms masqués dupliqués
+            duplicated_masked_names = {
+                masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
             }
 
-            new_rounds = self.create_modified_rounds(rounds, unique_matching_perm, assignments_per_masked)
+            # Étape 2 : Collecter les matchs pour les noms masqués dupliqués
+            masked_matches = self.collect_matches_for_duplicated_masked_names(
+                duplicated_masked_names, updated_rounds
+            )
 
-            
-            return new_rounds
+            # Étape 3 : Générer les combinaisons possibles d'assignations
+            assignments_per_masked = self.generate_assignments(
+                masked_matches, masked_to_actual, standings
+            )
+
+            # Étape 4 : Calculer et comparer les statistiques recalculées
+            real_standings_by_player = {
+                standing.player: standing for standing in standings
+            }
+            recalculated_stats = self.calculate_recalculated_stats(
+                assignments_per_masked, standings
+            )
+
+            # Étape 5 : Trouver les meilleures combinaisons
+            matching_permutation = self.find_best_combinations(
+                recalculated_stats, real_standings_by_player
+            )
+
+            # Étape 6 : Identifier les permutations uniques
+            unique_matching_perm = {}
+            for masked_name, match_permutation_res in matching_permutation.items():
+                if match_permutation_res:
+                    unique_matching_perm[masked_name] = match_permutation_res[0]
+                else:
+                    # Si aucune permutation, ajouter une valeur par défaut ou ignorer
+                    unique_matching_perm[masked_name] = "No Match"  # Exemple
+            # Étape 7 : Créer de nouveaux rounds mis à jour
+            updated_rounds = self.create_modified_rounds(
+                updated_rounds, unique_matching_perm, assignments_per_masked
+            )
+
+            print(f"Completed processing for block {i + 1}.")
+
+        # Retourner les rounds mis à jour
+        return updated_rounds
 
 
 
@@ -665,7 +696,9 @@ class Manatrader_fix_hidden_duplicate_name:
 
                 for player, recalculated_standing in combination.items():
                     real_standing = real_standings_by_player.get(player)
-
+                    if is_matching and masked_name == '_**********_':
+                        # print(f"Real Standing for {player}: {real_standing} ")
+                        print(f"Recalculated Standing for {player}: {recalculated_standing}")
                     if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
                         is_matching = False
                         break
@@ -680,7 +713,6 @@ class Manatrader_fix_hidden_duplicate_name:
 
                     # Collecter les détails pour le débogage
                     comparison_details.append((player, real_standing, recalculated_standing))
-
                 # Si la combinaison correspond aux critères principaux
                 if is_matching:
                     # Calculer la moyenne des différences de gwp et ogwp pour la combinaison
@@ -721,9 +753,7 @@ class Manatrader_fix_hidden_duplicate_name:
             real_standing.rank == recalculated_standing.rank and
             real_standing.points == recalculated_standing.points and
             real_standing.wins == recalculated_standing.wins and
-            real_standing.losses == recalculated_standing.losses and
-            real_standing.draws == recalculated_standing.draws # and
-            # float_equals(real_standing.gwp, recalculated_standing.gwp)
+            real_standing.losses == recalculated_standing.losses 
         )
         # Comparaison optionnelle de `ogwp`
         if compare_ogwp:
