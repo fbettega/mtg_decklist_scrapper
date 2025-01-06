@@ -499,30 +499,30 @@ class Manatrader_fix_hidden_duplicate_name:
         player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in actual_players}
         player_wins = {player: standings_dict[player].wins for player in actual_players}
         player_losses = {player: standings_dict[player].losses for player in actual_players}
-           # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
-
+        # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
+            # Étendre les joueurs pour correspondre au nombre de matchs
 
         for perm in permutations(actual_players, len(matches)):
             replaced_matches = defaultdict(list)
-            valid_combination = True
-            temp_player_wins = {player: 0 for player in actual_players}
-            temp_player_losses = {player: 0 for player in actual_players}
-            match_round = int(round_name.replace('Round ', ''))
+            # valid_combination = True
+            # temp_player_wins = {player: 0 for player in actual_players}
+            # temp_player_losses = {player: 0 for player in actual_players}
+            # match_round = int(round_name.replace('Round ', ''))
             for (role, match), player in zip(matches, perm):
                 # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
-                if player_match_count[player] < match_round:
-                    # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
-                    valid_combination = False
-                    break
+                # if player_match_count[player] < match_round:
+                #     # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
+                #     valid_combination = False
+                #     break
                 new_match = RoundItem(
                     player1=match.player1 if role != 'player1' else player,
                     player2=match.player2 if role != 'player2' else player,
                     result=match.result,
                 )
                 replaced_matches[player].append(new_match)
-
-            if valid_combination:
-                round_combinations.append(replaced_matches)
+            round_combinations.append(replaced_matches)
+            # if valid_combination:
+            #     round_combinations.append(replaced_matches)
 
         return round_combinations
 
@@ -536,17 +536,17 @@ class Manatrader_fix_hidden_duplicate_name:
     def generate_assignments(self, masked_matches, masked_to_actual,standings):
         """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
         assignments_per_masked = {}
-
         for masked, matches_info in masked_matches.items():
-            actual_players = masked_to_actual[masked]
-            per_round_assignments = []
-            matches_by_round = self.organize_matches_by_round(matches_info)
-            for round_name, matches in matches_by_round.items():
-                round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
-                per_round_assignments.append(round_combinations)
-                # Générer toutes les combinaisons possibles entre les rounds
-            per_round_assignments_non_empty = [item for item in per_round_assignments if item]
-            assignments_per_masked[masked] = list(product(*per_round_assignments_non_empty))
+            if masked == '_**********_':
+                actual_players = masked_to_actual[masked]
+                per_round_assignments = []
+                matches_by_round = self.organize_matches_by_round(matches_info)
+                for round_name, matches in matches_by_round.items():
+                    round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
+                    per_round_assignments.append(round_combinations)
+                    # Générer toutes les combinaisons possibles entre les rounds
+                per_round_assignments_non_empty = [item for item in per_round_assignments if item]
+                assignments_per_masked[masked] = list(product(*per_round_assignments_non_empty))
 
         return assignments_per_masked
 
