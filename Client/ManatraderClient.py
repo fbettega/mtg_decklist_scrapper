@@ -17,6 +17,7 @@ from urllib.parse import urljoin
 from itertools import permutations,product
 import copy
 import numpy as np
+from multiprocessing import Pool, cpu_count
 # import html
 from dataclasses import dataclass
 from models.base_model import *
@@ -30,6 +31,34 @@ from comon_tools.tools import *
 # from csv import DictReader
 # from io import StringIO
 # from collections import defaultdict
+
+def validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players):
+    """Valider une permutation donnée."""
+    wins = np.zeros(n_players, dtype=int)
+    losses = np.zeros(n_players, dtype=int)
+    rounds_played = np.zeros(n_players, dtype=int)
+
+    for round_data in perm:
+        for player, round_items in round_data.items():
+            player_idx = player_indices[player]
+            for round_item in round_items:
+                p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
+                rounds_played[player_idx] += 1
+
+                if round_item.player1 == player:
+                    wins[player_idx] += int(p1_wins > p2_wins)
+                    losses[player_idx] += int(p1_wins < p2_wins)
+                elif round_item.player2 == player:
+                    wins[player_idx] += int(p2_wins > p1_wins)
+                    losses[player_idx] += int(p2_wins < p1_wins)
+
+    # Validation vectorisée
+    if np.any(wins > standings_wins) or np.any(losses > standings_losses):
+        return False
+    if np.any(rounds_played > (standings_wins + standings_losses)):
+        return False
+    return True
+
 
 # https://www.manatraders.com/tournaments/history
 class MantraderClient:
@@ -584,66 +613,56 @@ class Manatrader_fix_hidden_duplicate_name:
     #     return assignments_per_masked
 
     def generate_assignments(self, masked_matches, masked_to_actual, standings):
-        """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
-
-        def custom_rule_partial_update(player_stats, player, round_item, standings):
-            """Met à jour les statistiques d'un joueur et vérifie les contraintes."""
-            p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
-            player_stats[player]["rounds_played"] += 1
-
-            # Validation des rounds joués
-            max_rounds = standings[player]["wins"] + standings[player]["losses"]
-            if player_stats[player]["rounds_played"] > max_rounds:
-                return False
-
-            # Mise à jour des victoires et défaites
-            if round_item.player1 == player:
-                player_stats[player]["wins"] += int(p1_wins > p2_wins)
-                player_stats[player]["losses"] += int(p1_wins < p2_wins)
-            elif round_item.player2 == player:
-                player_stats[player]["wins"] += int(p2_wins > p1_wins)
-                player_stats[player]["losses"] += int(p2_wins < p1_wins)
-
-            # Validation des statistiques
-            return not (
-                player_stats[player]["wins"] > standings[player]["wins"] or
-                player_stats[player]["losses"] > standings[player]["losses"]
-            )
-
+        """Optimiser la génération des assignments avec multiprocessing."""
         dict_standings = self.standings_to_dict(standings)
         assignments_per_masked = {}
+
+
 
         for masked, matches_info in masked_matches.items():
         # if masked == '_**********_':
             actual_players = masked_to_actual[masked]
             matches_by_round = self.organize_matches_by_round(matches_info)
 
-            # Préparer toutes les combinaisons de rounds
-            per_round_assignments = [
-                self.generate_round_combinations(matches, actual_players, standings, round_name)
-                for round_name, matches in matches_by_round.items()
-            ]
+            # Préparer les données
+            player_indices = {player: idx for idx, player in enumerate(actual_players)}
+            n_players = len(actual_players)
+            standings_wins = np.array([dict_standings[player]["wins"] for player in actual_players])
+            standings_losses = np.array([dict_standings[player]["losses"] for player in actual_players])
 
-            # Filtrer les rounds vides
-            per_round_assignments = [round_combinations for round_combinations in per_round_assignments if round_combinations]
+            # Fonction génératrice pour les combinaisons de rounds
+            def generate_valid_combinations():
+                for round_name, matches in matches_by_round.items():
+                    round_combinations = self.generate_round_combinations(matches, actual_players, standings, round_name)
+                    if round_combinations:
+                        yield round_combinations
 
-            # Générer des permutations et appliquer la règle partiellement
+            # Créer un générateur pour les permutations
+            permutations = product(*generate_valid_combinations())
+
+            # Diviser les permutations en lots pour multiprocessing
+            def chunked_iterable(iterable, chunk_size):
+                """Diviser un itérable en morceaux de taille chunk_size."""
+                chunk = []
+                for item in iterable:
+                    chunk.append(item)
+                    if len(chunk) == chunk_size:
+                        yield chunk
+                        chunk = []
+                if chunk:
+                    yield chunk
+
+            # Valider les permutations en parallèle
+            chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
             valid_assignments = []
-            for perm in product(*per_round_assignments):
-                player_stats = defaultdict(lambda: {"rounds_played": 0, "wins": 0, "losses": 0})
-                valid = True
-                for round_data in perm:
-                    for player, round_items in round_data.items():
-                        for round_item in round_items:
-                            if not custom_rule_partial_update(player_stats, player, round_item, dict_standings):
-                                valid = False
-                                break
-                        if not valid:
-                            break
-                    if not valid:
-                        break
-                if valid:
-                    valid_assignments.append(perm)
+
+            with Pool(cpu_count()) as pool:
+                for chunk in chunked_iterable(permutations, chunk_size):
+                    results = pool.starmap(
+                        validate_permutation,
+                        [(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players) for perm in chunk]
+                    )
+                    valid_assignments.extend([chunk[i] for i, is_valid in enumerate(results) if is_valid])
 
             assignments_per_masked[masked] = valid_assignments
 
