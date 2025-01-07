@@ -4,6 +4,9 @@ Client/api_topdeck.txt
 initial_debug.py
 log_scraping.txt
 
+
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
