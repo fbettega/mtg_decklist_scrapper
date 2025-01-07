@@ -16,6 +16,7 @@ from typing import List,Tuple,Dict, DefaultDict,Optional
 from urllib.parse import urljoin
 from itertools import permutations,product
 import copy
+import numpy as np
 # import html
 from dataclasses import dataclass
 from models.base_model import *
@@ -533,22 +534,138 @@ class Manatrader_fix_hidden_duplicate_name:
             matches_by_round[round_name].append((role, match))
         return matches_by_round
 
-    def generate_assignments(self, masked_matches, masked_to_actual,standings):
+    # def generate_assignments(self, masked_matches, masked_to_actual,standings):
+    #     """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
+    #     def custom_rule(perm,standings):             
+    #         # Parcours de chaque niveau dans perm
+    #         player_stats = defaultdict(lambda: {"rounds_played": 0, "wins": 0, "losses": 0})
+    #         # Parcours des données de perm
+    #         for round_data in perm:
+    #             for player, round_items in round_data.items():
+    #                 for round_item in round_items:
+    #                     p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
+    #                     player_stats[player]["rounds_played"] += 1
+
+    #                     # Validation des rounds joués
+    #                     max_rounds = standings[player]["wins"] + standings[player]["losses"]
+    #                     if player_stats[player]["rounds_played"] > max_rounds:
+    #                         return False
+
+    #                     # Mise à jour des victoires et défaites
+    #                     if round_item.player1 == player:
+    #                         player_stats[player]["wins"] += int(p1_wins > p2_wins)
+    #                         player_stats[player]["losses"] += int(p1_wins < p2_wins)
+    #                     elif round_item.player2 == player:
+    #                         player_stats[player]["wins"] += int(p2_wins > p1_wins)
+    #                         player_stats[player]["losses"] += int(p2_wins < p1_wins)
+
+    #                     # Validation des statistiques
+    #                     if (player_stats[player]["wins"] > standings[player]["wins"] or
+    #                         player_stats[player]["losses"] > standings[player]["losses"]):
+    #                         return False
+
+    #         return True
+        
+    #     assignments_per_masked = {}
+    #     dict_standings = self.standings_to_dict(standings)
+    #     for masked, matches_info in masked_matches.items():
+    #         if masked == '_**********_':
+    #             actual_players = masked_to_actual[masked]
+    #             per_round_assignments = []
+    #             matches_by_round = self.organize_matches_by_round(matches_info)
+    #             for round_name, matches in matches_by_round.items():
+    #                 round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
+    #                 per_round_assignments.append(round_combinations)
+    #                 # Générer toutes les combinaisons possibles entre les rounds
+    #             per_round_assignments_non_empty = [item for item in per_round_assignments if item]
+    #             # assignments_per_masked[masked] = list(product(*per_round_assignments_non_empty))
+    #             assignments_per_masked[masked] = list((perm for perm in product(*per_round_assignments_non_empty) if custom_rule(perm,dict_standings)))
+
+    #     return assignments_per_masked
+
+    def generate_assignments(self, masked_matches, masked_to_actual, standings):
         """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
+
+        def custom_rule_partial_update(player_stats, player, round_item, standings):
+            """Met à jour les statistiques d'un joueur et vérifie les contraintes."""
+            p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
+            player_stats[player]["rounds_played"] += 1
+
+            # Validation des rounds joués
+            max_rounds = standings[player]["wins"] + standings[player]["losses"]
+            if player_stats[player]["rounds_played"] > max_rounds:
+                return False
+
+            # Mise à jour des victoires et défaites
+            if round_item.player1 == player:
+                player_stats[player]["wins"] += int(p1_wins > p2_wins)
+                player_stats[player]["losses"] += int(p1_wins < p2_wins)
+            elif round_item.player2 == player:
+                player_stats[player]["wins"] += int(p2_wins > p1_wins)
+                player_stats[player]["losses"] += int(p2_wins < p1_wins)
+
+            # Validation des statistiques
+            return not (
+                player_stats[player]["wins"] > standings[player]["wins"] or
+                player_stats[player]["losses"] > standings[player]["losses"]
+            )
+
+        dict_standings = self.standings_to_dict(standings)
         assignments_per_masked = {}
+
         for masked, matches_info in masked_matches.items():
-            if masked == '_**********_':
-                actual_players = masked_to_actual[masked]
-                per_round_assignments = []
-                matches_by_round = self.organize_matches_by_round(matches_info)
-                for round_name, matches in matches_by_round.items():
-                    round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
-                    per_round_assignments.append(round_combinations)
-                    # Générer toutes les combinaisons possibles entre les rounds
-                per_round_assignments_non_empty = [item for item in per_round_assignments if item]
-                assignments_per_masked[masked] = list(product(*per_round_assignments_non_empty))
+        # if masked == '_**********_':
+            actual_players = masked_to_actual[masked]
+            matches_by_round = self.organize_matches_by_round(matches_info)
+
+            # Préparer toutes les combinaisons de rounds
+            per_round_assignments = [
+                self.generate_round_combinations(matches, actual_players, standings, round_name)
+                for round_name, matches in matches_by_round.items()
+            ]
+
+            # Filtrer les rounds vides
+            per_round_assignments = [round_combinations for round_combinations in per_round_assignments if round_combinations]
+
+            # Générer des permutations et appliquer la règle partiellement
+            valid_assignments = []
+            for perm in product(*per_round_assignments):
+                player_stats = defaultdict(lambda: {"rounds_played": 0, "wins": 0, "losses": 0})
+                valid = True
+                for round_data in perm:
+                    for player, round_items in round_data.items():
+                        for round_item in round_items:
+                            if not custom_rule_partial_update(player_stats, player, round_item, dict_standings):
+                                valid = False
+                                break
+                        if not valid:
+                            break
+                    if not valid:
+                        break
+                if valid:
+                    valid_assignments.append(perm)
+
+            assignments_per_masked[masked] = valid_assignments
 
         return assignments_per_masked
+
+    def standings_to_dict(self,standings: List[Standing]) -> Dict[str, Dict]:
+        standings_dict = {}
+        for standing in standings:
+            if standing.player:  # Vérifie que le joueur est défini
+                standings_dict[standing.player] = {
+                    "rank": standing.rank,
+                    "points": standing.points,
+                    "wins": standing.wins,
+                    "losses": standing.losses,
+                    "draws": standing.draws,
+                    "omwp": standing.omwp,
+                    "gwp": standing.gwp,
+                    "ogwp": standing.ogwp,
+                }
+        return standings_dict
+
+# Génération avec filtrage via la méthode personnalisée filtered_permutations = (perm for perm in product(*per_round_assignments_non_empty) if custom_rule(perm))
 
 
     def create_modified_rounds(self,rounds, unique_matching_perm, assignments_per_masked):
@@ -602,78 +719,53 @@ class Manatrader_fix_hidden_duplicate_name:
         return modified_rounds
 
 
-    def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
-
-        masked_to_actual = self.map_masked_to_actual(standings,rounds)
-
-        Shorter_masked_to_actual_list = []
-        max_length_for_list = max(len(group) for group in masked_to_actual.values())
-
-        # Itération sur les indices par blocs de 2
-        for i in range(0, max_length_for_list, 2):
-            temp_dict = {}
-            for key, group in masked_to_actual.items():
-                # Ajout des éléments dans la plage [i:i+2]
-                if i < len(group):
-                    temp_dict[key] = group[i:i+2]
-            if temp_dict:  # Ajouter uniquement si non vide
-                Shorter_masked_to_actual_list.append(temp_dict)
-        final_rounds = self.process_rounds_with_masked_data(
-                Shorter_masked_to_actual_list, rounds, standings
-                )
-        return final_rounds
-
 
     # Fonction ou méthode principale
-    def process_rounds_with_masked_data(self,list_of_masked_to_actual, rounds, standings):
+    def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
-        updated_rounds = rounds
+        masked_to_actual = self.map_masked_to_actual(standings,rounds)
+        # Étape 1 : Identifier les noms masqués dupliqués
+        duplicated_masked_names = {
+            masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
+        }
 
-        for i, masked_to_actual in enumerate(list_of_masked_to_actual):
-            print(f"Processing masked_to_actual for block {i + 1}...")
+        # Étape 2 : Collecter les matchs pour les noms masqués dupliqués
+        masked_matches = self.collect_matches_for_duplicated_masked_names(
+            duplicated_masked_names, rounds
+        )
 
-            # Étape 1 : Identifier les noms masqués dupliqués
-            duplicated_masked_names = {
-                masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
-            }
+        # Étape 3 : Générer les combinaisons possibles d'assignations
+        assignments_per_masked = self.generate_assignments(
+            masked_matches, masked_to_actual, standings
+        )
 
-            # Étape 2 : Collecter les matchs pour les noms masqués dupliqués
-            masked_matches = self.collect_matches_for_duplicated_masked_names(
-                duplicated_masked_names, updated_rounds
-            )
+        # Étape 4 : Calculer et comparer les statistiques recalculées
+        real_standings_by_player = {
+            standing.player: standing for standing in standings
+        }
+        recalculated_stats = self.calculate_recalculated_stats(
+            assignments_per_masked, standings
+        )
 
-            # Étape 3 : Générer les combinaisons possibles d'assignations
-            assignments_per_masked = self.generate_assignments(
-                masked_matches, masked_to_actual, standings
-            )
+        # Étape 5 : Trouver les meilleures combinaisons
+        matching_permutation = self.find_best_combinations(
+            recalculated_stats, real_standings_by_player
+        )
 
-            # Étape 4 : Calculer et comparer les statistiques recalculées
-            real_standings_by_player = {
-                standing.player: standing for standing in standings
-            }
-            recalculated_stats = self.calculate_recalculated_stats(
-                assignments_per_masked, standings
-            )
+        # Étape 6 : Identifier les permutations uniques
+        unique_matching_perm = {}
+        for masked_name, match_permutation_res in matching_permutation.items():
+            if match_permutation_res:
+                unique_matching_perm[masked_name] = match_permutation_res[0]
+            else:
+                # Si aucune permutation, ajouter une valeur par défaut ou ignorer
+                unique_matching_perm[masked_name] = "No Match"  # Exemple
+        # Étape 7 : Créer de nouveaux rounds mis à jour
+        updated_rounds = self.create_modified_rounds(
+            updated_rounds, unique_matching_perm, assignments_per_masked
+        )
 
-            # Étape 5 : Trouver les meilleures combinaisons
-            matching_permutation = self.find_best_combinations(
-                recalculated_stats, real_standings_by_player
-            )
 
-            # Étape 6 : Identifier les permutations uniques
-            unique_matching_perm = {}
-            for masked_name, match_permutation_res in matching_permutation.items():
-                if match_permutation_res:
-                    unique_matching_perm[masked_name] = match_permutation_res[0]
-                else:
-                    # Si aucune permutation, ajouter une valeur par défaut ou ignorer
-                    unique_matching_perm[masked_name] = "No Match"  # Exemple
-            # Étape 7 : Créer de nouveaux rounds mis à jour
-            updated_rounds = self.create_modified_rounds(
-                updated_rounds, unique_matching_perm, assignments_per_masked
-            )
-
-            print(f"Completed processing for block {i + 1}.")
 
         # Retourner les rounds mis à jour
         return updated_rounds
