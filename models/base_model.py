@@ -274,4 +274,6 @@ class RoundItem:
             "Player2": self.player2,
             "Result": self.result
         }
+    def __hash__(self):
+        return hash((self.player1, self.player2, self.result))
 
