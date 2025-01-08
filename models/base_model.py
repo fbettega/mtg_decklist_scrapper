@@ -262,6 +262,13 @@ class RoundItem:
         self.player1 = player1
         self.player2 = player2
         self.result = result
+        p1_wins, p2_wins, _ = map(int, result.split('-'))  
+        # Pré-calculer les résultats sous forme de tuples (wins, losses)
+        self.scores = [
+            (int(p1_wins > p2_wins), int(p1_wins < p2_wins)),  # Résultat pour player1
+            (int(p2_wins > p1_wins), int(p2_wins < p1_wins))   # Résultat pour player2
+        ]
+
     def __eq__(self, other):
         return (self.player1 == other.player1 and
                 self.player2 == other.player2 and
