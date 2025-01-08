@@ -61,13 +61,13 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
     """Valider une permutation donnée."""
     wins = np.zeros(n_players, dtype=int)
     losses = np.zeros(n_players, dtype=int)
-    rounds_played = np.zeros(n_players, dtype=int)
+    # rounds_played = np.zeros(n_players, dtype=int)
     for round_data in perm:
         for player, round_items in round_data.items():
             player_idx = player_indices[player]
             for round_item in round_items:
                 p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
-                rounds_played[player_idx] += 1
+                # rounds_played[player_idx] += 1
                 if round_item.player1 == player:
                     wins[player_idx] += int(p1_wins > p2_wins)
                     losses[player_idx] += int(p1_wins < p2_wins)
@@ -75,10 +75,12 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
                     wins[player_idx] += int(p2_wins > p1_wins)
                     losses[player_idx] += int(p2_wins < p1_wins)
     # Validation vectorisée
-    if np.any(wins > standings_wins) or np.any(losses > standings_losses):
+    # if np.any(wins > standings_wins) or np.any(losses > standings_losses):
+    #     return False
+    if np.any(wins != standings_wins) or np.any(losses != standings_losses):
         return False
-    if np.any(rounds_played > (standings_wins + standings_losses)):
-        return False
+    # if np.any(rounds_played > (standings_wins + standings_losses)):
+    #     return False
     return True
 
 # https://www.manatraders.com/tournaments/history
@@ -590,80 +592,6 @@ class Manatrader_fix_hidden_duplicate_name:
         for role, round_name, match in matches_info:
             matches_by_round[round_name].append((role, match))
         return matches_by_round
-
-    # def generate_assignments(self, masked_matches, masked_to_actual,standings):
-    #     """Étape 5 : Générer toutes les combinaisons possibles d'assignations pour chaque joueur dupliqué."""
-    #     # def custom_rule(perm,standings):             
-    #     #     # Parcours de chaque niveau dans perm
-    #     #     player_stats = defaultdict(lambda: {"rounds_played": 0, "wins": 0, "losses": 0})
-    #     #     # Parcours des données de perm
-    #     #     for round_data in perm:
-    #     #         for player, round_items in round_data.items():
-    #     #             for round_item in round_items:
-    #     #                 p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
-    #     #                 # Validation des rounds joués
-    #     #                 # Mise à jour des victoires et défaites
-    #     #                 if round_item.player1 == player:
-    #     #                     player_stats[player]["wins"] += int(p1_wins > p2_wins)
-    #     #                     player_stats[player]["losses"] += int(p1_wins < p2_wins)
-    #     #                 elif round_item.player2 == player:
-    #     #                     player_stats[player]["wins"] += int(p2_wins > p1_wins)
-    #     #                     player_stats[player]["losses"] += int(p2_wins < p1_wins)
-
-    #     #                 # Validation des statistiques
-    #     #                 if (player_stats[player]["wins"] > standings[player]["wins"] or
-    #     #                     player_stats[player]["losses"] > standings[player]["losses"]):
-    #     #                     return False
-    #     #     return True
-        
-    #     assignments_per_masked = {}
-    #     dict_standings = self.standings_to_dict(standings)
-    #     for masked, matches_info in masked_matches.items():
-    #         actual_players = masked_to_actual[masked]
-    #         per_round_assignments = []
-    #         matches_by_round = self.organize_matches_by_round(matches_info)
-    #         for round_name, matches in matches_by_round.items():
-    #             round_combinations = self.generate_round_combinations(matches, actual_players,standings,round_name)
-    #             per_round_assignments.append(round_combinations)
-    #         per_round_assignments_cleaned = []
-    #         for round_data in per_round_assignments:
-    #             cleaned_round_data = []
-    #             seen = set()  # Pour garder trace des dictionnaires déjà vus
-    #             for round_item in round_data:
-    #                 # Convertir le defaultdict en un tuple des éléments
-    #                 item_tuple = tuple((key, tuple(value)) for key, value in round_item.items())
-    #                 if item_tuple not in seen:
-    #                     seen.add(item_tuple)  # Marquer ce dict comme vu
-    #                     cleaned_round_data.append(round_item)  # Ajouter le dict à la liste nettoyée
-    #             per_round_assignments_cleaned.append(cleaned_round_data)
-            
-    #         # assignments_per_masked[masked] = list((perm for perm in product(*per_round_assignments_cleaned) if custom_rule(perm,dict_standings)))
-    #         total_length_per_round_assignments_cleaned = math.prod(len(round_data) for round_data in per_round_assignments_cleaned)
-    #         # if total_length_per_round_assignments_cleaned < 5000000:
-    #         # assignments_per_masked[masked] = list(product(*per_round_assignments_cleaned))
-    #         # Remplacez l'appel à list comprehension
-    #         # Appel ProcessPoolExecutor
-    #         # else:
-    #         # with ProcessPoolExecutor() as executor:
-    #         #     results = executor.map(
-    #         #         custom_rule,
-    #         #         product(*per_round_assignments_cleaned),
-    #         #         [dict_standings] * len(per_round_assignments_cleaned),
-    #         #     )
-    #         # assignments_per_masked[masked] = [
-    #         #     perm for perm, valid in zip(product(*per_round_assignments_cleaned), results) if valid
-    #         # ]
-
-    #         with ThreadPoolExecutor() as executor:
-    #             results = executor.map(
-    #                 custom_rule,
-    #                 product(*per_round_assignments_cleaned),
-    #                 [dict_standings] * len(per_round_assignments_cleaned),
-    #             )
-    #         assignments_per_masked[masked] = [
-    #             perm for perm, valid in zip(product(*per_round_assignments_cleaned), results) if valid
-    #         ]
-    #     return assignments_per_masked
 
 
     def generate_assignments(self, masked_matches, masked_to_actual, standings):
