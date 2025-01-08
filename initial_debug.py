@@ -13,7 +13,7 @@ from models.base_model import *
 from comon_tools.tools import *
 from models.Topdeck_model import *
 from Client.ManatraderClient import *
-
+a 
 # try:
 #     client = MtgMeleeClient()
 #     # players = client.get_players("https://melee.gg/Tournament/View/16429")
