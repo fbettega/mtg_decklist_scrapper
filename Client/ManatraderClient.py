@@ -555,18 +555,20 @@ class Manatrader_fix_hidden_duplicate_name:
             # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
                 # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
                 p1_wins, p2_wins, _ = map(int, match.result.split('-'))
-                if (role == 'player1'  and ((p1_wins > p2_wins and standings_dict[player].wins == 0) or 
-                           (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
-                    ( p2_wins > 0 and standings_dict[player].gwp == 0) or
+                if (role == 'player1'  and (
+                    (p1_wins > p2_wins and standings_dict[player].wins == 0) or 
+                    (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
+                    (p1_wins > 0 and standings_dict[player].gwp == 0) or
                     (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
                     )):
                     break
                 elif (role == 'player2' and (
                     (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
                     (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
-                    ( p1_wins > 0 and standings_dict[player].gwp == 0) or 
+                    (p2_wins > 0 and standings_dict[player].gwp == 0) or 
                     (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
                     )):
+
                     break
                 
                 else:
@@ -747,10 +749,8 @@ class Manatrader_fix_hidden_duplicate_name:
         matching_permutation = {}
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
-            # if masked_name == 'M**********s':
-            if masked_name == 'N**********s':
-                print("a")
-                # Étape 2
+            # if masked_name == 'M**********s': 
+            # if masked_name == 'N**********s':# "_**********_" "s**********o""
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
             )
@@ -759,9 +759,20 @@ class Manatrader_fix_hidden_duplicate_name:
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
             )
+            print(len(assignments_per_masked))
             # temp refactoring remove after
             matching_permutation[masked_name] = assignments_per_masked
 
+
+            #     # Étape 2
+            # masked_matches = self.collect_matches_for_duplicated_masked_names(
+            #     {masked_name}, rounds
+            # )
+            
+            # # Étape 3
+            # assignments_per_masked = self.generate_assignments(
+            #     masked_matches, masked_to_actual, standings
+            # )
             # # Étape 4
             # real_standings_by_player = {
             #     standing.player: standing for standing in standings
