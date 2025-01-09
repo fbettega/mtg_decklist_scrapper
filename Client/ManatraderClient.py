@@ -16,7 +16,7 @@ import csv
 import math
 from typing import List,Tuple,Dict, DefaultDict,Optional
 from urllib.parse import urljoin
-from itertools import permutations,product
+from itertools import permutations,product,islice
 # import html
 from dataclasses import dataclass
 from models.base_model import *
@@ -66,18 +66,16 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
         for player, round_items in round_data.items():
             player_idx = player_indices[player]
             for round_item in round_items:
-                p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
-                # rounds_played[player_idx] += 1
                 if round_item.player1 == player:
-                    wins[player_idx] += int(p1_wins > p2_wins)
-                    losses[player_idx] += int(p1_wins < p2_wins)
-                elif round_item.player2 == player:
-                    wins[player_idx] += int(p2_wins > p1_wins)
-                    losses[player_idx] += int(p2_wins < p1_wins)
-    # Validation vectorisée
-    # if np.any(wins > standings_wins) or np.any(losses > standings_losses):
-    #     return False
-    if np.any(wins != standings_wins) or np.any(losses != standings_losses):
+                    win, loss = round_item.scores[0]  # Scores de player1
+                else:
+                    win, loss = round_item.scores[1]  # Scores de player2
+                
+                wins[player_idx] += win
+                losses[player_idx] += loss
+                if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
+                    return False
+    if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
         return False
     # if np.any(rounds_played > (standings_wins + standings_losses)):
     #     return False
@@ -634,9 +632,6 @@ class Manatrader_fix_hidden_duplicate_name:
                 cleaned_round_data = clean_round_combinations(round_combinations)
                 cleaned_combinations.append(cleaned_round_data)
 
-            # Créer un générateur de permutations à partir des combinaisons nettoyées
-            permutations = product(*cleaned_combinations)
-
             # Diviser les permutations en lots pour multiprocessing
             def chunked_iterable(iterable, chunk_size):
                 """Diviser un itérable en morceaux de taille chunk_size."""
@@ -648,21 +643,48 @@ class Manatrader_fix_hidden_duplicate_name:
                         chunk = []
                 if chunk:
                     yield chunk
+                    
+            assignments_per_masked[masked] = list((perm for perm in product(*cleaned_combinations) if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
+            # # Valider les permutations en parallèle
+            # chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
+            # valid_assignments = []
+                        
+            # # Créer un générateur pour les permutations
+            # permutations = product(*valid_combinations)
+            # with Pool(cpu_count()) as pool:
+            #     for chunk in chunked_iterable(permutations, chunk_size):
+            #         results = pool.starmap(
+            #             validate_permutation,
+            #             [(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players) for perm in chunk]
+            #         )
+            #         valid_assignments.extend([chunk[i] for i, is_valid in enumerate(results) if is_valid])
 
-            # Valider les permutations en parallèle
-            chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
-            valid_assignments = []
+            # assignments_per_masked[masked] = valid_assignments
 
-            with Pool(cpu_count()) as pool:
-                for chunk in chunked_iterable(permutations, chunk_size):
-                    results = pool.starmap(
-                        validate_permutation,
-                        [(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players) for perm in chunk]
-                    )
-                    valid_assignments.extend([chunk[i] for i, is_valid in enumerate(results) if is_valid])
+            # # Créer un générateur pour les permutations
+            # permutations = product(*valid_combinations)
+            # # Valider les permutations en parallèle
+            #         # Fonction pour starmap - bien vérifier les données transmises
+            # def validate_wrapper(perm):
+            #     return validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)
 
-            assignments_per_masked[masked] = valid_assignments
+            # chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
+            # valid_assignments = []
+            # with Pool(cpu_count()) as pool:
+            #     while True:
+            #         # Obtenir un lot de permutations
+            #         chunk = list(islice(permutations, chunk_size))
+            #         if not chunk:
+            #             break
 
+            #         # Valider les permutations dans le chunk
+            #         results = pool.map(validate_wrapper, chunk)
+
+            #         # Filtrer les permutations valides
+            #         valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
+
+            # # Assigner les résultats
+            # assignments_per_masked[masked] = valid_assignments
         return assignments_per_masked
 
 
