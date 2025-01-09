@@ -35,28 +35,34 @@ import time
 # from io import StringIO
 # from collections import defaultdict
 
-# def custom_rule(perm,standings):             
-#     # Parcours de chaque niveau dans perm
-#     player_stats = defaultdict(lambda: {"rounds_played": 0, "wins": 0, "losses": 0})
-#     # Parcours des données de perm
-#     for round_data in perm:
-#         for player, round_items in round_data.items():
-#             for round_item in round_items:
-#                 p1_wins, p2_wins, _ = map(int, round_item.result.split('-'))
-#                 # Validation des rounds joués
-#                 # Mise à jour des victoires et défaites
-#                 if round_item.player1 == player:
-#                     player_stats[player]["wins"] += int(p1_wins > p2_wins)
-#                     player_stats[player]["losses"] += int(p1_wins < p2_wins)
-#                 elif round_item.player2 == player:
-#                     player_stats[player]["wins"] += int(p2_wins > p1_wins)
-#                     player_stats[player]["losses"] += int(p2_wins < p1_wins)
+# Fonction globale pour traiter une combinaison de matchs
+def process_combination(masked_name: str, 
+                        match_combinations: List[Dict[str, List[RoundItem]]], 
+                        real_standings_by_player, 
+                        calculate_stats_for_matches, 
+                        standings):
+    player_stats_for_combinations = []  # Liste pour stocker les stats de chaque combinaison
+    
+    for combination in match_combinations:
+        aggregated_matches = defaultdict(list)
+        
+        # Regrouper tous les matchs (RoundItems) pour chaque joueur dans cette combinaison
+        for player_dict in combination:
+            for player, matches in player_dict.items():
+                aggregated_matches[player].extend(matches)
 
-#                 # Validation des statistiques
-#                 if (player_stats[player]["wins"] > standings[player]["wins"] or
-#                     player_stats[player]["losses"] > standings[player]["losses"]):
-#                     return False
-#     return True
+        # Calculer les statistiques pour chaque joueur avec tous leurs matchs agrégés
+        stats_for_combination = {}
+        for player, matches in aggregated_matches.items():
+            player_standing = real_standings_by_player.get(player)
+            if player_standing:
+                stats = calculate_stats_for_matches(player, matches, standings)
+                stats_for_combination[player] = stats
+
+        # Ajouter les statistiques pour cette combinaison
+        player_stats_for_combinations.append(stats_for_combination)
+
+    return masked_name, player_stats_for_combinations
 
 def validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players):
     """Valider une permutation donnée."""
@@ -463,35 +469,33 @@ class Manatrader_fix_hidden_duplicate_name:
         # Accès rapide aux standings réels par joueur
         real_standings_by_player = {standing.player: standing for standing in standings}
 
-        # Parcourir les joueurs masqués et leurs combinaisons
+
+        # Accéder au nombre de cœurs pour paralléliser
+
+        # Diviser les calculs en morceaux (chunks) plus petits pour un traitement parallèle
         for masked_name, match_combinations in assignments_per_masked.items():
-            player_stats_for_combinations = []  # Liste pour stocker les stats de chaque combinaison
+            print(len(match_combinations))
+            chunk_size = max(1, len(match_combinations) // cpu_count())  # Diviser en chunks pour le pool
 
-            # Parcourir chaque combinaison de matchs
-            for combination in match_combinations:
-                # Regrouper tous les matchs (RoundItems) pour chaque joueur dans cette combinaison
-                aggregated_matches = defaultdict(list)
+                    # Si le nombre de combinaisons est faible, on évite la parallélisation
+            if len(match_combinations) <= 1000:  # Tu peux ajuster cette valeur selon tes besoins
+                # Traitement séquentiel si le nombre de combinaisons est faible
+                # valid_assignments = []
+                masked_name, stats = process_combination(masked_name, match_combinations, real_standings_by_player, self.calculate_stats_for_matches, standings)
+                recalculated_stats[masked_name] = stats
+            # Créer un pool de processus pour le calcul parallèle
+            else:
+                with Pool(cpu_count()) as pool:
+                    # Créer des chunks de données à traiter
+                    chunks = list(islice(match_combinations, 0, None, chunk_size))
+                    
+                    # Appliquer le traitement à chaque chunk en parallèle
+                    results = pool.starmap(process_combination, [(masked_name, chunk, real_standings_by_player, self.calculate_stats_for_matches, standings) for chunk in chunks])
 
-                for player_dict in combination:
-                    for player, matches in player_dict.items():
-                        # Ajouter les matchs de ce dictionnaire au groupe de ce joueur
-                        aggregated_matches[player].extend(matches)
-
-                # Calculer les statistiques pour chaque joueur avec tous leurs matchs agrégés
-                stats_for_combination = {}
-                for player, matches in aggregated_matches.items():
-                    # Vérifier si le joueur existe dans les standings
-                    player_standing = real_standings_by_player.get(player)
-                    if player_standing:
-                        # Passer tous les matchs agrégés pour ce joueur
-                        stats = self.calculate_stats_for_matches(player, matches, standings)
-                        stats_for_combination[player] = stats
-
-                # Ajouter les statistiques pour cette combinaison
-                player_stats_for_combinations.append(stats_for_combination)
-
-            # Stocker les statistiques recalculées pour ce joueur masqué
-            recalculated_stats[masked_name] = player_stats_for_combinations
+                    # Collecter les résultats
+                    for masked_name, stats in results:
+                        recalculated_stats[masked_name] = stats
+        
         return recalculated_stats
 
     def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
@@ -625,10 +629,9 @@ class Manatrader_fix_hidden_duplicate_name:
             for comb in cleaned_combinations:
                     total_permutations *= len(comb)
             start_time = time.time()  # Démarre le timer
-            if masked == '_**********_':
-                print("stop")
+            # if masked == '_**********_':
+            #     print("stop")
             if total_permutations < 1000: 
-                print("< 10000 perm")
                 assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
 
             else:
@@ -743,6 +746,8 @@ class Manatrader_fix_hidden_duplicate_name:
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
             # if masked_name == 'M**********s':
+            if masked_name == 'N**********s':
+                print("a")
                 # Étape 2
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
@@ -806,9 +811,11 @@ class Manatrader_fix_hidden_duplicate_name:
 
                 for player, recalculated_standing in combination.items():
                     real_standing = real_standings_by_player.get(player)
-                    if is_matching and masked_name == '_**********_':
-                        # print(f"Real Standing for {player}: {real_standing} ")
-                        print(f"Recalculated Standing for {player}: {recalculated_standing}")
+                    # print(f"Real Standing for {player}: {real_standing} ")
+                    # print(f"Calc Standing for {player}: {recalculated_standing} ")
+                    # if is_matching and masked_name == '_**********_':
+                    #     # print(f"Real Standing for {player}: {real_standing} ")
+                    #     print(f"Recalculated Standing for {player}: {recalculated_standing}")
                     if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
                         is_matching = False
                         break
