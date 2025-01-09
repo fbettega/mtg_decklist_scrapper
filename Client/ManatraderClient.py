@@ -76,8 +76,7 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
                 if round_item.player1 == player:
                     win, loss = round_item.scores[0]  # Scores de player1
                 else:
-                    win, loss = round_item.scores[1]  # Scores de player2
-                
+                    win, loss = round_item.scores[1]  # Scores de player2  
                 wins[player_idx] += win
                 losses[player_idx] += loss
                 if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
@@ -559,18 +558,16 @@ class Manatrader_fix_hidden_duplicate_name:
                     (p1_wins > p2_wins and standings_dict[player].wins == 0) or 
                     (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
                     (p1_wins > 0 and standings_dict[player].gwp == 0) or
-                    (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
+                    (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1) 
                     )):
                     break
                 elif (role == 'player2' and (
                     (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
                     (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
                     (p2_wins > 0 and standings_dict[player].gwp == 0) or 
-                    (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
+                    (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p2_wins != 1)
                     )):
-
-                    break
-                
+                    break      
                 else:
                     new_match = RoundItem(
                         player1=match.player1 if role != 'player1' else player,
@@ -578,7 +575,8 @@ class Manatrader_fix_hidden_duplicate_name:
                         result=match.result,
                     )
                     replaced_matches[player].append(new_match)
-            round_combinations.append(replaced_matches)
+            if len(replaced_matches) == len(valid_player):
+                round_combinations.append(replaced_matches)
         return round_combinations
 
     def organize_matches_by_round(self, matches_info):
@@ -627,6 +625,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for round_combinations in valid_combinations:
                 cleaned_round_data = clean_round_combinations(round_combinations)
                 cleaned_combinations.append(cleaned_round_data)
+
 
             permutations_lazy_permutations = product(*cleaned_combinations)                          
             total_permutations = 1
@@ -750,7 +749,8 @@ class Manatrader_fix_hidden_duplicate_name:
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
             # if masked_name == 'M**********s': 
-            # if masked_name == 'N**********s':# "_**********_" "s**********o""
+            # "K**********v"
+            # if masked_name == "K**********v" :#  "s**********o"" 'N**********s' "_**********_"
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
             )
@@ -759,7 +759,7 @@ class Manatrader_fix_hidden_duplicate_name:
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
             )
-            print(len(assignments_per_masked))
+            print(sum(len(v) for v in assignments_per_masked.values()))
             # temp refactoring remove after
             matching_permutation[masked_name] = assignments_per_masked
 
