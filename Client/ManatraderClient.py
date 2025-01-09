@@ -23,6 +23,7 @@ from models.base_model import *
 from comon_tools.tools import *
 from multiprocessing import Pool, cpu_count
 import numpy as np
+import time
 # from concurrent.futures import ThreadPoolExecutor #ProcessPoolExecutor
 # from models.Melee_model import *
 
@@ -77,8 +78,6 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
                     return False
     if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
         return False
-    # if np.any(rounds_played > (standings_wins + standings_losses)):
-    #     return False
     return True
 
 # https://www.manatraders.com/tournaments/history
@@ -375,10 +374,8 @@ class Manatrader_fix_hidden_duplicate_name:
         total_games_played = 0
         total_games_won = 0
         opponents = set()
-
         # Variables auxiliaires pour GWP et OGP
         player_names = {standing.player for standing in standings}
-
         # Parcourir les matchs
         for match in matches:
             p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
@@ -402,8 +399,6 @@ class Manatrader_fix_hidden_duplicate_name:
                 losses += 1
             else:
                 draws += 1
-
-            
 
             # Ajouter aux jeux joués et gagnés
             total_games_played += player_wins + player_losses + draws
@@ -544,44 +539,38 @@ class Manatrader_fix_hidden_duplicate_name:
         # Calculer le nombre total de matchs pour chaque joueur
         # Convertir standings en un dictionnaire, où la clé est le nom du joueur
         standings_dict = {standing.player: standing for standing in standings}
-
         # Calculer le nombre total de matchs pour chaque joueur
         player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in actual_players}
-        player_wins = {player: standings_dict[player].wins for player in actual_players}
-        player_losses = {player: standings_dict[player].losses for player in actual_players}
         # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
             # Étendre les joueurs pour correspondre au nombre de matchs
         match_round = int(round_name.replace('Round ', ''))
         valid_player = [player for player in actual_players if player_match_count[player] >= match_round]
         for perm in permutations(valid_player, len(matches)):
             replaced_matches = defaultdict(list)
-            # valid_combination = True
-            # temp_player_wins = {player: 0 for player in valid_player}
-            # temp_player_losses = {player: 0 for player in actualvalid_player_players}   
             for (role, match), player in zip(matches, perm):
             # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
                 # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
                 p1_wins, p2_wins, _ = map(int, match.result.split('-'))
-                if role == 'player1' and p1_wins > p2_wins and standings_dict[player].wins == 0:
+                if (role == 'player1'  and ((p1_wins > p2_wins and standings_dict[player].wins == 0) or 
+                           (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
+                    ( p2_wins > 0 and standings_dict[player].gwp == 0)
+                    )):
                     break
-                elif role == 'player2' and p1_wins < p2_wins and standings_dict[player].wins == 0:
+                elif (role == 'player2' and (
+                    (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
+                    (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
+                    ( p1_wins > 0 and standings_dict[player].gwp == 0)
+                    )):
                     break
+                
                 else:
                     new_match = RoundItem(
                         player1=match.player1 if role != 'player1' else player,
                         player2=match.player2 if role != 'player2' else player,
                         result=match.result,
                     )
-                    # new_match = RoundItem_compact(
-                    #     player1=match.player1 if role != 'player1' else player,
-                    #     player2=match.player2 if role != 'player2' else player,
-                    #     result=match.result,
-                    # )
                     replaced_matches[player].append(new_match)
             round_combinations.append(replaced_matches)
-            # if valid_combination:
-            #     round_combinations.append(replaced_matches)
-
         return round_combinations
 
     def organize_matches_by_round(self, matches_info):
@@ -597,7 +586,6 @@ class Manatrader_fix_hidden_duplicate_name:
         dict_standings = self.standings_to_dict(standings)
         assignments_per_masked = {}
         for masked, matches_info in masked_matches.items():
-        # if masked == '_**********_':
             actual_players = masked_to_actual[masked]
             matches_by_round = self.organize_matches_by_round(matches_info)
             # Préparer les données
@@ -632,55 +620,41 @@ class Manatrader_fix_hidden_duplicate_name:
                 cleaned_round_data = clean_round_combinations(round_combinations)
                 cleaned_combinations.append(cleaned_round_data)
 
-            # Diviser les permutations en lots pour multiprocessing
-            def chunked_iterable(iterable, chunk_size):
-                """Diviser un itérable en morceaux de taille chunk_size."""
-                chunk = []
-                for item in iterable:
-                    chunk.append(item)
-                    if len(chunk) == chunk_size:
-                        yield chunk
-                        chunk = []
-                if chunk:
-                    yield chunk
-                    # Créer un générateur pour les permutations
-            permutations = product(*cleaned_combinations)                    
+            permutations_lazy_permutations = product(*cleaned_combinations)                          
             total_permutations = 1
             for comb in cleaned_combinations:
                     total_permutations *= len(comb)
-            
+            start_time = time.time()  # Démarre le timer
+            if masked == '_**********_':
+                print("stop")
             if total_permutations < 1000: 
                 print("< 10000 perm")
-                assignments_per_masked[masked] = list((perm for perm in permutations if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
+                assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
 
             else:
                 print(f"Total permutations for parralelisation : {total_permutations}") 
-                chunk_size = 10000  # Taille des morceaux à traiter en parallèle
+                # Taille dynamique du chunk en fonction du total des permutations
+                chunk_size = min(10000, max(1000, total_permutations // (10 * cpu_count())))
                 valid_assignments = []
-
                 with Pool(cpu_count()) as pool:
                     while True:
                         # Créer un lot de permutations
-                        chunk = list(islice(permutations, chunk_size))
+                        chunk = list(islice(permutations_lazy_permutations, chunk_size))
                         if not chunk:
                             break
                         # Préparer les arguments pour chaque permutation dans le chunk
-                        args = [
+                                # Validation des permutations en parallèle
+                        results = pool.starmap(validate_permutation, [
                             (perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)
                             for perm in chunk
-                        ]
-                        # Valider en parallèle
-                        results = pool.starmap(validate_permutation, args)
-                        print("Permutation généré assignation") 
+                        ])
+                        # print("Permutation généré assignation") 
                         # Ajouter les permutations valides
                         valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
-
                 assignments_per_masked[masked] = valid_assignments
-
-
+        end_time = time.time()  # Fin du timer
+        print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
         return assignments_per_masked
-
-
 
 # # Calculer le nombre d'objets pouvant être stockés
 # num_objects = ram_in_bytes // object_size
