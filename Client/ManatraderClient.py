@@ -24,16 +24,8 @@ from comon_tools.tools import *
 from multiprocessing import Pool, cpu_count
 import numpy as np
 import time
-# from concurrent.futures import ThreadPoolExecutor #ProcessPoolExecutor
-# from models.Melee_model import *
+import copy
 
-# import requests
-# import json
-# from bs4 import BeautifulSoup
-# from datetime import datetime
-# from csv import DictReader
-# from io import StringIO
-# from collections import defaultdict
 
 # Fonction globale pour traiter une combinaison de matchs
 def process_combination(masked_name: str, 
@@ -754,7 +746,6 @@ class Manatrader_fix_hidden_duplicate_name:
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
             )
-            
             # Étape 3
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
@@ -763,20 +754,15 @@ class Manatrader_fix_hidden_duplicate_name:
             # temp refactoring remove after
             matching_permutation[masked_name] = assignments_per_masked
 
+            # Étape 4
+            real_standings_by_player = {
+                standing.player: standing for standing in standings
+            }
 
-            #     # Étape 2
-            # masked_matches = self.collect_matches_for_duplicated_masked_names(
-            #     {masked_name}, rounds
-            # )
-            
-            # # Étape 3
-            # assignments_per_masked = self.generate_assignments(
-            #     masked_matches, masked_to_actual, standings
-            # )
-            # # Étape 4
-            # real_standings_by_player = {
-            #     standing.player: standing for standing in standings
-            # }
+
+        test = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
+
+# round 0 round item 53 devrait etre remplacé
             # recalculated_stats = self.calculate_recalculated_stats(
             #     assignments_per_masked, standings
             # )
@@ -808,7 +794,49 @@ class Manatrader_fix_hidden_duplicate_name:
         # Retourner les rounds mis à jour
         return updated_rounds
 
+    def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
+        """
+        Génère une liste de tournois en remplaçant les noms masqués par des permutations uniques.
 
+        Args:
+            rounds (List[Round]): Liste des rounds originaux avec des noms masqués.
+            matching_permutation (dict): Dictionnaire contenant les masques et leurs permutations uniques.
+
+        Returns:
+            List[List[Round]]: Liste de tournois (chaque tournoi est une liste de rounds avec des noms non masqués).
+        """
+        # Liste des tournois générés
+        modified_rounds = [
+            Round(
+                rnd.round_name,
+                [RoundItem(match.player1, match.player2, match.result) for match in rnd.matches]
+            )
+            for rnd in rounds
+        ]
+
+        # Parcours des masques et application des permutations uniques
+        for masked_name, permutations in matching_permutation.items():
+            if len(permutations) == 1:  # On ne traite que les permutations uniques
+                permuted_names, round_data = next(iter(permutations.items()))
+
+                # Parcourir chaque round concerné dans round_data
+                for round_index, round_combinations in enumerate(round_data):
+                    if round_index >= len(modified_rounds):
+                        break  # Éviter les erreurs si round_data dépasse les rounds disponibles
+
+                    modified_round = modified_rounds[round_index]
+
+                    for round_dict in round_combinations:
+                        for real_name, updated_matches in round_dict.items():
+                            for updated_match in updated_matches:
+                                # Appliquer les modifications si le masque et l'autre joueur correspondent
+                                for match in modified_round.matches:
+                                    if match.player1 == masked_name and match.player2 == updated_match.player2:
+                                        match.player1 = real_name
+                                    elif match.player2 == masked_name and match.player1 == updated_match.player1:
+                                        match.player2 = real_name
+
+        return modified_rounds
 
     def find_best_combinations(self, recalculated_stats, real_standings_by_player):
         matching_combinations = {}
