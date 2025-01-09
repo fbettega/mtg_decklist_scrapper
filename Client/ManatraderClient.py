@@ -557,13 +557,15 @@ class Manatrader_fix_hidden_duplicate_name:
                 p1_wins, p2_wins, _ = map(int, match.result.split('-'))
                 if (role == 'player1'  and ((p1_wins > p2_wins and standings_dict[player].wins == 0) or 
                            (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
-                    ( p2_wins > 0 and standings_dict[player].gwp == 0)
+                    ( p2_wins > 0 and standings_dict[player].gwp == 0) or
+                    (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
                     )):
                     break
                 elif (role == 'player2' and (
                     (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
                     (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
-                    ( p1_wins > 0 and standings_dict[player].gwp == 0)
+                    ( p1_wins > 0 and standings_dict[player].gwp == 0) or 
+                    (standings_dict[player].losses == 1 and standings_dict[player].wins == 0 and round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1)
                     )):
                     break
                 
@@ -757,22 +759,24 @@ class Manatrader_fix_hidden_duplicate_name:
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
             )
+            # temp refactoring remove after
+            matching_permutation[masked_name] = assignments_per_masked
+
+            # # Étape 4
+            # real_standings_by_player = {
+            #     standing.player: standing for standing in standings
+            # }
+            # recalculated_stats = self.calculate_recalculated_stats(
+            #     assignments_per_masked, standings
+            # )
+            # # del assignments_per_masked
+            # # Étape 5
+            # matching_permutation_iteration = self.find_best_combinations(
+            #     recalculated_stats, real_standings_by_player
+            # )
             
-            # Étape 4
-            real_standings_by_player = {
-                standing.player: standing for standing in standings
-            }
-            recalculated_stats = self.calculate_recalculated_stats(
-                assignments_per_masked, standings
-            )
-            # del assignments_per_masked
-            # Étape 5
-            matching_permutation_iteration = self.find_best_combinations(
-                recalculated_stats, real_standings_by_player
-            )
-            
-            # Stocker les résultats
-            matching_permutation[masked_name] = matching_permutation_iteration
+            # # Stocker les résultats
+            # matching_permutation[masked_name] = matching_permutation_iteration
 
         # Étape 6 : Identifier les permutations uniques
         unique_matching_perm = {}
