@@ -643,48 +643,41 @@ class Manatrader_fix_hidden_duplicate_name:
                         chunk = []
                 if chunk:
                     yield chunk
-                    
-            assignments_per_masked[masked] = list((perm for perm in product(*cleaned_combinations) if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
-            # # Valider les permutations en parallèle
-            # chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
-            # valid_assignments = []
-                        
-            # # Créer un générateur pour les permutations
-            # permutations = product(*valid_combinations)
-            # with Pool(cpu_count()) as pool:
-            #     for chunk in chunked_iterable(permutations, chunk_size):
-            #         results = pool.starmap(
-            #             validate_permutation,
-            #             [(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players) for perm in chunk]
-            #         )
-            #         valid_assignments.extend([chunk[i] for i, is_valid in enumerate(results) if is_valid])
+                    # Créer un générateur pour les permutations
+            permutations = product(*cleaned_combinations)                    
+            total_permutations = 1
+            for comb in cleaned_combinations:
+                    total_permutations *= len(comb)
+            
+            if total_permutations < 1000: 
+                print("< 10000 perm")
+                assignments_per_masked[masked] = list((perm for perm in permutations if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
 
-            # assignments_per_masked[masked] = valid_assignments
+            else:
+                print(f"Total permutations for parralelisation : {total_permutations}") 
+                chunk_size = 10000  # Taille des morceaux à traiter en parallèle
+                valid_assignments = []
 
-            # # Créer un générateur pour les permutations
-            # permutations = product(*valid_combinations)
-            # # Valider les permutations en parallèle
-            #         # Fonction pour starmap - bien vérifier les données transmises
-            # def validate_wrapper(perm):
-            #     return validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)
+                with Pool(cpu_count()) as pool:
+                    while True:
+                        # Créer un lot de permutations
+                        chunk = list(islice(permutations, chunk_size))
+                        if not chunk:
+                            break
+                        # Préparer les arguments pour chaque permutation dans le chunk
+                        args = [
+                            (perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)
+                            for perm in chunk
+                        ]
+                        # Valider en parallèle
+                        results = pool.starmap(validate_permutation, args)
+                        print("Permutation généré assignation") 
+                        # Ajouter les permutations valides
+                        valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
 
-            # chunk_size = 100000  # Ajustez la taille des lots selon la mémoire disponible
-            # valid_assignments = []
-            # with Pool(cpu_count()) as pool:
-            #     while True:
-            #         # Obtenir un lot de permutations
-            #         chunk = list(islice(permutations, chunk_size))
-            #         if not chunk:
-            #             break
+                assignments_per_masked[masked] = valid_assignments
 
-            #         # Valider les permutations dans le chunk
-            #         results = pool.map(validate_wrapper, chunk)
 
-            #         # Filtrer les permutations valides
-            #         valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
-
-            # # Assigner les résultats
-            # assignments_per_masked[masked] = valid_assignments
         return assignments_per_masked
 
 
