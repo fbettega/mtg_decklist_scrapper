@@ -27,39 +27,12 @@ import time
 import copy
 
 
-# Fonction globale pour traiter une combinaison de matchs
-def process_combination(masked_name: str, 
-                        match_combinations: List[Dict[str, List[RoundItem]]], 
-                        real_standings_by_player, 
-                        calculate_stats_for_matches, 
-                        standings):
-    player_stats_for_combinations = []  # Liste pour stocker les stats de chaque combinaison
-    
-    for combination in match_combinations:
-        aggregated_matches = defaultdict(list)
-        
-        # Regrouper tous les matchs (RoundItems) pour chaque joueur dans cette combinaison
-        for player_dict in combination:
-            for player, matches in player_dict.items():
-                aggregated_matches[player].extend(matches)
 
-        # Calculer les statistiques pour chaque joueur avec tous leurs matchs agrégés
-        stats_for_combination = {}
-        for player, matches in aggregated_matches.items():
-            player_standing = real_standings_by_player.get(player)
-            if player_standing:
-                stats = calculate_stats_for_matches(player, matches, standings)
-                stats_for_combination[player] = stats
-
-        # Ajouter les statistiques pour cette combinaison
-        player_stats_for_combinations.append(stats_for_combination)
-
-    return masked_name, player_stats_for_combinations
-
-def validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players):
+def validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players):
     """Valider une permutation donnée."""
     wins = np.zeros(n_players, dtype=int)
     losses = np.zeros(n_players, dtype=int)
+    gwp_calculated = np.zeros(n_players, dtype=float)
     # rounds_played = np.zeros(n_players, dtype=int)
     for round_data in perm:
         for player, round_items in round_data.items():
@@ -67,7 +40,7 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
             for round_item in round_items:
                 if round_item.player1 == player:
                     win, loss = round_item.scores[0]  # Scores de player1
-                else:
+                elif round_item.player2 == player:
                     win, loss = round_item.scores[1]  # Scores de player2  
                 wins[player_idx] += win
                 losses[player_idx] += loss
@@ -75,6 +48,30 @@ def validate_permutation(perm, dict_standings, player_indices, standings_wins, s
                     return False
     if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
         return False
+        # rounds_played = np.zeros(n_players, dtype=int)
+    Match_win = np.zeros(n_players, dtype=int)
+    Match_losses = np.zeros(n_players, dtype=int)
+    for round_data in perm:
+        for player, round_items in round_data.items():
+            player_idx = player_indices[player]
+            for round_item in round_items:
+                if round_item.player1 == player:
+                    win, loss,_  = map(int, round_item.result.split('-'))  # Scores de player1
+                elif round_item.player2 == player:
+                   loss ,win, _  = map(int, round_item.result.split('-'))  # Scores de player2  
+                Match_win[player_idx] += win
+                Match_losses[player_idx] += loss
+        # Calcul du GWP et comparaison avec standings_gwp
+    for i in range(n_players):
+        total_games = Match_win[i] + Match_losses[i]
+        if total_games > 0:
+            gwp_calculated[i] = Match_win[i] / total_games
+        else:
+            gwp_calculated[i] = 0.0
+        # Comparaison avec tolérance
+        if not np.isclose(round(gwp_calculated[i], 2), round(standings_gwp[i],2), atol=0.01):
+            return False
+
     return True
 
 # https://www.manatraders.com/tournaments/history
@@ -388,7 +385,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 continue  # Ignorer les matchs où le joueur n'est pas impliqué
 
             # Calculer les victoires, défaites et égalités
-        # Mise à jour des statistiques
+            # Mise à jour des statistiques
             # total_matches += 1
             if player_wins > player_losses:
                 wins += 1
@@ -406,29 +403,52 @@ class Manatrader_fix_hidden_duplicate_name:
         # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
         points += 3 * wins + draws
         # Calculer GWP (Game-Win Percentage)
-        gwp = total_games_won / total_games_played if total_games_played > 0 else 0.33
-
-        # Calculer OMP (Opponents’ Match-Win Percentage)
-        opponent_match_points = 0
-        opponent_total_matches = 0
-        for opponent in opponents:
-            opponent_standing = next((s for s in standings if s.player == opponent), None)
-            if opponent_standing:
-                opponent_match_points += opponent_standing.points
-                opponent_total_matches += 3 * len(matches)  # Nombre de rounds (approximé ici)
-
-        omwp = opponent_match_points / opponent_total_matches if opponent_total_matches > 0 else 0.33
+        gwp = total_games_won / total_games_played if total_games_played > 0 else 0
 
         # Calculer OGP (Opponents’ Game-Win Percentage)
-        opponent_game_wins = 0
-        opponent_game_total = 0
+        total_ogp = 0
+        total_opponents = 0
+        for opponent in opponents:
+            # Récupérer les matchs de l'adversaire
+            opponent_matches = [
+                match for rnd in rounds
+                for match in rnd.matches
+                if match.player1 == opponent or match.player2 == opponent
+            ]
+
+            opponent_games_won = 0
+            opponent_games_played = 0
+
+            for match in opponent_matches:
+                p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
+
+                if match.player1 == opponent:
+                    opponent_games_won += p1_wins
+                    opponent_games_played += p1_wins + p2_wins + draws_
+                elif match.player2 == opponent:
+                    opponent_games_won += p2_wins
+                    opponent_games_played += p1_wins + p2_wins + draws_
+
+            # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
+            if opponent_games_played > 0:
+                opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
+                total_ogp += opponent_gwp
+                total_opponents += 1
+
+        # Moyenne des GWP des adversaires (OGP)
+        ogwp = total_ogp / total_opponents if total_opponents > 0 else 0
+
+
+        # Calculer OMWP (Opponents' Match-Win Percentage)
+        opponent_match_wins = 0
+        opponent_match_total = 0
         for opponent in opponents:
             opponent_standing = next((s for s in standings if s.player == opponent), None)
             if opponent_standing:
-                opponent_game_wins += opponent_standing.wins
-                opponent_game_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
+                opponent_match_wins += opponent_standing.wins
+                opponent_match_total += opponent_standing.wins + opponent_standing.losses + opponent_standing.draws
 
-        ogwp = opponent_game_wins / opponent_game_total if opponent_game_total > 0 else 0.33
+        omwp = opponent_match_wins / opponent_match_total if opponent_match_total > 0 else 0
         
         # Calculer le rang du joueur en fonction des points
         standings_with_updated_points = sorted(
@@ -453,41 +473,7 @@ class Manatrader_fix_hidden_duplicate_name:
             ogwp=ogwp
         )
     
-    def calculate_recalculated_stats(self,assignments_per_masked: Dict[str, List[Tuple[DefaultDict[str, List[RoundItem]]]]], standings: List[Standing]) -> Dict[str, List[Dict[str, Dict]]]:
-# j'en suis ici il y a au moins 2 problème adapté calculate_stats_for_matches pour qu'il prenne l'ensemble des match d'un joueurs et lui passer l'ensemble des matchs
-    # Dictionnaire pour stocker les statistiques recalculées
-        recalculated_stats = {}
-        # Accès rapide aux standings réels par joueur
-        real_standings_by_player = {standing.player: standing for standing in standings}
 
-
-        # Accéder au nombre de cœurs pour paralléliser
-
-        # Diviser les calculs en morceaux (chunks) plus petits pour un traitement parallèle
-        for masked_name, match_combinations in assignments_per_masked.items():
-            print(len(match_combinations))
-            chunk_size = max(1, len(match_combinations) // cpu_count())  # Diviser en chunks pour le pool
-
-                    # Si le nombre de combinaisons est faible, on évite la parallélisation
-            if len(match_combinations) <= 1000:  # Tu peux ajuster cette valeur selon tes besoins
-                # Traitement séquentiel si le nombre de combinaisons est faible
-                # valid_assignments = []
-                masked_name, stats = process_combination(masked_name, match_combinations, real_standings_by_player, self.calculate_stats_for_matches, standings)
-                recalculated_stats[masked_name] = stats
-            # Créer un pool de processus pour le calcul parallèle
-            else:
-                with Pool(cpu_count()) as pool:
-                    # Créer des chunks de données à traiter
-                    chunks = list(islice(match_combinations, 0, None, chunk_size))
-                    
-                    # Appliquer le traitement à chaque chunk en parallèle
-                    results = pool.starmap(process_combination, [(masked_name, chunk, real_standings_by_player, self.calculate_stats_for_matches, standings) for chunk in chunks])
-
-                    # Collecter les résultats
-                    for masked_name, stats in results:
-                        recalculated_stats[masked_name] = stats
-        
-        return recalculated_stats
 
     def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
         """Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués."""
@@ -591,7 +577,7 @@ class Manatrader_fix_hidden_duplicate_name:
             n_players = len(actual_players)
             standings_wins = np.array([dict_standings[player]["wins"] for player in actual_players])
             standings_losses = np.array([dict_standings[player]["losses"] for player in actual_players])
-
+            standings_gwp = np.array([dict_standings[player]['gwp'] for player in actual_players]) 
             # Fonction génératrice pour les combinaisons de rounds
             def generate_valid_combinations():
                 for round_name, matches in matches_by_round.items():
@@ -627,7 +613,8 @@ class Manatrader_fix_hidden_duplicate_name:
             # if masked == '_**********_':
             #     print("stop")
             if total_permutations < 1000: 
-                assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)))
+                # dict_standings remove des arguments
+                assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm,  player_indices, standings_wins, standings_losses, standings_gwp, n_players)))
 
             else:
                 print(f"Total permutations for parralelisation : {total_permutations}") 
@@ -642,8 +629,9 @@ class Manatrader_fix_hidden_duplicate_name:
                             break
                         # Préparer les arguments pour chaque permutation dans le chunk
                                 # Validation des permutations en parallèle
+                        # dict_standings remove des arguments
                         results = pool.starmap(validate_permutation, [
-                            (perm, dict_standings, player_indices, standings_wins, standings_losses, n_players)
+                            (perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players)
                             for perm in chunk
                         ])
                         # print("Permutation généré assignation") 
@@ -726,8 +714,6 @@ class Manatrader_fix_hidden_duplicate_name:
 
         return modified_rounds
 
-
-
     # Fonction ou méthode principale
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
@@ -754,15 +740,11 @@ class Manatrader_fix_hidden_duplicate_name:
             # temp refactoring remove after
             matching_permutation[masked_name] = assignments_per_masked
 
-            # Étape 4
-            real_standings_by_player = {
-                standing.player: standing for standing in standings
-            }
-
-
-        test = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
-
-# round 0 round item 53 devrait etre remplacé
+            # # Étape 4
+            # real_standings_by_player = {
+            #     standing.player: standing for standing in standings
+            # }
+            
             # recalculated_stats = self.calculate_recalculated_stats(
             #     assignments_per_masked, standings
             # )
@@ -771,9 +753,13 @@ class Manatrader_fix_hidden_duplicate_name:
             # matching_permutation_iteration = self.find_best_combinations(
             #     recalculated_stats, real_standings_by_player
             # )
-            
             # # Stocker les résultats
             # matching_permutation[masked_name] = matching_permutation_iteration
+
+        Determinist_permutation = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
+            # round 0 round item 53 devrait etre remplacé
+        a = self.process_permutations_with_recalculation(Determinist_permutation, matching_permutation,standings)
+
 
         # Étape 6 : Identifier les permutations uniques
         unique_matching_perm = {}
@@ -793,6 +779,81 @@ class Manatrader_fix_hidden_duplicate_name:
 
         # Retourner les rounds mis à jour
         return updated_rounds
+
+    def process_permutations_with_recalculation(
+        self,
+        rounds: List[Round], 
+        matching_permutation: Dict[str, Dict[str, List[List[Dict[str, List[RoundItem]]]]]], 
+        standings: List[Standing]):
+        """Traiter les permutations avec recalcul des statistiques."""
+        
+        # Créer une copie modifiable des rounds
+        modified_rounds = [
+            Round(
+                rnd.round_name,
+                [RoundItem(match.player1, match.player2, match.result) for match in rnd.matches]
+            )
+            for rnd in rounds
+        ]
+        
+        initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
+        # Parcours des masques et traitement des permutations
+        for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
+            if masked_name == 'M**********3':
+                for permuted_names, round_permutations in permutations.items():
+                    Temp_tournament_stats = []
+                    for round_combination in round_permutations:  # Une permutation complète de tous les rounds
+                        # Créer une copie temporaire de modified_rounds pour cette permutation
+                        temp_rounds = [
+                            Round(
+                                rnd.round_name,
+                                [RoundItem(match.player1, match.player2, match.result) for match in rnd.matches]
+                            )
+                            for rnd in modified_rounds
+                        ]
+                        players_to_recalculate = set()  # Suivre les joueurs pour recalculer les stats
+
+                        # Parcourir tous les rounds dans cette permutation complète
+                        for round_index, round_dict in enumerate(round_combination):
+                            if round_index >= len(temp_rounds):
+                                break  # Éviter les erreurs si round_combination dépasse les rounds disponibles
+                            
+                            temp_round = temp_rounds[round_index]
+
+                            for real_name, updated_matches in round_dict.items():
+                                for updated_match in updated_matches:
+                                    for match in temp_round.matches:
+                                        # Appliquer les modifications si le masque et l'autre joueur correspondent
+                                        if match.player1 == masked_name and match.player2 == updated_match.player2:
+                                            print("update")
+                                            match.player1 = real_name
+                                            players_to_recalculate.update([real_name, match.player2])
+                                        elif match.player2 == masked_name and match.player1 == updated_match.player1:
+                                            print("update")
+                                            match.player2 = real_name
+                                            players_to_recalculate.update([real_name, match.player1])
+
+                        permutation_stats = []
+                        # Vérifier si les joueurs concernés n'affrontent plus de masques
+                        for player in players_to_recalculate:
+                            matches = [
+                                match for rnd in temp_rounds 
+                                for match in rnd.matches 
+                                if match.player1 == player or match.player2 == player
+                            ]
+                            if not any(masked_name in (match.player1, match.player2) for match in matches):
+                                # Recalculer les statistiques du joueur
+                                permutation_stats.append(self.calculate_stats_for_matches(player, matches, standings))
+                        Temp_tournament_stats.append(permutation_stats)
+
+
+        # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
+        final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
+        for initial, final in zip(initial_lengths, final_lengths):
+            if initial != final:
+                raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
+
+        return modified_rounds   
 
     def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
         """
@@ -814,6 +875,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for rnd in rounds
         ]
 
+        initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
         # Parcours des masques et application des permutations uniques
         for masked_name, permutations in matching_permutation.items():
             if len(permutations) == 1:  # On ne traite que les permutations uniques
@@ -835,6 +897,13 @@ class Manatrader_fix_hidden_duplicate_name:
                                         match.player1 = real_name
                                     elif match.player2 == masked_name and match.player1 == updated_match.player1:
                                         match.player2 = real_name
+
+        # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
+        final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
+        # Vérification que les longueurs des rounds sont restées identiques
+        for initial, final in zip(initial_lengths, final_lengths):
+            if initial != final:
+                raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
 
         return modified_rounds
 
