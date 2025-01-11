@@ -61,6 +61,7 @@ class Standing:
                 # pour manatrader les bye compte
                 # GWP - Game-Win Percentage. Similar to the match-win percentage, a player’s game-win percentage is the total number of game points he or she earned divided by X times the number of games played.
                  ogwp: Optional[float] = None):
+                # Vérifier par calcules si on des ogwp est inférieurs a 0.33 il est remplacé par exactement 0.33
                 #OGP - Opponents’ Game-Win Percentage. Similar to opponents’ match-win percentage, a player’s opponents’ game-win percentage is simply the average game-win percentage of all of that player’s opponents. And, as with opponents’ match-win percentage, each opponent has a minimum game-win percentage of 0.33.
         # Assign default values if None
         self.rank = rank
