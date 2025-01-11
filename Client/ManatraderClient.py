@@ -82,6 +82,7 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
             return False
     return True
 
+
 # https://www.manatraders.com/tournaments/history
 class MantraderClient:
     _tournament_list_url = "https://www.manatraders.com/tournaments/2"
@@ -829,8 +830,8 @@ class Manatrader_fix_hidden_duplicate_name:
             for rnd in rounds
         ]
         # Copie des permutations restantes
-        remaining_permutations = matching_permutation.copy()
-
+        # remaining_permutations = matching_permutation.copy()
+        filterd_perm = {}
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
         # Parcours des masques et traitement des permutations
         for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
@@ -869,7 +870,6 @@ class Manatrader_fix_hidden_duplicate_name:
                                         match.player2 = real_name
                                         if match.player1 is not None and not re.fullmatch(r'.\*{10}.', match.player1):
                                             players_to_recalculate.update([real_name, match.player1])
-                    permutation_tested_tournament.append(temp_rounds)
                     permutation_stats = []
 
                     # Vérifier si les joueurs concernés n'affrontent plus de masques
@@ -892,16 +892,21 @@ class Manatrader_fix_hidden_duplicate_name:
                         # if not res_comparator:
                         #     print(f"Rea : {real_standing_ite}")
                         #     print(f"cal : {unsure_standings}") 
-                        standings_comparator_res.append(res_comparator)
+                        if not res_comparator:
+                            break
+                        else:
+                            standings_comparator_res.append(res_comparator)
+                    if all(standings_comparator_res):
+                        valide_perm.append(temp_rounds)
+                        if masked_name not in filterd_perm:
+                            filterd_perm[masked_name] = []
+                        filterd_perm[masked_name].append(round_combination)
+                        Temp_tournament_stats.append(permutation_stats)
 
-                    valide_perm.append(all(standings_comparator_res))
-                    Temp_tournament_stats.append(permutation_stats)
-
-                    
-            if  valide_perm.count(True) == 1:
+            if  len(valide_perm) == 1:
                 print(f"Permutation trouvé : {masked_name}")
                 modified_rounds = temp_rounds
-                del remaining_permutations[masked_name]
+                del filterd_perm[masked_name]
 
         # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
         final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
@@ -909,7 +914,7 @@ class Manatrader_fix_hidden_duplicate_name:
             if initial != final:
                 raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
 
-        return modified_rounds , remaining_permutations
+        return modified_rounds , filterd_perm
 
     def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
         """
