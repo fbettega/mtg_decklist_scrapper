@@ -58,6 +58,7 @@ class Standing:
                  omwp: Optional[float] = None, 
                 # OMP - Opponents’ Match-Win Percentage. A player’s match-win percentage is that player’s accumulated match points divided by X times the number of rounds in which he or she competed, or 0.33, whichever is greater.
                  gwp: Optional[float] = None, 
+                # pour manatrader les bye compte
                 # GWP - Game-Win Percentage. Similar to the match-win percentage, a player’s game-win percentage is the total number of game points he or she earned divided by X times the number of games played.
                  ogwp: Optional[float] = None):
                 #OGP - Opponents’ Game-Win Percentage. Similar to opponents’ match-win percentage, a player’s opponents’ game-win percentage is simply the average game-win percentage of all of that player’s opponents. And, as with opponents’ match-win percentage, each opponent has a minimum game-win percentage of 0.33.
@@ -76,7 +77,9 @@ class Standing:
         return (
             f"Standing(Rank={self.rank}, Player='{self.player}', Points={self.points}, "
             f"Wins={self.wins}, Losses={self.losses}, Draws={self.draws}, "
-            f"OMWP={self.omwp:.2f}, GWP={self.gwp:.2f}, OGWP={self.ogwp:.2f})"
+            f"OMWP={'{:.4f}'.format(self.omwp) if self.omwp is not None else 'None'}, "
+            f"GWP={'{:.4f}'.format(self.gwp) if self.gwp is not None else 'None'}, "
+            f"OGWP={'{:.4f}'.format(self.ogwp) if self.ogwp is not None else 'None'})"
         )
 
     def get_significant_digits(self, value: float) -> int:
@@ -258,11 +261,12 @@ class CacheItem:
 
 
 class RoundItem:
-    def __init__(self, player1: str, player2: str, result: str):
+    def __init__(self, player1: str, player2: str, result: str,id:Optional[str]=None):
         self.player1 = player1
         self.player2 = player2
         self.result = result
         p1_wins, p2_wins, _ = map(int, result.split('-'))  
+        self.id = id
         # Pré-calculer les résultats sous forme de tuples (wins, losses)
         self.scores = [
             (int(p1_wins > p2_wins), int(p1_wins < p2_wins)),  # Résultat pour player1
