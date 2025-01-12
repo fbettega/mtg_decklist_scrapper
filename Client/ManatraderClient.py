@@ -844,7 +844,6 @@ class Manatrader_fix_hidden_duplicate_name:
         Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
         previous_output = None
         current_output = (None, None)
-
         while current_output != previous_output:
             # Mettre à jour l'entrée précédente avec la sortie actuelle
             previous_output = current_output
@@ -853,9 +852,10 @@ class Manatrader_fix_hidden_duplicate_name:
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 Determinist_permutation, 
                 remaining_matching_perm, 
-                standings
+                standings,
+                False
+                
             )
-            
             # Mettre à jour les entrées pour la prochaine itération
             Determinist_permutation = not_determinist_permutations
             remaining_matching_perm = remaining_perm_not_determinist
@@ -869,7 +869,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 standings,
                 True
             )
-        print("ok")
+
 
         # Étape 6 : Identifier les permutations uniques
         unique_matching_perm = {}
@@ -911,14 +911,16 @@ class Manatrader_fix_hidden_duplicate_name:
         filterd_perm = {}
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
 
-        for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
+        # for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
+        for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(next(iter(x[1].values())))):
             valide_perm = []
             args_list = []
-
+            print(f"Traitement de {masked_name} avec {len(next(iter(permutations.values())))} permutations")
             # Construction des arguments pour multiprocessing
             for permuted_names, round_permutations in permutations.items():
-                permuted_names, round_data = next(iter(permutations.items()))
-                paralelization = len(round_data) > 1000
+                # permuted_names, round_data = next(iter(permutations.items()))
+                # paralelization = len(round_data) > 1000
+                paralelization =  len(next(iter(permutations.values()))) > 1000
                 for round_combination in round_permutations:
                     args = (permuted_names, round_combination, masked_name, modified_rounds, standings,
                         self.calculate_stats_for_matches, self.compare_standings)
@@ -937,7 +939,7 @@ class Manatrader_fix_hidden_duplicate_name:
             # Parallélisation avec Pool
             if args_list:
                 start_time = time.time()
-                print(f"{masked_name} parralelisation : {len(round_data)}") 
+                print(f"{masked_name} parralelisation : {len(next(iter(permutations.values())))}") 
                 with Pool(processes=cpu_count()) as pool:
                     results = pool.map(process_single_permutation, args_list, chunksize=1000)
                 end_time = time.time()  # Fin du timer
@@ -948,26 +950,23 @@ class Manatrader_fix_hidden_duplicate_name:
                     if result is not None:
                         valide_perm.append(result)
                         if masked_name not in filterd_perm:
-                            filterd_perm[masked_name] = []
-                        filterd_perm[masked_name].append(result)
+                            filterd_perm[masked_name] = {}
+                        if masked_name not in filterd_perm[masked_name]:
+                            filterd_perm[masked_name][masked_name] = []
+
+                        filterd_perm[masked_name][masked_name].append(result)
 
             if len(valide_perm) == 1:
                 print(f"Permutation trouvée : {masked_name}")
-                modified_rounds = [
-                    Round(
-                        rnd.round_name,
-                        [RoundItem(match.player1, match.player2, match.result, match.id) for match in rnd.matches]
-                    )
-                    for rnd in modified_rounds
-                ]
+                modified_rounds = self.update_modified_rounds_with_valid_permutation(modified_rounds, valide_perm)
                 del filterd_perm[masked_name]
-        print("fin de l'évaluation")
+
         final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
         for initial, final in zip(initial_lengths, final_lengths):
             if initial != final:
                 raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
-
-        return modified_rounds, filterd_perm
+        print("fin de l'évaluation")
+        return modified_rounds,filterd_perm
 
     def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
         """
@@ -1110,7 +1109,21 @@ class Manatrader_fix_hidden_duplicate_name:
 
         return matches
 
+    def update_modified_rounds_with_valid_permutation(self,modified_rounds, valide_perm):
 
+        for valid_permutation_tuple in valide_perm:
+            # 'valid_permutation_tuple' est un tuple contenant un defaultdict
+            valid_permutation = valid_permutation_tuple[0] 
+            for player, updated_rounds in valid_permutation.items():
+                for updated_match in updated_rounds:  # updated_round est un RoundItem, pas une liste
+                    # Trouver le round et le match correspondant dans modified_rounds
+                    for rnd in modified_rounds:
+                        for match in rnd.matches:
+                            if match.id == updated_match.id:  # Si l'ID du match correspond
+                                # Appliquer les modifications du RoundItem dans modified_rounds
+                                match.player1 = updated_match.player1
+                                match.player2 = updated_match.player2            
+        return modified_rounds  
 
 
 
