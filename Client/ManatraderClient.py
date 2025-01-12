@@ -36,6 +36,81 @@ def truncate(number, decimals=4):
     factor = 10.0 ** decimals
     return math.floor(number * factor) / factor
 
+def update_encounters(encounters, player1, player2):
+    """
+    Met à jour le dictionnaire des affrontements. Retourne False si la règle est violée.
+    """
+    if player1 > player2:  # Assurez l'ordre pour éviter les doublons
+        player1, player2 = player2, player1
+
+    if player1 not in encounters:
+        encounters[player1] = set()
+
+    if player2 in encounters[player1]:  # Affrontement déjà existant
+        return False
+
+    # Enregistrer l'affrontement
+    encounters[player1].add(player2)
+    return True
+
+
+# Méthode globale pour multiprocessing
+def process_single_permutation(args):
+    permuted_names, round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings = args
+    temp_rounds = [
+        Round(
+            rnd.round_name,
+            [RoundItem(match.player1, match.player2, match.result, match.id) for match in rnd.matches]
+        )
+        for rnd in modified_rounds
+    ]
+    players_to_recalculate = set()
+    # Dictionnaire pour suivre les affrontements
+    player_encounters = {}
+    for round_index, round_dict in enumerate(round_combination):
+        temp_round = temp_rounds[round_index]
+        if not isinstance(round_dict, dict):
+            print(f"Expected 'round_combination' to be a dict, got {type(round_combination).__name__}")
+        for real_name, updated_matches in round_dict.items():
+            for updated_match in updated_matches:
+                for match in temp_round.matches:
+                    if match.player1 == masked_name and match.id == updated_match.id:
+                        match.player1 = real_name
+                        if match.player2 is not None and not re.fullmatch(r'.\*{10}.', match.player2):
+                            players_to_recalculate.update([real_name, match.player2])
+                            if not update_encounters(player_encounters, real_name, match.player2):
+                                return None
+                    elif match.player2 == masked_name and match.id == updated_match.id:
+                        match.player2 = real_name
+                        if match.player1 is not None and not re.fullmatch(r'.\*{10}.', match.player1):
+                            players_to_recalculate.update([real_name, match.player1])
+                            if not update_encounters(player_encounters, real_name, match.player1):
+                                return None
+
+    permutation_stats = []
+    for player in players_to_recalculate:
+        matches = [
+            match for rnd in temp_rounds
+            for match in rnd.matches
+            if match.player1 == player or match.player2 == player
+        ]
+        if not any(masked_name in (match.player1, match.player2) for match in matches):
+            permutation_stats.append(calculate_stats_for_matches(player, matches, temp_rounds, standings))
+
+    standings_comparator_res = []
+    for unsure_standings in permutation_stats:
+        real_standing_ite = next(
+            (standing for standing in standings if standing.player == unsure_standings.player), None
+        )
+        res_comparator = compare_standings(real_standing_ite, unsure_standings, 3, 3, 3)
+        if not res_comparator:
+            return None
+        standings_comparator_res.append(res_comparator)
+
+    if all(standings_comparator_res):
+        return round_combination
+    return None
+
 
 def validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players):
     """Valider une permutation donnée."""
@@ -51,8 +126,11 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
                     win, loss = round_item.scores[0]  # Scores de player1
                 elif round_item.player2 == player:
                     win, loss = round_item.scores[1]  # Scores de player2  
+                # Mettre à jour les statistiques du joueur
                 wins[player_idx] += win
                 losses[player_idx] += loss
+
+                # Vérifier si les limites de wins/losses sont dépassées
                 if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
                     return False
     if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
@@ -635,7 +713,7 @@ class Manatrader_fix_hidden_duplicate_name:
             total_permutations = 1
             for comb in cleaned_combinations:
                     total_permutations *= len(comb)
-            start_time = time.time()  # Démarre le timer
+
             # if masked == '_**********_':
             #     print("stop")
             if total_permutations < 1000: 
@@ -643,6 +721,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm,  player_indices, standings_wins, standings_losses, standings_gwp, n_players)))
 
             else:
+                start_time = time.time()  # Démarre le timer
                 print(f"Total permutations for parralelisation : {total_permutations}") 
                 # Taille dynamique du chunk en fonction du total des permutations
                 chunk_size = min(10000, max(1000, total_permutations // (10 * cpu_count())))
@@ -664,8 +743,8 @@ class Manatrader_fix_hidden_duplicate_name:
                         # Ajouter les permutations valides
                         valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
                 assignments_per_masked[masked] = valid_assignments
-        end_time = time.time()  # Fin du timer
-        print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
+                end_time = time.time()  # Fin du timer
+                print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
         return assignments_per_masked
 
 # # Calculer le nombre d'objets pouvant être stockés
@@ -821,99 +900,74 @@ class Manatrader_fix_hidden_duplicate_name:
         """Traiter les permutations avec recalcul des statistiques."""
         if tmp_par:
             print("aaa")
-        # Créer une copie modifiable des rounds
+
         modified_rounds = [
             Round(
                 rnd.round_name,
-                [RoundItem(match.player1, match.player2, match.result,match.id) for match in rnd.matches]
+                [RoundItem(match.player1, match.player2, match.result, match.id) for match in rnd.matches]
             )
             for rnd in rounds
         ]
-        # Copie des permutations restantes
-        # remaining_permutations = matching_permutation.copy()
         filterd_perm = {}
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
-        # Parcours des masques et traitement des permutations
+
         for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
             valide_perm = []
-            debug_perm_result = []
-            for permuted_names, round_permutations in permutations.items():
-                # if len(round_permutations) <5 :
-                print(masked_name)
-                for round_combination in round_permutations:  # Une permutation complète de tous les rounds
-                    # Créer une copie temporaire de modified_rounds pour cette permutation
-                    temp_rounds = [
-                        Round(
-                            rnd.round_name,
-                            [RoundItem(match.player1, match.player2, match.result,match.id) for match in rnd.matches]
-                        )
-                        for rnd in modified_rounds
-                    ]
-                    players_to_recalculate = set()  # Suivre les joueurs pour recalculer les stats
-                    # Parcourir tous les rounds dans cette permutation complète
-                    for round_index, round_dict in enumerate(round_combination):
-                        if round_index >= len(temp_rounds):
-                            break  # Éviter les erreurs si round_combination dépasse les rounds disponibles
-                        temp_round = temp_rounds[round_index]
-                        for real_name, updated_matches in round_dict.items():
-                            for updated_match in updated_matches:
-                                for match in temp_round.matches:
-                                    # Appliquer les modifications si le masque et l'autre joueur correspondent
-                                    if match.player1 == masked_name and match.id == updated_match.id:
-                                        match.player1 = real_name
-                                        if match.player2 is not None and not re.fullmatch(r'.\*{10}.', match.player2):
-                                            players_to_recalculate.update([real_name, match.player2])
-                                    elif match.player2 == masked_name and match.id == updated_match.id:
-                                        match.player2 = real_name
-                                        if match.player1 is not None and not re.fullmatch(r'.\*{10}.', match.player1):
-                                            players_to_recalculate.update([real_name, match.player1])
-                    permutation_stats = []
+            args_list = []
 
-                    # Vérifier si les joueurs concernés n'affrontent plus de masques
-                    # problem trouvé : 
-                    # ----------------------------------
-                    # Rea : Standing(Rank=62, Player='Pururin', Points=12, Wins=4, Losses=4, Draws=0, OMWP=0.6090, GWP=0.4210, OGWP=0.5750)
-                    # cal : Standing(Rank=62, Player='Pururin', Points=3, Wins=1, Losses=0, Draws=0, OMWP=0.6250, GWP=0.6666, OGWP=0.6190)
-                    # ----------------------------------
-                    for player in players_to_recalculate:
-                        matches = [
-                            match for rnd in temp_rounds 
-                            for match in rnd.matches 
-                            if match.player1 == player or match.player2 == player
-                        ]
-                        if not any(masked_name in (match.player1, match.player2) for match in matches):
-                            # Recalculer les statistiques du joueur
-                            permutation_stats.append(self.calculate_stats_for_matches(player, matches,temp_rounds ,standings))
-                    standings_comparator_res = []
-                    for unsure_standings in  permutation_stats:
-                        # Rechercher le joueur correspondant dans les standings recalculés
-                        real_standing_ite = next(
-                            (standing for standing in standings if standing.player == unsure_standings.player), None
-                        )      
-                        res_comparator = self.compare_standings(real_standing_ite, unsure_standings, 3,3,3)
-                        if not res_comparator:
-                            standings_comparator_res.append(False)
-                            break
-                        else:
-                            standings_comparator_res.append(res_comparator)
-                    debug_perm_result.append(standings_comparator_res)
-                    if all(standings_comparator_res):
-                        valide_perm.append(temp_rounds)
+            # Construction des arguments pour multiprocessing
+            for permuted_names, round_permutations in permutations.items():
+                permuted_names, round_data = next(iter(permutations.items()))
+                paralelization = len(round_data) > 1000
+                for round_combination in round_permutations:
+                    args = (permuted_names, round_combination, masked_name, modified_rounds, standings,
+                        self.calculate_stats_for_matches, self.compare_standings)
+                    if not paralelization:
+                        # Traitement séquentiel pour certains noms masqués
+                        result = process_single_permutation(args)
+                        if result is not None:
+                            valide_perm.append(result)
+                            if masked_name not in filterd_perm:
+                                filterd_perm[masked_name] = []
+                            filterd_perm[masked_name].append(result)
+                    else:
+                        # Ajouter aux arguments pour parallélisation
+                        args_list.append(args)
+
+            # Parallélisation avec Pool
+            if args_list:
+                start_time = time.time()
+                print(f"{masked_name} parralelisation : {len(round_data)}") 
+                with Pool(processes=cpu_count()) as pool:
+                    results = pool.map(process_single_permutation, args_list, chunksize=1000)
+                end_time = time.time()  # Fin du timer
+                print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
+ 
+                # Traitement des résultats
+                for result in results:
+                    if result is not None:
+                        valide_perm.append(result)
                         if masked_name not in filterd_perm:
                             filterd_perm[masked_name] = []
-                        filterd_perm[masked_name].append(round_combination)
-            if  len(valide_perm) == 1:
-                print(f"Permutation trouvé : {masked_name}")
-                modified_rounds = temp_rounds
-                del filterd_perm[masked_name]
+                        filterd_perm[masked_name].append(result)
 
-        # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
+            if len(valide_perm) == 1:
+                print(f"Permutation trouvée : {masked_name}")
+                modified_rounds = [
+                    Round(
+                        rnd.round_name,
+                        [RoundItem(match.player1, match.player2, match.result, match.id) for match in rnd.matches]
+                    )
+                    for rnd in modified_rounds
+                ]
+                del filterd_perm[masked_name]
+        print("fin de l'évaluation")
         final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
         for initial, final in zip(initial_lengths, final_lengths):
             if initial != final:
                 raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
 
-        return modified_rounds , filterd_perm
+        return modified_rounds, filterd_perm
 
     def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
         """
