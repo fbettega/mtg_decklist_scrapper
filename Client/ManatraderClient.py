@@ -835,13 +835,11 @@ class Manatrader_fix_hidden_duplicate_name:
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
         # Parcours des masques et traitement des permutations
         for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
-            # if masked_name == 's**********o':#'M**********3' 'M**********s' 's**********o' 's**********s
             valide_perm = []
+            debug_perm_result = []
             for permuted_names, round_permutations in permutations.items():
                 # if len(round_permutations) <5 :
                 print(masked_name)
-                Temp_tournament_stats = []
-                permutation_tested_tournament = []
                 for round_combination in round_permutations:  # Une permutation complète de tous les rounds
                     # Créer une copie temporaire de modified_rounds pour cette permutation
                     temp_rounds = [
@@ -857,7 +855,6 @@ class Manatrader_fix_hidden_duplicate_name:
                         if round_index >= len(temp_rounds):
                             break  # Éviter les erreurs si round_combination dépasse les rounds disponibles
                         temp_round = temp_rounds[round_index]
-
                         for real_name, updated_matches in round_dict.items():
                             for updated_match in updated_matches:
                                 for match in temp_round.matches:
@@ -873,6 +870,11 @@ class Manatrader_fix_hidden_duplicate_name:
                     permutation_stats = []
 
                     # Vérifier si les joueurs concernés n'affrontent plus de masques
+                    # problem trouvé : 
+                    # ----------------------------------
+                    # Rea : Standing(Rank=62, Player='Pururin', Points=12, Wins=4, Losses=4, Draws=0, OMWP=0.6090, GWP=0.4210, OGWP=0.5750)
+                    # cal : Standing(Rank=62, Player='Pururin', Points=3, Wins=1, Losses=0, Draws=0, OMWP=0.6250, GWP=0.6666, OGWP=0.6190)
+                    # ----------------------------------
                     for player in players_to_recalculate:
                         matches = [
                             match for rnd in temp_rounds 
@@ -889,20 +891,17 @@ class Manatrader_fix_hidden_duplicate_name:
                             (standing for standing in standings if standing.player == unsure_standings.player), None
                         )      
                         res_comparator = self.compare_standings(real_standing_ite, unsure_standings, 3,3,3)
-                        # if not res_comparator:
-                        #     print(f"Rea : {real_standing_ite}")
-                        #     print(f"cal : {unsure_standings}") 
                         if not res_comparator:
+                            standings_comparator_res.append(False)
                             break
                         else:
                             standings_comparator_res.append(res_comparator)
+                    debug_perm_result.append(standings_comparator_res)
                     if all(standings_comparator_res):
                         valide_perm.append(temp_rounds)
                         if masked_name not in filterd_perm:
                             filterd_perm[masked_name] = []
                         filterd_perm[masked_name].append(round_combination)
-                        Temp_tournament_stats.append(permutation_stats)
-
             if  len(valide_perm) == 1:
                 print(f"Permutation trouvé : {masked_name}")
                 modified_rounds = temp_rounds
@@ -943,22 +942,19 @@ class Manatrader_fix_hidden_duplicate_name:
         for masked_name, permutations in matching_permutation.items():
             permuted_names, round_data = next(iter(permutations.items()))
             if len(round_data) == 1:
+                print(f"Permutation unique attribué : {masked_name}")
+                only_round_data = round_data[0]
                 # Parcourir chaque round concerné dans round_data
-                for round_index, round_combinations in enumerate(round_data):
-                    if round_index >= len(modified_rounds):
-                        break  # Éviter les erreurs si round_data dépasse les rounds disponibles
-
+                for round_index, round_combinations in enumerate(only_round_data):
                     modified_round = modified_rounds[round_index]
-
-                    for round_dict in round_combinations:
-                        for real_name, updated_matches in round_dict.items():
-                            for updated_match in updated_matches:
-                                # Appliquer les modifications si le masque et l'autre joueur correspondent
-                                for match in modified_round.matches:
-                                    if match.player1 == masked_name and match.id == updated_match.id:
-                                        match.player1 = real_name
-                                    elif match.player2 == masked_name and match.id == updated_match.id:
-                                        match.player2 = real_name
+                    for real_name, updated_matches in round_combinations.items():
+                        for updated_match in updated_matches:
+                            # Appliquer les modifications si le masque et l'autre joueur correspondent
+                            for match in modified_round.matches:
+                                if match.player1 == masked_name and match.id == updated_match.id:
+                                    match.player1 = real_name
+                                elif match.player2 == masked_name and match.id == updated_match.id:
+                                    match.player2 = real_name
                 # Supprimer le masque traité des permutations restantes
                 del remaining_permutations[masked_name]
 
@@ -988,11 +984,6 @@ class Manatrader_fix_hidden_duplicate_name:
 
                 for player, recalculated_standing in combination.items():
                     real_standing = real_standings_by_player.get(player)
-                    # print(f"Real Standing for {player}: {real_standing} ")
-                    # print(f"Calc Standing for {player}: {recalculated_standing} ")
-                    # if is_matching and masked_name == '_**********_':
-                    #     # print(f"Real Standing for {player}: {real_standing} ")
-                    #     print(f"Recalculated Standing for {player}: {recalculated_standing}")
                     if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
                         is_matching = False
                         break
@@ -1031,7 +1022,7 @@ class Manatrader_fix_hidden_duplicate_name:
         return matching_combinations
 
 
-    def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None):
+    def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-4):
         """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
         matches = (
             real_standing.rank == recalculated_standing.rank and
@@ -1039,13 +1030,59 @@ class Manatrader_fix_hidden_duplicate_name:
             real_standing.wins == recalculated_standing.wins and
             real_standing.losses == recalculated_standing.losses 
         )
+        # Fonction pour comparer avec tolérance
+        def are_close(val1, val2, tol):
+            return abs(val1 - val2) <= tol
 
-        # Comparaison optionnelle des pourcentages uniquement s'ils ne sont pas None
+        # Comparaison optionnelle des pourcentages
         if compare_gwp and real_standing.gwp is not None and recalculated_standing.gwp is not None:
-            matches = matches and (custom_round(real_standing.gwp, compare_gwp) == custom_round(recalculated_standing.gwp, compare_gwp))
+            matches = matches and are_close(
+                custom_round(real_standing.gwp, compare_gwp),
+                custom_round(recalculated_standing.gwp, compare_gwp),
+                tolerance
+            )
         if compare_omwp and real_standing.omwp is not None and recalculated_standing.omwp is not None:
-            matches = matches and (custom_round(real_standing.omwp, compare_omwp) == custom_round(recalculated_standing.omwp, compare_omwp))
+            matches = matches and are_close(
+                custom_round(real_standing.omwp, compare_omwp),
+                custom_round(recalculated_standing.omwp, compare_omwp),
+                tolerance
+            )
         if compare_ogwp and real_standing.ogwp is not None and recalculated_standing.ogwp is not None:
-            matches = matches and (custom_round(real_standing.ogwp, compare_ogwp) == custom_round(recalculated_standing.ogwp, compare_ogwp))  
+            matches = matches and are_close(
+                custom_round(real_standing.ogwp, compare_ogwp),
+                custom_round(recalculated_standing.ogwp, compare_ogwp),
+                tolerance
+            )
 
         return matches
+
+
+
+
+
+# print(standings[43]) 
+# matches = [
+#     match for rnd in modified_rounds 
+#     for match in rnd.matches 
+#     if match.player1 == "Pururin" or match.player2 == "Pururin"
+# ]
+# print(self.calculate_stats_for_matches("B1gDan", matches,rounds ,standings))
+
+# print(standings[21]) 
+# matches = [
+#     match for rnd in rounds 
+#     for match in rnd.matches 
+#     if match.player1 == "rastaf" or match.player2 == "rastaf"
+# ]
+# print(self.calculate_stats_for_matches("rastaf", matches,rounds ,standings))
+# print(standings[158])
+# matches = [
+#     match for rnd in rounds 
+#     for match in rnd.matches 
+#     if match.player1 == "fj_rodman" or match.player2 == "fj_rodman"
+# ]
+# for r in rounds:
+#     for m in r.matches:
+#         if m.player1 == "fj_rodman" or m.player2 == "fj_rodman":
+#             print(m)
+# print(self.calculate_stats_for_matches("fj_rodman", matches,rounds ,standings))
