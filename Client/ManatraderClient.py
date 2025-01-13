@@ -859,7 +859,6 @@ class Manatrader_fix_hidden_duplicate_name:
             # Mettre à jour les entrées pour la prochaine itération
             Determinist_permutation = not_determinist_permutations
             remaining_matching_perm = remaining_perm_not_determinist
-            
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
 
@@ -930,8 +929,11 @@ class Manatrader_fix_hidden_duplicate_name:
                         if result is not None:
                             valide_perm.append(result)
                             if masked_name not in filterd_perm:
-                                filterd_perm[masked_name] = []
-                            filterd_perm[masked_name].append(result)
+                                filterd_perm[masked_name] = {}
+                            if masked_name not in filterd_perm[masked_name]:
+                                filterd_perm[masked_name][masked_name] = []
+                            filterd_perm[masked_name][masked_name].append(result)
+
                     else:
                         # Ajouter aux arguments pour parallélisation
                         args_list.append(args)
