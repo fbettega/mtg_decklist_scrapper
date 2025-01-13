@@ -856,9 +856,7 @@ class Manatrader_fix_hidden_duplicate_name:
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 local_deterministic_permutations, 
                 local_remaining_permutations, 
-                standings,
-                False
-                
+                standings             
             )
             # Mettre à jour les entrées pour la prochaine itération
             local_deterministic_permutations = not_determinist_permutations
@@ -869,8 +867,7 @@ class Manatrader_fix_hidden_duplicate_name:
         not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 Determinist_permutation, 
                 remaining_matching_perm, 
-                standings,
-                True
+                standings
             )
 
 
@@ -897,12 +894,10 @@ class Manatrader_fix_hidden_duplicate_name:
         self,
         rounds: List[Round], 
         matching_permutation: Dict[str, Dict[str, List[List[Dict[str, List[RoundItem]]]]]], 
-        standings: List[Standing],
-        tmp_par = False
+        standings: List[Standing]
         ):
         """Traiter les permutations avec recalcul des statistiques."""
-        if tmp_par:
-            print("aaa")
+
 
         modified_rounds = [
             Round(
@@ -959,7 +954,9 @@ class Manatrader_fix_hidden_duplicate_name:
                         if masked_name not in filterd_perm:
                             filterd_perm[masked_name] = []
                         filterd_perm[masked_name].append(result)
-
+            if len(valide_perm) ==0:
+                print(f"0 Valide permutation : {masked_name}")         
+                filterd_perm[masked_name] = permutations
             if len(valide_perm) == 1:
                 print(f"Permutation trouvée : {masked_name}")
                 modified_rounds = self.update_modified_rounds_with_valid_permutation(modified_rounds, valide_perm)
