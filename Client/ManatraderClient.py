@@ -26,11 +26,33 @@ import numpy as np
 import time
 import copy
 
+# tolerance=1e-4
 
+# def are_close(val1, val2, tol):
+#     return abs(val1 - val2) <= tol
+
+# print(custom_round(0.4210,3)) == print(custom_round(0.4206,3))
+
+# are_close(custom_round(0.35400,3),custom_round(0.35444,3),tolerance
+#             )
+
+# are_close(custom_round(0.1430,3),custom_round(0.14280,3),tolerance
+#             )
+
+# are_close(custom_round(0.3540,3),custom_round(0.3544,3),tolerance
+#             )
+
+# a = Standing(rank=160, player='I-amUnstable', points=0, wins=0, losses=3, draws=0, omwp=0.35400, gwp=0.14300, ogwp=0.42100)
+# b = Standing(rank=160, player='I-amUnstable', points=0, wins=0, losses=3, draws=0, omwp=0.35444, gwp=0.14280, ogwp=0.42060)
+
+
+# decimals =3
+
+# print(self.compare_standings(a,b,3,3,3))
 
 def custom_round(value, decimals=0):
     # multiplier = 10**decimals
-    epsilon = 10 ** (-decimals - 1)
+    epsilon = 10 ** (-decimals -3)
     return round(value + epsilon, decimals)
 
 def truncate(number, decimals=4):
@@ -868,44 +890,29 @@ class Manatrader_fix_hidden_duplicate_name:
                 standings             
             )
             # Mettre à jour les entrées pour la prochaine itération
-            local_deterministic_permutations = not_determinist_permutations
-            local_remaining_permutations = remaining_perm_not_determinist
+            local_deterministic_permutations =  copy.deepcopy(not_determinist_permutations)
+            local_remaining_permutations = copy.deepcopy(remaining_perm_not_determinist)
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
+ 
+        # rounds_dict_list = [round_obj.to_dict() for round_obj in not_determinist_permutations]
+        # # Écriture dans un fichier JSON
+        # with open("rounds.json", "w", encoding="utf-8") as file:
+        #     json.dump(rounds_dict_list, file, indent=3)
 
-        not_determinist_permutations2, remaining_perm_not_determinist2 = self.process_permutations_with_recalculation(
-                not_determinist_permutations, 
-                remaining_perm_not_determinist, 
-                standings,
-                True
-            )
-
-
-        # Étape 6 : Identifier les permutations uniques
-        unique_matching_perm = {}
-        for masked_name, match_permutation_res in matching_permutation.items():
-            if len(match_permutation_res) == 1:  # Cas d'un seul élément
-                unique_matching_perm[masked_name] = match_permutation_res
-            elif  match_permutation_res:
-                unique_matching_perm[masked_name] = match_permutation_res[0]
-            else:
-                # Si aucune permutation, ajouter une valeur par défaut ou ignorer
-                unique_matching_perm[masked_name] = "No Match"  # Exemple
-        
-        # Étape 7 : Créer de nouveaux rounds mis à jour
-        updated_rounds = self.create_modified_rounds(
-            updated_rounds, unique_matching_perm, assignments_per_masked
-        )
-
-        # Retourner les rounds mis à jour
-        return updated_rounds
+        for rounds   in not_determinist_permutations :
+            for match in rounds.matches: 
+                if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
+                    print(f"Masked Name present : {rounds}")
+                    return None
+    # Retourner les rounds mis à jour
+        return not_determinist_permutations
 
     def process_permutations_with_recalculation(
         self,
         rounds: List[Round], 
         matching_permutation: Dict[str, Dict[str, List[List[Dict[str, List[RoundItem]]]]]], 
-        standings: List[Standing],
-        debug_print = False
+        standings: List[Standing]
         ):
         """Traiter les permutations avec recalcul des statistiques."""
 
@@ -920,6 +927,8 @@ class Manatrader_fix_hidden_duplicate_name:
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
 
         # for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
+        # Real : Standing(rank=9, player='MattTumavitch13', points=18, wins=6, losses=2, draws=0, omwp=0.70800, gwp=0.65000, ogwp=0.64700)
+        # Calc : Standing(rank=9, player='MattTumavitch13', points=3, wins=1, losses=0, draws=0, omwp=0.33000, gwp=1.00000, ogwp=0.33000)
 
         for masked_name, permutations in sorted(
                 matching_permutation.items(), 
@@ -930,7 +939,6 @@ class Manatrader_fix_hidden_duplicate_name:
             print(f"Traitement de {masked_name} avec {len(permutations)} permutations")
             # Construction des arguments pour multiprocessing
             paralelization =  len(permutations) > 1000
-
             for round_permutations in permutations:  # Chaque élément est un defaultdict
                 args = (
                     round_permutations, masked_name, modified_rounds, standings,
@@ -956,7 +964,7 @@ class Manatrader_fix_hidden_duplicate_name:
                     results = pool.map(process_single_permutation, args_list, chunksize=50)
                 end_time = time.time()  # Fin du timer
                 print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
- 
+
                 # Traitement des résultats
                 for result in results:
                     if result is not None:
@@ -964,13 +972,15 @@ class Manatrader_fix_hidden_duplicate_name:
                         if masked_name not in filterd_perm:
                             filterd_perm[masked_name] = []
                         filterd_perm[masked_name].append(result)
+
             if len(valide_perm) ==0:
                 print(f"0 Valide permutation : {masked_name}")         
                 filterd_perm[masked_name] = permutations
             if len(valide_perm) == 1:
                 print(f"Permutation trouvée : {masked_name}")
-                modified_rounds = self.update_modified_rounds_with_valid_permutation(modified_rounds, valide_perm)
+                modified_rounds = self.update_modified_rounds_with_valid_permutation(modified_rounds, valide_perm,masked_name)
                 del filterd_perm[masked_name]
+
 
         final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
         for initial, final in zip(initial_lengths, final_lengths):
@@ -1006,17 +1016,17 @@ class Manatrader_fix_hidden_duplicate_name:
         for masked_name, permutations in matching_permutation.items():
             if len(permutations) == 1:
                 print(f"Permutation unique attribué : {masked_name}")
-                for round_index, round_combinations in enumerate(permutations):
-                    modified_round = modified_rounds[round_index]
+                for round_combinations in permutations:
                     for round_dict in round_combinations:  # Itère sur chaque defaultdict
                         for real_name, updated_matches in round_dict.items():  # Itère sur les paires clé-valeur
                             for updated_match in updated_matches:  # Itère sur les RoundItem associés
                                 # Appliquer les modifications si le masque et l'autre joueur correspondent
-                                for match in modified_round.matches:
-                                    if match.player1 == masked_name and match.id == updated_match.id:
-                                        match.player1 = real_name
-                                    elif match.player2 == masked_name and match.id == updated_match.id:
-                                        match.player2 = real_name
+                                for modified_round in modified_rounds:
+                                    for match in modified_round.matches:
+                                        if match.player1 == masked_name and match.id == updated_match.id:
+                                            match.player1 = real_name
+                                        elif match.player2 == masked_name and match.id == updated_match.id:
+                                            match.player2 = real_name
                 # Supprimer le masque traité des permutations restantes
                 del remaining_permutations[masked_name]
 
@@ -1118,47 +1128,22 @@ class Manatrader_fix_hidden_duplicate_name:
 
         return matches
 
-    def update_modified_rounds_with_valid_permutation(self,modified_rounds, valide_perm):
-
+    def update_modified_rounds_with_valid_permutation(self,modified_rounds, valide_perm,masked_name):
         for valid_permutation_tuple in valide_perm:
+            for valid_permutation in valid_permutation_tuple: 
             # 'valid_permutation_tuple' est un tuple contenant un defaultdict
-            valid_permutation = valid_permutation_tuple[0] 
-            for player, updated_rounds in valid_permutation.items():
-                for updated_match in updated_rounds:  # updated_round est un RoundItem, pas une liste
-                    # Trouver le round et le match correspondant dans modified_rounds
-                    for rnd in modified_rounds:
-                        for match in rnd.matches:
-                            if match.id == updated_match.id:  # Si l'ID du match correspond
-                                # Appliquer les modifications du RoundItem dans modified_rounds
-                                match.player1 = updated_match.player1
-                                match.player2 = updated_match.player2            
+                for player, updated_rounds in valid_permutation.items():
+                    for updated_match in updated_rounds:  # updated_round est un RoundItem, pas une liste
+                        # Trouver le round et le match correspondant dans modified_rounds
+                        for rnd in modified_rounds:
+                            for match in rnd.matches:
+                                if match.id == updated_match.id:  # Si l'ID du match correspond
+                                    if match.player1 == masked_name:
+                                        match.player1 = updated_match.player1
+                                    # Appliquer les modifications du RoundItem dans modified_rounds
+                                    if match.player2 == masked_name:
+                                        match.player2 = updated_match.player2                          
         return modified_rounds  
 
 
 
-# print(standings[43]) 
-# matches = [
-#     match for rnd in modified_rounds 
-#     for match in rnd.matches 
-#     if match.player1 == "Pururin" or match.player2 == "Pururin"
-# ]
-# print(self.calculate_stats_for_matches("B1gDan", matches,rounds ,standings))
-
-# print(standings[21]) 
-# matches = [
-#     match for rnd in rounds 
-#     for match in rnd.matches 
-#     if match.player1 == "rastaf" or match.player2 == "rastaf"
-# ]
-# print(self.calculate_stats_for_matches("rastaf", matches,rounds ,standings))
-# print(standings[158])
-# matches = [
-#     match for rnd in rounds 
-#     for match in rnd.matches 
-#     if match.player1 == "fj_rodman" or match.player2 == "fj_rodman"
-# ]
-# for r in rounds:
-#     for m in r.matches:
-#         if m.player1 == "fj_rodman" or m.player2 == "fj_rodman":
-#             print(m)
-# print(self.calculate_stats_for_matches("fj_rodman", matches,rounds ,standings))
