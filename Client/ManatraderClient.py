@@ -56,7 +56,7 @@ def update_encounters(encounters, player1, player2):
 
 # Méthode globale pour multiprocessing
 def process_single_permutation(args):
-    permuted_names, round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings = args
+    round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings = args
     temp_rounds = [
         Round(
             rnd.round_name,
@@ -912,39 +912,40 @@ class Manatrader_fix_hidden_duplicate_name:
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
 
         # for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(x[1])):
-        for masked_name, permutations in sorted(matching_permutation.items(), key=lambda x: len(next(iter(x[1].values())))):
+
+        for masked_name, permutations in sorted(
+                matching_permutation.items(), 
+                key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
+            ):
             valide_perm = []
             args_list = []
-            print(f"Traitement de {masked_name} avec {len(next(iter(permutations.values())))} permutations")
+            print(f"Traitement de {masked_name} avec {len(permutations)} permutations")
             # Construction des arguments pour multiprocessing
-            for permuted_names, round_permutations in permutations.items():
-                # permuted_names, round_data = next(iter(permutations.items()))
-                # paralelization = len(round_data) > 1000
-                paralelization =  len(next(iter(permutations.values()))) > 1000
-                for round_combination in round_permutations:
-                    args = (permuted_names, round_combination, masked_name, modified_rounds, standings,
-                        self.calculate_stats_for_matches, self.compare_standings)
-                    if not paralelization:
-                        # Traitement séquentiel pour certains noms masqués
-                        result = process_single_permutation(args)
-                        if result is not None:
-                            valide_perm.append(result)
-                            if masked_name not in filterd_perm:
-                                filterd_perm[masked_name] = {}
-                            if masked_name not in filterd_perm[masked_name]:
-                                filterd_perm[masked_name][masked_name] = []
-                            filterd_perm[masked_name][masked_name].append(result)
+            paralelization =  len(permutations) > 1000
 
-                    else:
-                        # Ajouter aux arguments pour parallélisation
-                        args_list.append(args)
+            for round_permutations in permutations:  # Chaque élément est un defaultdict
+                args = (
+                    round_permutations, masked_name, modified_rounds, standings,
+                    self.calculate_stats_for_matches, self.compare_standings
+                )
+                if not paralelization:
+                    # Traitement séquentiel pour certains noms masqués
+                    result = process_single_permutation(args)
+                    if result is not None:
+                        valide_perm.append(result)
+                        if masked_name not in filterd_perm:
+                            filterd_perm[masked_name] = []
+                        filterd_perm[masked_name].append(result)
+                else:
+                    # Ajouter aux arguments pour parallélisation
+                    args_list.append(args)
 
             # Parallélisation avec Pool
             if args_list:
                 start_time = time.time()
-                print(f"{masked_name} parralelisation : {len(next(iter(permutations.values())))}") 
+                print(f"{masked_name} parralelisation : {len(permutations)}") 
                 with Pool(processes=cpu_count()) as pool:
-                    results = pool.map(process_single_permutation, args_list, chunksize=1000)
+                    results = pool.map(process_single_permutation, args_list, chunksize=50)
                 end_time = time.time()  # Fin du timer
                 print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
  
@@ -953,11 +954,8 @@ class Manatrader_fix_hidden_duplicate_name:
                     if result is not None:
                         valide_perm.append(result)
                         if masked_name not in filterd_perm:
-                            filterd_perm[masked_name] = {}
-                        if masked_name not in filterd_perm[masked_name]:
-                            filterd_perm[masked_name][masked_name] = []
-
-                        filterd_perm[masked_name][masked_name].append(result)
+                            filterd_perm[masked_name] = []
+                        filterd_perm[masked_name].append(result)
 
             if len(valide_perm) == 1:
                 print(f"Permutation trouvée : {masked_name}")
@@ -996,21 +994,19 @@ class Manatrader_fix_hidden_duplicate_name:
         remaining_permutations = matching_permutation.copy()
         # Parcours des masques et application des permutations uniques
         for masked_name, permutations in matching_permutation.items():
-            permuted_names, round_data = next(iter(permutations.items()))
-            if len(round_data) == 1:
+            if len(permutations) == 1:
                 print(f"Permutation unique attribué : {masked_name}")
-                only_round_data = round_data[0]
-                # Parcourir chaque round concerné dans round_data
-                for round_index, round_combinations in enumerate(only_round_data):
+                for round_index, round_combinations in enumerate(permutations):
                     modified_round = modified_rounds[round_index]
-                    for real_name, updated_matches in round_combinations.items():
-                        for updated_match in updated_matches:
-                            # Appliquer les modifications si le masque et l'autre joueur correspondent
-                            for match in modified_round.matches:
-                                if match.player1 == masked_name and match.id == updated_match.id:
-                                    match.player1 = real_name
-                                elif match.player2 == masked_name and match.id == updated_match.id:
-                                    match.player2 = real_name
+                    for round_dict in round_combinations:  # Itère sur chaque defaultdict
+                        for real_name, updated_matches in round_dict.items():  # Itère sur les paires clé-valeur
+                            for updated_match in updated_matches:  # Itère sur les RoundItem associés
+                                # Appliquer les modifications si le masque et l'autre joueur correspondent
+                                for match in modified_round.matches:
+                                    if match.player1 == masked_name and match.id == updated_match.id:
+                                        match.player1 = real_name
+                                    elif match.player2 == masked_name and match.id == updated_match.id:
+                                        match.player2 = real_name
                 # Supprimer le masque traité des permutations restantes
                 del remaining_permutations[masked_name]
 
