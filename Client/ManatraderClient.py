@@ -839,7 +839,8 @@ class Manatrader_fix_hidden_duplicate_name:
             )
             print(sum(len(v) for v in assignments_per_masked.values()))
             # temp refactoring remove after
-            matching_permutation[masked_name] = assignments_per_masked
+            for key, value in assignments_per_masked.items():
+                    matching_permutation[key] = value  # Créer une nouvelle clé si elle n'existe pas
 
         Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
         previous_output = None
