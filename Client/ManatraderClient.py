@@ -845,21 +845,24 @@ class Manatrader_fix_hidden_duplicate_name:
         Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
         previous_output = None
         current_output = (None, None)
+        # Utilisation des valeurs actuelles pour la première itération
+        local_deterministic_permutations = copy.deepcopy(Determinist_permutation)
+        local_remaining_permutations = copy.deepcopy(remaining_matching_perm)
         while current_output != previous_output:
             # Mettre à jour l'entrée précédente avec la sortie actuelle
             previous_output = current_output
             
             # Appeler la méthode avec les entrées
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
-                Determinist_permutation, 
-                remaining_matching_perm, 
+                local_deterministic_permutations, 
+                local_remaining_permutations, 
                 standings,
                 False
                 
             )
             # Mettre à jour les entrées pour la prochaine itération
-            Determinist_permutation = not_determinist_permutations
-            remaining_matching_perm = remaining_perm_not_determinist
+            local_deterministic_permutations = not_determinist_permutations
+            local_remaining_permutations = remaining_perm_not_determinist
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
 
