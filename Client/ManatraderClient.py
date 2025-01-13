@@ -29,8 +29,9 @@ import copy
 
 
 def custom_round(value, decimals=0):
-    multiplier = 10**decimals
-    return math.floor(value * multiplier + 0.5) / multiplier
+    # multiplier = 10**decimals
+    epsilon = 10 ** (-decimals - 1)
+    return round(value + epsilon, decimals)
 
 def truncate(number, decimals=4):
     factor = 10.0 ** decimals
@@ -56,7 +57,7 @@ def update_encounters(encounters, player1, player2):
 
 # Méthode globale pour multiprocessing
 def process_single_permutation(args):
-    round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings = args
+    round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings,debug_print = args
     temp_rounds = [
         Round(
             rnd.round_name,
@@ -79,12 +80,16 @@ def process_single_permutation(args):
                         if match.player2 is not None and not re.fullmatch(r'.\*{10}.', match.player2):
                             players_to_recalculate.update([real_name, match.player2])
                             if not update_encounters(player_encounters, real_name, match.player2):
+                                if debug_print:
+                                    print(f"{masked_name} : P1 : {match.player1} / P2 {match.player2} Player already encounter" )
                                 return None
                     elif match.player2 == masked_name and match.id == updated_match.id:
                         match.player2 = real_name
                         if match.player1 is not None and not re.fullmatch(r'.\*{10}.', match.player1):
                             players_to_recalculate.update([real_name, match.player1])
                             if not update_encounters(player_encounters, real_name, match.player1):
+                                if debug_print:
+                                    print(f"{masked_name} : P1 : {match.player1} / P2 {match.player2} Player already encounter" )
                                 return None
 
     permutation_stats = []
@@ -104,11 +109,15 @@ def process_single_permutation(args):
         )
         res_comparator = compare_standings(real_standing_ite, unsure_standings, 3, 3, 3)
         if not res_comparator:
+            if debug_print:
+                print(f"Real : {real_standing_ite}" )  
+                print(f"Calc : {unsure_standings}" )             
             return None
         standings_comparator_res.append(res_comparator)
 
     if all(standings_comparator_res):
         return round_combination
+    print(f"{masked_name} : Bug" )
     return None
 
 
@@ -864,10 +873,11 @@ class Manatrader_fix_hidden_duplicate_name:
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
 
-        not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
-                Determinist_permutation, 
-                remaining_matching_perm, 
-                standings
+        not_determinist_permutations2, remaining_perm_not_determinist2 = self.process_permutations_with_recalculation(
+                not_determinist_permutations, 
+                remaining_perm_not_determinist, 
+                standings,
+                True
             )
 
 
@@ -894,10 +904,10 @@ class Manatrader_fix_hidden_duplicate_name:
         self,
         rounds: List[Round], 
         matching_permutation: Dict[str, Dict[str, List[List[Dict[str, List[RoundItem]]]]]], 
-        standings: List[Standing]
+        standings: List[Standing],
+        debug_print = False
         ):
         """Traiter les permutations avec recalcul des statistiques."""
-
 
         modified_rounds = [
             Round(
@@ -924,7 +934,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for round_permutations in permutations:  # Chaque élément est un defaultdict
                 args = (
                     round_permutations, masked_name, modified_rounds, standings,
-                    self.calculate_stats_for_matches, self.compare_standings
+                    self.calculate_stats_for_matches, self.compare_standings,debug_print
                 )
                 if not paralelization:
                     # Traitement séquentiel pour certains noms masqués
