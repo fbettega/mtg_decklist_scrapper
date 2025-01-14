@@ -30,8 +30,7 @@ from Client.ManatraderClient import *
 
 def main():
     try:
-        tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+        TournamentLoaderTests_data = TournamentList().DL_tournaments(datetime(2022, 12, 31))
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)
         # vraiment pas sur

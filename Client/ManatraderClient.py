@@ -63,7 +63,7 @@ class MantraderClient:
             tournament_uri = urljoin(self._tournament_root_url, f"{url}/")
             json_file = f"manatraders-series-{format_type.lower()}-{month_and_year.lower().replace(' ', '-')}-{tournament_date.strftime('%Y-%m-%d')}.json"
 
-            tournaments.append(Tournament(tournament_name, tournament_date, tournament_uri, json_file))
+            tournaments.append(Tournament(name=tournament_name,date= tournament_date, uri=tournament_uri, json_file=json_file))
         return tournaments
 
 
@@ -289,7 +289,7 @@ class TournamentList:
     
 
 
-    def DL_tournaments(start_date: datetime, end_date: datetime = None) -> List[dict]:
+    def DL_tournaments(self,start_date: datetime, end_date: datetime = None) -> List[dict]:
         tournaments = MantraderClient().get_tournaments()
         filtered_tournaments = [t for t in tournaments if t.date >= start_date]
         if end_date:

@@ -9,7 +9,7 @@ from datetime import datetime
 # pytest .\tests\
 # Réimporter tous les objets exportés par le module
 from Client.ManatraderClient import *
-
+import os
 
 @pytest.fixture
 def mana_trader_get_tournament_details_data():
@@ -369,17 +369,17 @@ def TournamentLoaderTests_data():
     return TournamentLoaderTests_data
 
 
-def test_tournament_count_is_correct(tournament_data):
-    assert len(tournament_data) > 0
+def test_tournament_count_is_correct(TournamentLoaderTests_data):
+    assert len(TournamentLoaderTests_data) > 0
 
 
-def test_tournament_data_is_correct(tournament_data):
+def test_tournament_data_is_correct(TournamentLoaderTests_data):
     valid_years = [str(i) for i in range(2020, datetime.now().year + 1)]
 
-    for tournament in tournament_data:
-        assert "https://www.manatraders.com/tournaments/" in tournament.Uri
-        assert any(league in tournament.Name for league in ["Standard", "Modern", "Pioneer", "Vintage", "Pauper", "Legacy"])
-        assert any(month in tournament.Name for month in list(datetime.now().strftime('%B')))
-        assert any(year in tournament.Name for year in valid_years)
-        assert os.path.basename(tournament.JsonFile).endswith(tournament.Date.strftime("%Y-%m-%d"))
-        assert tournament.JsonFile.endswith(".json")
+    for tournament in TournamentLoaderTests_data:
+        assert "https://www.manatraders.com/tournaments/" in tournament.uri
+        assert any(league in tournament.name for league in ["Standard", "Modern", "Pioneer", "Vintage", "Pauper", "Legacy","Duel commander"])
+        assert any(month in tournament.name for month in list(datetime.now().strftime('%B')))
+        assert any(year in tournament.name for year in valid_years)
+        assert os.path.basename(tournament.json_file).endswith(tournament.date.strftime("%Y-%m-%d.json"))
+        assert tournament.json_file.endswith(".json")
