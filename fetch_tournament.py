@@ -15,7 +15,7 @@ import re
 import Client.MtgMeleeClient as MTGmelee
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
-
+import Client.ManatraderClient as ManatraderClient
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
 
@@ -45,6 +45,8 @@ import Client.TopDeckClient as TopDeck
 
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-12 topdeck keepleague
+
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 manatrader keepleague
 
 # Configure logging to file and console
 def configure_logging(log_file_path):
@@ -170,7 +172,7 @@ def main():
         "source",
         type=str,
         nargs="?",
-        help="Source type: 'mtgo', 'melee', 'topdeck', or 'all'. Defaults to 'all'.",
+        help="Source type: 'mtgo', 'melee', 'topdeck','manatrader', or 'all'. Defaults to 'all'.",
         default="all",
     )
     arg_parser.add_argument(
@@ -189,6 +191,7 @@ def main():
     use_mtgo = args.source.lower() in ["mtgo", "all"]
     use_mtg_melee = args.source.lower() in ["melee", "all"]
     use_topdeck = args.source.lower() in ["topdeck", "all"]
+    use_manatrader = args.source.lower() in ["manatrader", "all"]
     include_leagues = args.leagues.lower() != "skipleagues"
 
     print(f"Cache folder: {cache_folder}")
@@ -211,6 +214,8 @@ def main():
     if use_topdeck:
         print("Updating Topdeck...")
         update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)
-
+    if use_manatrader:
+        print("Updating Manatrader...")
+        update_folder(cache_folder, ManatraderClient, "Manatrader", start_date, end_date)
 if __name__ == "__main__":
     main()

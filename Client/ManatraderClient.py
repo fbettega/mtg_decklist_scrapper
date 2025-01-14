@@ -54,7 +54,7 @@ class MantraderClient:
 
             tournament_date = datetime.strptime(f"01 {month_and_year}", "%d %B %Y")
             tournament_date = (tournament_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-
+            tournament_date = tournament_date.replace(tzinfo=timezone.utc)
             # Skip invitationals
             if tournament_date.month == 12:
                 continue
@@ -275,8 +275,10 @@ class TournamentList:
         decks = client.parse_decks(csv_url, standings, deck_uris)
         bracket = client.parse_bracket(bracket_url,standings)
         swiss = client.parse_swiss(swiss_url,standings,bracket)
-
-        rounds = swiss + bracket
+        if swiss is None:
+            return None
+        else:
+            rounds = swiss + bracket
         decks = OrderNormalizer.reorder_decks(decks, standings, bracket,True)
         # ATTENTION tu dois penser a vérifier les bye dans les calcules
         return CacheItem(
@@ -288,9 +290,10 @@ class TournamentList:
 
     
 
-
-    def DL_tournaments(self,start_date: datetime, end_date: datetime = None) -> List[dict]:
-        tournaments = MantraderClient().get_tournaments()
+    @classmethod
+    def DL_tournaments(cls,start_date: datetime, end_date: datetime = None) -> List[dict]:
+        client = MantraderClient()
+        tournaments = client.get_tournaments()
         filtered_tournaments = [t for t in tournaments if t.date >= start_date]
         if end_date:
             filtered_tournaments = [t for t in filtered_tournaments if t.date <= end_date]

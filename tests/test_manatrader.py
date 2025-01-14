@@ -365,7 +365,7 @@ def test_round_data_is_correct_no_bracket(test_data_no_bracket):
 # TournamentLoaderTests
 @pytest.fixture
 def TournamentLoaderTests_data():
-    TournamentLoaderTests_data = TournamentList().DL_tournaments(datetime(2022, 12, 31))
+    TournamentLoaderTests_data = TournamentList.DL_tournaments(datetime(2022, 12, 31, tzinfo=timezone.utc))
     return TournamentLoaderTests_data
 
 
