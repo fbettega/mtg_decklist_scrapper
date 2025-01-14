@@ -546,43 +546,6 @@ class Manatrader_fix_hidden_duplicate_name:
         duplicated_masked_names = {
             masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
         }
-        # print("debug land")
-        ###################################################
-        # with open('manatraders-series-pioneer-february-2024-2024-02-29.json', 'r') as file:
-        # with open('manatraders-series-pioneer-august-2022-2022-08-31.json', 'r') as file:
-        #     data = json.load(file)
-        # real_rounds = []
-        # for rounds_ite  in data["Rounds"]:
-        #     round_name = rounds_ite["RoundName"]
-        #     matches = rounds_ite["Matches"]
-        #     if re.fullmatch(r'Round \d+', round_name):
-        #         round_items = [
-        #             RoundItem(
-        #                 match["Player1"],
-        #                 match["Player2"],
-        #                 match["Result"],
-        #                 id=f"{round_name}.{i}"
-        #             )
-        #             for i, match in enumerate(matches)
-        #         ]
-        #         real_rounds.append(Round(round_name, round_items))
-
-        # Tester_recompute_standings = []
-        # for standings_player in standings:
-        #     match_ite = [
-        #                 match for rnd in real_rounds
-        #                 for match in rnd.matches
-        #                 if match.player1 == standings_player.player or match.player2 == standings_player.player
-        #             ]
-        #     Calc_std = self.calculate_stats_for_matches(standings_player.player, match_ite, real_rounds, standings)
-        #     real_standing_ite = next(
-        #             (standing for standing in standings if standing.player == Calc_std.player), None
-        #         )
-        #     if not self.compare_standings(real_standing_ite, Calc_std, 3, 3, 3):
-        #         print(f"Real : {real_standing_ite}" )  
-        #         print(f"Calc : {Calc_std}" ) 
-###################################################
-
         matching_permutation = {}
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
@@ -622,20 +585,8 @@ class Manatrader_fix_hidden_duplicate_name:
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
 
-###################################################
-        # opponent_matches = [
-        #         match for rnd in rounds
-        #         for match in rnd.matches
-        #         if match.player1 == "Mr_JBB" or match.player2 == "Mr_JBB"
-        #     ]
-        # print(self.calculate_stats_for_matches("Mr_JBB",opponent_matches,Determinist_permutation,standings))
-        # rounds_dict_list = [round_obj.to_dict() for round_obj in not_determinist_permutations]
-        # # Écriture dans un fichier JSON
-        # with open("rounds.json", "w", encoding="utf-8") as file:
-        #     json.dump(rounds_dict_list, file, indent=3)
 
-
-        for rounds   in not_determinist_permutations :
+        for rounds  in not_determinist_permutations :
             for match in rounds.matches: 
                 if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
                     print(f"Masked Name present : {rounds}")
