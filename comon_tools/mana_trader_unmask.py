@@ -13,7 +13,8 @@ import numpy as np
 import time
 import copy
 
-# https://www.man
+
+
 
 def custom_round(value, decimals=0):
     # multiplier = 10**decimals
@@ -44,7 +45,7 @@ def update_encounters(encounters, player1, player2):
 
 # Méthode globale pour multiprocessing
 def process_single_permutation(args):
-    round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings = args
+    round_combination, masked_name, modified_rounds, standings, calculate_stats_for_matches, compare_standings,debug_print = args
     temp_rounds = [
         Round(
             rnd.round_name,
@@ -67,12 +68,16 @@ def process_single_permutation(args):
                         if match.player2 is not None and not re.fullmatch(r'.\*{10}.', match.player2):
                             players_to_recalculate.update([real_name, match.player2])
                             if not update_encounters(player_encounters, real_name, match.player2):
+                                if debug_print:
+                                    print(f"{masked_name} : P1 : {match.player1} / P2 {match.player2} Player already encounter" )
                                 return None
                     elif match.player2 == masked_name and match.id == updated_match.id:
                         match.player2 = real_name
                         if match.player1 is not None and not re.fullmatch(r'.\*{10}.', match.player1):
                             players_to_recalculate.update([real_name, match.player1])
                             if not update_encounters(player_encounters, real_name, match.player1):
+                                if debug_print:
+                                    print(f"{masked_name} : P1 : {match.player1} / P2 {match.player2} Player already encounter" )
                                 return None
 
     permutation_stats = []
@@ -91,7 +96,10 @@ def process_single_permutation(args):
             (standing for standing in standings if standing.player == unsure_standings.player), None
         )
         res_comparator = compare_standings(real_standing_ite, unsure_standings, 3, 3, 3)
-        if not res_comparator:          
+        if not res_comparator:    
+            if debug_print:
+                print(f"Real : {real_standing_ite}" )  
+                print(f"Calc : {unsure_standings}" )       
             return None
         standings_comparator_res.append(res_comparator)
 
@@ -141,11 +149,11 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
     for i in range(n_players):
         total_games = Match_win[i] + Match_losses[i]
         if total_games > 0:
-            gwp_calculated[i] = truncate(Match_win[i] / total_games)
+            gwp_calculated[i] = Match_win[i] / total_games
         else:
             gwp_calculated[i] = 0.0
         # Comparaison avec tolérance
-        if not np.isclose(custom_round(gwp_calculated[i], 3), custom_round(standings_gwp[i],3), atol=0.001):
+        if not np.isclose(gwp_calculated[i], standings_gwp[i], atol=0.001):
             return False
     return True
 
@@ -199,19 +207,22 @@ class Manatrader_fix_hidden_duplicate_name:
         # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
         points += 3 * wins + draws
         # Calculer GWP (Game-Win Percentage)
-        gwp = truncate(total_games_won / total_games_played) if total_games_played > 0 else 0
+        # gwp = truncate(total_games_won / total_games_played) if total_games_played > 0 else 0
+        gwp = total_games_won / total_games_played if total_games_played > 0 else 0
 
         # Calculer OGP (Opponents’ Game-Win Percentage)
 
         total_ogp = 0
         total_opponents = 0
-        stop_compute_ogwp = False
+
+        total_omp = 0
+        stop_compute_ogwp_omwp = False
         for opponent in opponents:
         # Ignorer les adversaires qui correspondent à la regexp
             if opponent is None:
                 continue
             elif re.fullmatch(r'.\*{10}.', opponent):
-                stop_compute_ogwp = True
+                stop_compute_ogwp_omwp = True
                 break
             # Récupérer les matchs de l'adversaire
             opponent_matches = [
@@ -220,52 +231,48 @@ class Manatrader_fix_hidden_duplicate_name:
                 if match.player1 == opponent or match.player2 == opponent
             ]
 
+            opponent_match_won = 0
+            opponent_match_total_number = 0
+
             opponent_games_won = 0
             opponent_games_played = 0
 
             for match in opponent_matches:
                 p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
-
+                # verifier les bye
                 if match.player1 == opponent:
                     opponent_games_won += p1_wins
-                    opponent_games_played += p1_wins + p2_wins + draws_
+                    opponent_games_played += p1_wins + p2_wins 
+                    opponent_match_won += 1 if p1_wins > p2_wins else 0
+                    opponent_match_total_number += 1
                 elif match.player2 == opponent:
                     opponent_games_won += p2_wins
-                    opponent_games_played += p1_wins + p2_wins + draws_
-
+                    opponent_games_played += p1_wins + p2_wins 
+                    opponent_match_won += 1 if p1_wins < p2_wins else 0
+                    opponent_match_total_number += 1
+                 
             # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
             if opponent_games_played > 0:
+                # OGWP
                 opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
                 total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
                 total_opponents += 1
+                # OMWP 
+                opponent_match_winrate = opponent_match_won/opponent_match_total_number 
+                total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
 
         # Moyenne des GWP des adversaires (OGP)
-        if stop_compute_ogwp:
+        if stop_compute_ogwp_omwp:
             ogwp = None
-        else :
-            ogwp = truncate(total_ogp / total_opponents) if total_opponents > 0 else None
-
-        # Calculer OMWP (Opponents' Match-Win Percentage)
-        opponent_match_wins = 0
-        opponent_match_total_number = 0
-        stop_compute_omwp = False
-        for opponent in opponents:
-            if opponent is None:
-                continue
-            if re.fullmatch(r'.\*{10}.', opponent):
-                stop_compute_omwp = True
-                break
-            opponent_standing = next((s for s in standings if s.player == opponent), None)
-            if opponent_standing:
-                opponent_match_winrate = opponent_standing.wins/(opponent_standing.wins + opponent_standing.losses + opponent_standing.draws)
-                opponent_match_wins += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
-                opponent_match_total_number += 1
-
-        if stop_compute_omwp:
             omwp = None
         else :
-            omwp = opponent_match_wins / opponent_match_total_number if opponent_match_total_number > 0 else None
-        
+            ogwp = total_ogp / total_opponents if total_opponents > 0 else None
+            # après calcule la version tronqué est fausse
+            # ogwp = truncate(total_ogp / total_opponents) if total_opponents > 0 else None
+            omwp =  total_omp / total_opponents if total_opponents > 0 else None
+            # omwp =  truncate(total_omp / total_opponents) if total_opponents > 0 else None
+        # Calculer OMWP (Opponents' Match-Win Percentage)
+
         # Calculer le rang du joueur en fonction des points
         standings_with_updated_points = sorted(
             standings + [Standing(player=player, points=points)],
@@ -427,8 +434,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for comb in cleaned_combinations:
                     total_permutations *= len(comb)
 
-            # if masked == '_**********_':
-            #     print("stop")
+
             if total_permutations < 1000: 
                 # dict_standings remove des arguments
                 assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm,  player_indices, standings_wins, standings_losses, standings_gwp, n_players)))
@@ -540,12 +546,50 @@ class Manatrader_fix_hidden_duplicate_name:
         duplicated_masked_names = {
             masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
         }
+        # print("debug land")
+        ###################################################
+        # with open('manatraders-series-pioneer-february-2024-2024-02-29.json', 'r') as file:
+        # with open('manatraders-series-pioneer-august-2022-2022-08-31.json', 'r') as file:
+        #     data = json.load(file)
+        # real_rounds = []
+        # for rounds_ite  in data["Rounds"]:
+        #     round_name = rounds_ite["RoundName"]
+        #     matches = rounds_ite["Matches"]
+        #     if re.fullmatch(r'Round \d+', round_name):
+        #         round_items = [
+        #             RoundItem(
+        #                 match["Player1"],
+        #                 match["Player2"],
+        #                 match["Result"],
+        #                 id=f"{round_name}.{i}"
+        #             )
+        #             for i, match in enumerate(matches)
+        #         ]
+        #         real_rounds.append(Round(round_name, round_items))
+
+        # Tester_recompute_standings = []
+        # for standings_player in standings:
+        #     match_ite = [
+        #                 match for rnd in real_rounds
+        #                 for match in rnd.matches
+        #                 if match.player1 == standings_player.player or match.player2 == standings_player.player
+        #             ]
+        #     Calc_std = self.calculate_stats_for_matches(standings_player.player, match_ite, real_rounds, standings)
+        #     real_standing_ite = next(
+        #             (standing for standing in standings if standing.player == Calc_std.player), None
+        #         )
+        #     if not self.compare_standings(real_standing_ite, Calc_std, 3, 3, 3):
+        #         print(f"Real : {real_standing_ite}" )  
+        #         print(f"Calc : {Calc_std}" ) 
+###################################################
+
         matching_permutation = {}
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
             )
+                    
             # Étape 3
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
@@ -555,13 +599,14 @@ class Manatrader_fix_hidden_duplicate_name:
             for key, value in assignments_per_masked.items():
                     matching_permutation[key] = value  # Créer une nouvelle clé si elle n'existe pas
 
+
         Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
         previous_output = None
         current_output = (None, None)
         # Utilisation des valeurs actuelles pour la première itération
         local_deterministic_permutations = copy.deepcopy(Determinist_permutation)
         local_remaining_permutations = copy.deepcopy(remaining_matching_perm)
-        while current_output != previous_output:
+        while current_output != previous_output and local_remaining_permutations:
             # Mettre à jour l'entrée précédente avec la sortie actuelle
             previous_output = current_output
             
@@ -576,11 +621,19 @@ class Manatrader_fix_hidden_duplicate_name:
             local_remaining_permutations = copy.deepcopy(remaining_perm_not_determinist)
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
- 
+
+###################################################
+        # opponent_matches = [
+        #         match for rnd in rounds
+        #         for match in rnd.matches
+        #         if match.player1 == "Mr_JBB" or match.player2 == "Mr_JBB"
+        #     ]
+        # print(self.calculate_stats_for_matches("Mr_JBB",opponent_matches,Determinist_permutation,standings))
         # rounds_dict_list = [round_obj.to_dict() for round_obj in not_determinist_permutations]
         # # Écriture dans un fichier JSON
         # with open("rounds.json", "w", encoding="utf-8") as file:
         #     json.dump(rounds_dict_list, file, indent=3)
+
 
         for rounds   in not_determinist_permutations :
             for match in rounds.matches: 
@@ -594,7 +647,8 @@ class Manatrader_fix_hidden_duplicate_name:
         self,
         rounds: List[Round], 
         matching_permutation: Dict[str, Dict[str, List[List[Dict[str, List[RoundItem]]]]]], 
-        standings: List[Standing]
+        standings: List[Standing],
+        debug_print = False
         ):
         """Traiter les permutations avec recalcul des statistiques."""
 
@@ -620,7 +674,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for round_permutations in permutations:  # Chaque élément est un defaultdict
                 args = (
                     round_permutations, masked_name, modified_rounds, standings,
-                    self.calculate_stats_for_matches, self.compare_standings
+                    self.calculate_stats_for_matches, self.compare_standings,debug_print
                 )
                 if not paralelization:
                     # Traitement séquentiel pour certains noms masqués
@@ -772,7 +826,8 @@ class Manatrader_fix_hidden_duplicate_name:
         return matching_combinations
 
 
-    def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-4):
+    # def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-4):
+    def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-3):
         """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
         matches = (
             real_standing.rank == recalculated_standing.rank and
@@ -786,23 +841,38 @@ class Manatrader_fix_hidden_duplicate_name:
 
         # Comparaison optionnelle des pourcentages
         if compare_gwp and real_standing.gwp is not None and recalculated_standing.gwp is not None:
-            matches = matches and are_close(
-                custom_round(real_standing.gwp, compare_gwp),
-                custom_round(recalculated_standing.gwp, compare_gwp),
+                        matches = matches and are_close(
+                real_standing.gwp, 
+                recalculated_standing.gwp, 
                 tolerance
             )
+            # matches = matches and are_close(
+            #     custom_round(real_standing.gwp, compare_gwp),
+            #     custom_round(recalculated_standing.gwp, compare_gwp),
+            #     tolerance
+            # )
         if compare_omwp and real_standing.omwp is not None and recalculated_standing.omwp is not None:
+            # matches = matches and are_close(
+            #     custom_round(real_standing.omwp, compare_omwp),
+            #     custom_round(recalculated_standing.omwp, compare_omwp),
+            #     tolerance
+            # )
             matches = matches and are_close(
-                custom_round(real_standing.omwp, compare_omwp),
-                custom_round(recalculated_standing.omwp, compare_omwp),
+                real_standing.omwp, 
+                recalculated_standing.omwp, 
                 tolerance
             )
         if compare_ogwp and real_standing.ogwp is not None and recalculated_standing.ogwp is not None:
             matches = matches and are_close(
-                custom_round(real_standing.ogwp, compare_ogwp),
-                custom_round(recalculated_standing.ogwp, compare_ogwp),
+                real_standing.omwp, 
+                recalculated_standing.omwp, 
                 tolerance
             )
+            # matches = matches and are_close(
+            #     custom_round(real_standing.ogwp, compare_ogwp),
+            #     custom_round(recalculated_standing.ogwp, compare_ogwp),
+            #     tolerance
+            # )
 
         return matches
 

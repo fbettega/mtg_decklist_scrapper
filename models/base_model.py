@@ -78,7 +78,7 @@ class Standing:
         return (
             f"Standing(rank={self.rank}, player='{self.player}', points={self.points}, "
             f"wins={self.wins}, losses={self.losses}, draws={self.draws}, "
-            f"omwp={'{:.5f}'.format(self.omwp) if self.omwp is not None else 'None'}, "
+            f"omwp={'{:.7f}'.format(self.omwp) if self.omwp is not None else 'None'}, "
             f"gwp={'{:.5f}'.format(self.gwp) if self.gwp is not None else 'None'}, "
             f"ogwp={'{:.5f}'.format(self.ogwp) if self.ogwp is not None else 'None'})"
         )

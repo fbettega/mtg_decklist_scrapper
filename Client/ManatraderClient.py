@@ -27,6 +27,32 @@ import time
 import copy
 from comon_tools.mana_trader_unmask import Manatrader_fix_hidden_duplicate_name, custom_round ,truncate,update_encounters,process_single_permutation,validate_permutation
 
+# tolerance=1e-4
+
+# def are_close(val1, val2, tol):
+#     return abs(val1 - val2) <= tol
+
+# print(custom_round(0.4210,3)) == print(custom_round(0.4206,3))
+
+# are_close(custom_round(0.35400,3),custom_round(0.35444,3),tolerance
+#             )
+
+# are_close(custom_round(0.1430,3),custom_round(0.14280,3),tolerance
+#             )
+
+# are_close(custom_round(0.3540,3),custom_round(0.3544,3),tolerance
+#             )
+
+# a = Standing(rank=160, player='I-amUnstable', points=0, wins=0, losses=3, draws=0, omwp=0.35400, gwp=0.14300, ogwp=0.42100)
+# b = Standing(rank=160, player='I-amUnstable', points=0, wins=0, losses=3, draws=0, omwp=0.35444, gwp=0.14280, ogwp=0.42060)
+
+
+
+
+
+
+
+
 # https://www.manatraders.com/tournaments/history
 class MantraderClient:
     _tournament_list_url = "https://www.manatraders.com/tournaments/2"
