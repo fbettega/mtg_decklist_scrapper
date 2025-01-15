@@ -586,23 +586,7 @@ class Manatrader_fix_hidden_duplicate_name:
             local_remaining_permutations = copy.deepcopy(remaining_perm_not_determinist)
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
-        # #########################################################################################################################
-        # # Debug land
-        # for s in standings:
-        #     print(s)
 
-        # opponent_matches = [
-        #     match for rnd in not_determinist_permutations
-        #     for match in rnd.matches
-        #     if match.player1 == "zmanuel" or match.player2 == "zmanuel"
-        #     ]
-        # print(standings[27])
-        # print(self.calculate_stats_for_matches("zmanuel",opponent_matches,not_determinist_permutations,standings))
-        # rounds_dict_list = [round_obj.to_dict() for round_obj in not_determinist_permutations]
-        # # Écriture dans un fichier JSON
-        # with open("debug/rounds.json", "w", encoding="utf-8") as file:
-        #     json.dump(rounds_dict_list, file, indent=3)
-        # #########################################################################################################################
         for rounds  in not_determinist_permutations :
             for match in rounds.matches: 
                 if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
