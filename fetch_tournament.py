@@ -191,7 +191,7 @@ def main():
     use_mtgo = args.source.lower() in ["mtgo", "all"]
     use_mtg_melee = args.source.lower() in ["melee", "all"]
     use_topdeck = args.source.lower() in ["topdeck", "all"]
-    use_manatrader = args.source.lower() in ["manatrader", "all"]
+    use_manatrader = args.source.lower() in ["manatrader"] #["manatrader", "all"]
     include_leagues = args.leagues.lower() != "skipleagues"
 
     print(f"Cache folder: {cache_folder}")

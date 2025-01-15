@@ -135,19 +135,21 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
         # rounds_played = np.zeros(n_players, dtype=int)
     Match_win = np.zeros(n_players, dtype=int)
     Match_losses = np.zeros(n_players, dtype=int)
+    Match_draw = np.zeros(n_players, dtype=int)
     for round_data in perm:
         for player, round_items in round_data.items():
             player_idx = player_indices[player]
             for round_item in round_items:
                 if round_item.player1 == player:
-                    win, loss,_  = map(int, round_item.result.split('-'))  # Scores de player1
+                    win, loss,draw  = map(int, round_item.result.split('-'))  # Scores de player1
                 elif round_item.player2 == player:
-                   loss ,win, _  = map(int, round_item.result.split('-'))  # Scores de player2  
-                Match_win[player_idx] += win
+                   loss ,win, draw  = map(int, round_item.result.split('-'))  # Scores de player2  
+                Match_win[player_idx] += win + (draw/3)
                 Match_losses[player_idx] += loss
+                Match_draw[player_idx] += draw
         # Calcul du GWP et comparaison avec standings_gwp
     for i in range(n_players):
-        total_games = Match_win[i] + Match_losses[i]
+        total_games = Match_win[i] + Match_losses[i] + Match_draw[i]
         if total_games > 0:
             gwp_calculated[i] = Match_win[i] / total_games
         else:
@@ -176,15 +178,15 @@ class Manatrader_fix_hidden_duplicate_name:
         player_names = {standing.player for standing in standings}
         # Parcourir les matchs
         for match in matches:
-            p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
+            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
 
             # Identifier l'adversaire
             if match.player1 == player:
                 opponent = match.player2
-                player_wins, player_losses = p1_wins, p2_wins
+                player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
             elif match.player2 == player:
                 opponent = match.player1
-                player_wins, player_losses = p2_wins, p1_wins
+                player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
             else:
                 continue  # Ignorer les matchs où le joueur n'est pas impliqué
 
@@ -199,8 +201,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 draws += 1
 
             # Ajouter aux jeux joués et gagnés
-            total_games_played += player_wins + player_losses + draws
-            total_games_won += player_wins
+            total_games_played += player_wins + player_losses + player_draw
+            total_games_won += player_wins + (player_draw/3)
 
             # Ajouter l'adversaire à la liste
             opponents.add(opponent)
@@ -238,15 +240,15 @@ class Manatrader_fix_hidden_duplicate_name:
             opponent_games_played = 0
 
             for match in opponent_matches:
-                p1_wins, p2_wins, draws_ = map(int, match.result.split('-'))
+                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
                 # verifier les bye
                 if match.player1 == opponent:
-                    opponent_games_won += p1_wins
+                    opponent_games_won += (p1_wins + (draws/3))
                     opponent_games_played += p1_wins + p2_wins 
                     opponent_match_won += 1 if p1_wins > p2_wins else 0
                     opponent_match_total_number += 1
                 elif match.player2 == opponent:
-                    opponent_games_won += p2_wins
+                    opponent_games_won += (p2_wins + (draws/3))
                     opponent_games_played += p1_wins + p2_wins 
                     opponent_match_won += 1 if p1_wins < p2_wins else 0
                     opponent_match_total_number += 1
@@ -577,18 +579,35 @@ class Manatrader_fix_hidden_duplicate_name:
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 local_deterministic_permutations, 
                 local_remaining_permutations, 
-                standings             
+                standings   #  ,True        
             )
             # Mettre à jour les entrées pour la prochaine itération
             local_deterministic_permutations =  copy.deepcopy(not_determinist_permutations)
             local_remaining_permutations = copy.deepcopy(remaining_perm_not_determinist)
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
+        # #########################################################################################################################
+        # # Debug land
+        # for s in standings:
+        #     print(s)
 
-
+        # opponent_matches = [
+        #     match for rnd in not_determinist_permutations
+        #     for match in rnd.matches
+        #     if match.player1 == "zmanuel" or match.player2 == "zmanuel"
+        #     ]
+        # print(standings[27])
+        # print(self.calculate_stats_for_matches("zmanuel",opponent_matches,not_determinist_permutations,standings))
+        # rounds_dict_list = [round_obj.to_dict() for round_obj in not_determinist_permutations]
+        # # Écriture dans un fichier JSON
+        # with open("debug/rounds.json", "w", encoding="utf-8") as file:
+        #     json.dump(rounds_dict_list, file, indent=3)
+        # #########################################################################################################################
         for rounds  in not_determinist_permutations :
             for match in rounds.matches: 
                 if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
+                    print(rounds)
+                    print(match)
                     print(f"Masked Name present : {rounds}")
                     return None
     # Retourner les rounds mis à jour
