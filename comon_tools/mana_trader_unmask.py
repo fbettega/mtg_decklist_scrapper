@@ -441,7 +441,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 # dict_standings remove des arguments
                 assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm,  player_indices, standings_wins, standings_losses, standings_gwp, n_players)))
 
-            else:
+            elif total_permutations < 1000000000:
                 start_time = time.time()  # Démarre le timer
                 print(f"Total permutations for parralelisation : {total_permutations}") 
                 # Taille dynamique du chunk en fonction du total des permutations
@@ -466,6 +466,9 @@ class Manatrader_fix_hidden_duplicate_name:
                 assignments_per_masked[masked] = valid_assignments
                 end_time = time.time()  # Fin du timer
                 print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
+            else:
+                print(f"Total permutations to large STOP : {total_permutations}") 
+                assignments_per_masked = None
         return assignments_per_masked
 
 # # Calculer le nombre d'objets pouvant être stockés
@@ -559,6 +562,8 @@ class Manatrader_fix_hidden_duplicate_name:
             assignments_per_masked = self.generate_assignments(
                 masked_matches, masked_to_actual, standings
             )
+            if assignments_per_masked is None:
+                return None
             print(sum(len(v) for v in assignments_per_masked.values()))
             # temp refactoring remove after
             for key, value in assignments_per_masked.items():

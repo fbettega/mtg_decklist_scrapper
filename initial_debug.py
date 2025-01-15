@@ -28,6 +28,8 @@ from Client.ManatraderClient import *
 #     print(f"An error occurred: {e}")
 #     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
+
+# tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
     try:
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
