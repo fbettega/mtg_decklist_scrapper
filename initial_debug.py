@@ -14,27 +14,14 @@ from comon_tools.tools import *
 from models.Topdeck_model import *
 from Client.ManatraderClient import *
 
-# try:
-#     client = MtgMeleeClient()
-#     # players = client.get_players("https://melee.gg/Tournament/View/16429")
-#     # deck = client.get_deck("https://melee.gg/Decklist/View/315233", players)
-#     # deck_no_rounds = client.get_deck("https://melee.gg/Decklist/View/315233", players, skip_round_data=True)
-#     tournament_3 = MtgMeleeTournament(
-#         uri="https://melee.gg/Tournament/View/12946",
-#          date=datetime(2022, 11, 20, 0, 0, 0)
-#          )
-#     test_data_round3 = client.get_tournament_details(tournament_3).rounds
-# except Exception as e:
-#     print(f"An error occurred: {e}")
-#     pdb.post_mortem()  # Lance le débogueur en mode post-mortem
 
-
+# tournament manatraders-series-duel commander-august-2024-2024-08-31.json
 # tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
     try:
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
-        tournament = TournamentList.DL_tournaments(datetime(2024, 2, 20, tzinfo=timezone.utc),datetime(2024, 3, 5, tzinfo=timezone.utc))
+        tournament = TournamentList.DL_tournaments(datetime(2024, 8, 20, tzinfo=timezone.utc),datetime(2024, 9, 5, tzinfo=timezone.utc))
         mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
         # MTGO.TournamentLoader.get_tournament_details.return_value = Mock()
         # MTGO.TournamentLoader.get_tournament_details.return_value.rounds = get_bracket(uri)

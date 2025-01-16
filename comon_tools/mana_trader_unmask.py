@@ -14,6 +14,79 @@ import time
 import copy
 
 
+class TreeNode:
+    def __init__(self, combination=None):
+        self.combination = combination  # La configuration actuelle du round
+        self.children = []  # Les enfants du nœud
+        self.valid = True  # Indique si ce nœud est valide
+
+    def add_child(self, child):
+        self.children.append(child)
+
+def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, iteration=0):
+    """
+    Construction récursive de l'arbre de permutations avec plusieurs matchs par round.
+    """
+    if not remaining_rounds or not node.valid:
+        print(f"Stopping recursion at iteration {iteration}: Node valid = {node.valid}, Remaining rounds = {len(remaining_rounds)}")
+        return  # Arrêt si aucune combinaison restante ou si le nœud est invalide
+
+    current_round = remaining_rounds[0]  # Combinaisons possibles pour le round actuel
+    print(f"Iteration {iteration}: Processing {len(current_round)} match combinations.")
+
+    for match_combination in current_round:  # Chaque combinaison représente un ensemble de matchs
+        
+
+        # Créer un nouveau nœud pour cette combinaison
+        child_node = TreeNode(match_combination)
+
+        # Historique des matchs : copie de l'historique existant
+        history = node.combination[:] if node.combination else []
+        history.append(match_combination)
+        print(f"Iteration {iteration}: Match combination = {history}")
+        # Valider la configuration actuelle
+        child_node.valid = validate_fn(
+            history,
+            player_indices,
+            standings_wins,
+            standings_losses,
+            standings_gwp,
+            n_players
+        )
+
+        if child_node.valid:
+            print(f"Iteration {iteration}: Adding valid child node.")
+            node.add_child(child_node)  # Ajouter le nœud valide comme enfant
+            # Construire l'arbre pour les rounds suivants
+            build_tree(
+                child_node,
+                remaining_rounds[1:],  # Passer aux rounds restants
+                validate_fn,
+                player_indices,
+                standings_wins,
+                standings_losses,
+                standings_gwp,
+                n_players,
+                iteration + 1
+            )
+        else:
+            print(f"Iteration {iteration}: Invalid match combination.")
+
+
+def extract_valid_permutations(node, current_path=None):
+    """
+    Récupère toutes les permutations valides depuis l'arbre.
+    """
+    if current_path is None:
+        current_path = []
+    
+    if not node.children:  # Feuille de l'arbre
+        return [current_path + [node.combination]] if node.combination else [current_path]
+
+    results = []
+    for child in node.children:
+        results.extend(extract_valid_permutations(child, current_path + [node.combination] if node.combination else current_path))
+    return results
 
 
 def custom_round(value, decimals=0):
@@ -109,56 +182,56 @@ def process_single_permutation(args):
     return None
 
 
-def validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players):
-    """Valider une permutation donnée."""
+def validate_permutation(perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players):
+    """
+    Valider une permutation partielle dans le cadre de la construction de l'arbre.
+    """
+    print(perm)
     wins = np.zeros(n_players, dtype=int)
     losses = np.zeros(n_players, dtype=int)
-    gwp_calculated = np.zeros(n_players, dtype=float)
-    # rounds_played = np.zeros(n_players, dtype=int)
+    matchups = {player: set() for player in player_indices.keys()}  # Suivre les adversaires rencontrés
+
+    # Parcourir les rounds de la permutation partielle
     for round_data in perm:
         for player, round_items in round_data.items():
-            player_idx = player_indices[player]
             for round_item in round_items:
                 if round_item.player1 == player:
-                    win, loss = round_item.scores[0]  # Scores de player1
+                    opponent = round_item.player2
+                    win, loss = round_item.scores[0]
                 elif round_item.player2 == player:
-                    win, loss = round_item.scores[1]  # Scores de player2  
-                # Mettre à jour les statistiques du joueur
+                    opponent = round_item.player1
+                    win, loss = round_item.scores[1]
+                else:
+                    continue  # Aucun adversaire valide trouvé
+
+                if opponent is not None:
+                    # Vérifier que l'adversaire n'a pas déjà été rencontré
+                    # if opponent in matchups[player]:
+                    #     return False
+                    if not re.fullmatch(r'.\*{10}.', opponent):
+                        matchups[player].add(opponent)
+                        # matchups[opponent].add(player)
+
+                # Mettre à jour les statistiques
+                player_idx = player_indices[player]
                 wins[player_idx] += win
                 losses[player_idx] += loss
 
-                # Vérifier si les limites de wins/losses sont dépassées
+                # Valider les limites de wins et losses
                 if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
                     return False
-    if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
-        return False
-        # rounds_played = np.zeros(n_players, dtype=int)
-    Match_win = np.zeros(n_players, dtype=int)
-    Match_losses = np.zeros(n_players, dtype=int)
-    Match_draw = np.zeros(n_players, dtype=int)
-    for round_data in perm:
-        for player, round_items in round_data.items():
-            player_idx = player_indices[player]
-            for round_item in round_items:
-                if round_item.player1 == player:
-                    win, loss,draw  = map(int, round_item.result.split('-'))  # Scores de player1
-                elif round_item.player2 == player:
-                   loss ,win, draw  = map(int, round_item.result.split('-'))  # Scores de player2  
-                Match_win[player_idx] += win + (draw/3)
-                Match_losses[player_idx] += loss
-                Match_draw[player_idx] += draw
-        # Calcul du GWP et comparaison avec standings_gwp
-    for i in range(n_players):
-        total_games = Match_win[i] + Match_losses[i] + Match_draw[i]
-        if total_games > 0:
-            gwp_calculated[i] = Match_win[i] / total_games
-        else:
-            gwp_calculated[i] = 0.0
-        # Comparaison avec tolérance
-        if not np.isclose(gwp_calculated[i], standings_gwp[i], atol=0.001):
-            return False
-    return True
 
+    # Validation finale du GWP si wins et losses sont complets
+    for player, player_idx in player_indices.items():
+        if wins[player_idx] == standings_wins[player_idx] and losses[player_idx] == standings_losses[player_idx]:
+            # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
+            total_games = wins[player_idx] + losses[player_idx]
+            if total_games > 0:
+                gwp_calculated = wins[player_idx] / total_games
+                if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
+                    return False
+
+    return True
 
 
 
@@ -390,85 +463,76 @@ class Manatrader_fix_hidden_duplicate_name:
             matches_by_round[round_name].append((role, match))
         return matches_by_round
 
+    def clean_round_combinations(self,round_combinations):
+        seen = set()  # Pour garder trace des dictionnaires déjà vus
+        cleaned_round_data = []
+        for round_item in round_combinations:
+            # Convertir le defaultdict en un tuple des éléments
+            item_tuple = tuple((key, tuple(value)) for key, value in round_item.items())
+            if item_tuple not in seen:
+                seen.add(item_tuple)  # Marquer ce dict comme vu
+                cleaned_round_data.append(round_item)  # Ajouter le dict à la liste nettoyée
+        return cleaned_round_data
 
     def generate_assignments(self, masked_matches, masked_to_actual, standings):
         """Optimiser la génération des assignments avec multiprocessing."""
         dict_standings = self.standings_to_dict(standings)
         assignments_per_masked = {}
+
         for masked, matches_info in masked_matches.items():
             actual_players = masked_to_actual[masked]
             matches_by_round = self.organize_matches_by_round(matches_info)
+
             # Préparer les données
             player_indices = {player: idx for idx, player in enumerate(actual_players)}
             n_players = len(actual_players)
             standings_wins = np.array([dict_standings[player]["wins"] for player in actual_players])
             standings_losses = np.array([dict_standings[player]["losses"] for player in actual_players])
-            standings_gwp = np.array([dict_standings[player]['gwp'] for player in actual_players]) 
-            # Fonction génératrice pour les combinaisons de rounds
-            def generate_valid_combinations():
-                for round_name, matches in matches_by_round.items():
-                    round_combinations = self.generate_round_combinations(matches, actual_players, standings, round_name)
-                    if round_combinations:  # Vérifie si des combinaisons existent pour ce round
-                        yield round_combinations
+            standings_gwp = np.array([dict_standings[player]["gwp"] for player in actual_players])
 
-            def clean_round_combinations(round_combinations):
-                seen = set()  # Pour garder trace des dictionnaires déjà vus
-                cleaned_round_data = []
-                for round_item in round_combinations:
-                    # Convertir le defaultdict en un tuple des éléments
-                    item_tuple = tuple((key, tuple(value)) for key, value in round_item.items())
-                    if item_tuple not in seen:
-                        seen.add(item_tuple)  # Marquer ce dict comme vu
-                        cleaned_round_data.append(round_item)  # Ajouter le dict à la liste nettoyée
-                return cleaned_round_data
+            # Générer les combinaisons nettoyées
+            valid_combinations = [
+                self.clean_round_combinations(self.generate_round_combinations(matches, actual_players, standings, round_name))
+                for round_name, matches in matches_by_round.items()
+            ]
 
-            # Générer le générateur de combinaisons valides pour chaque round
-            valid_combinations = generate_valid_combinations()
-            # Nettoyage des données des combinaisons générées
-            cleaned_combinations = []
-            for round_combinations in valid_combinations:
-                cleaned_round_data = clean_round_combinations(round_combinations)
-                cleaned_combinations.append(cleaned_round_data)
+            # Construire l'arbre des permutations
+            root = TreeNode()
+            build_tree(
+                root,
+                valid_combinations,  # Liste des rounds avec leurs combinaisons valides
+                validate_permutation,
+                player_indices,
+                standings_wins,
+                standings_losses,
+                standings_gwp,
+                n_players
+            )
 
+            # Extraire les permutations valides
+            valid_permutations = extract_valid_permutations(root)
 
-            permutations_lazy_permutations = product(*cleaned_combinations)                          
-            total_permutations = 1
-            for comb in cleaned_combinations:
-                    total_permutations *= len(comb)
-
-
-            if total_permutations < 1000: 
-                # dict_standings remove des arguments
-                assignments_per_masked[masked] = list((perm for perm in permutations_lazy_permutations if validate_permutation(perm,  player_indices, standings_wins, standings_losses, standings_gwp, n_players)))
-
-            elif total_permutations < 1000000000:
-                start_time = time.time()  # Démarre le timer
-                print(f"Total permutations for parralelisation : {total_permutations}") 
-                # Taille dynamique du chunk en fonction du total des permutations
+            # Si le nombre de permutations est énorme, utiliser multiprocessing
+            total_permutations = len(valid_permutations)
+            if total_permutations < 1000:
+                assignments_per_masked[masked] = valid_permutations
+            elif total_permutations < 1_000_000_000:
+                print(f"Total permutations for parallelization: {total_permutations}")
                 chunk_size = min(10000, max(1000, total_permutations // (10 * cpu_count())))
                 valid_assignments = []
                 with Pool(cpu_count()) as pool:
-                    while True:
-                        # Créer un lot de permutations
-                        chunk = list(islice(permutations_lazy_permutations, chunk_size))
-                        if not chunk:
-                            break
-                        # Préparer les arguments pour chaque permutation dans le chunk
-                                # Validation des permutations en parallèle
-                        # dict_standings remove des arguments
+                    for i in range(0, len(valid_permutations), chunk_size):
+                        chunk = valid_permutations[i:i + chunk_size]
                         results = pool.starmap(validate_permutation, [
-                            (perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players)
+                            (perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players)
                             for perm in chunk
                         ])
-                        # print("Permutation généré assignation") 
-                        # Ajouter les permutations valides
                         valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
                 assignments_per_masked[masked] = valid_assignments
-                end_time = time.time()  # Fin du timer
-                print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
             else:
-                print(f"Total permutations to large STOP : {total_permutations}") 
-                assignments_per_masked = None
+                print(f"Total permutations too large: {total_permutations}")
+                assignments_per_masked[masked] = None
+
         return assignments_per_masked
 
 # # Calculer le nombre d'objets pouvant être stockés
