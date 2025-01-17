@@ -25,42 +25,40 @@ class TreeNode:
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
-        history = []
+        history = {
+            "Match_wins": np.zeros(n_players, dtype=int),
+            "Match_losses": np.zeros(n_players, dtype=int),
+            "Game_wins": np.zeros(n_players, dtype=int),
+            "Game_losses": np.zeros(n_players, dtype=int),
+            "Game_draws": np.zeros(n_players, dtype=int),
+            "matchups": {player: set() for player in player_indices.keys()}
+        }
 
     if not remaining_rounds or not node.valid:
-        # print(f"Stopping recursion at iteration {iteration}: Node valid = {node.valid}, Remaining rounds = {len(remaining_rounds)}")
         return
 
     current_round = remaining_rounds[0]
-    # print(f"Iteration {iteration}: Processing {len(current_round)} match combinations.")
-    for round_data in history:
-            for player, round_items in round_data.items():
-                if  isinstance(player, slice):
-                    print(f"Skipping invalid key: {player}")
 
     for match_combination in current_round:
-        child_node = TreeNode(match_combination)
-        # print(f"Iteration {iteration} add: Match combination = {match_combination}")
-        
-        # Créez une nouvelle copie de l'historique pour ce chemin
-        current_history = history + [match_combination]
-        # print(f"Iteration {iteration} history: Match combination = {current_history}")
+        # Copier l'historique actuel pour ce chemin
+        new_history = {
+            "Match_wins": history["Match_wins"].copy(),
+            "Match_losses": history["Match_losses"].copy(),
+            "Game_wins": history["Game_wins"].copy(),
+            "Game_losses": history["Game_losses"].copy(),
+            "Game_draws": history["Game_draws"].copy(),
+            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
+        }
 
-        # Validez avec l'historique accumulé
-        child_node.valid = validate_fn(
-            current_history,
-            player_indices,
-            standings_wins,
-            standings_losses,
-            standings_gwp,
-            n_players
-        )
+        # Mettre à jour les statistiques pour la combinaison actuelle
+        valid = validate_fn(match_combination, new_history, player_indices, standings_wins, standings_losses, standings_gwp)
 
-        if child_node.valid:
-            # print(f"Iteration {iteration}: Adding valid child node.")
+        if valid:
+            child_node = TreeNode(match_combination)
+            child_node.valid = True
             node.add_child(child_node)
 
-            # Passez l'historique mis à jour aux nœuds enfants
+            # Appel récursif avec l'historique mis à jour
             build_tree(
                 child_node,
                 remaining_rounds[1:],
@@ -70,11 +68,10 @@ def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wi
                 standings_losses,
                 standings_gwp,
                 n_players,
-                current_history,
+                new_history,
                 iteration + 1
             )
-        # else:
-        #     print(f"Iteration {iteration}: Invalid match combination.")
+
 
 
 def extract_valid_permutations(node, current_path=None):
@@ -184,53 +181,58 @@ def process_single_permutation(args):
     return None
 
 
-def validate_permutation(perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players):
+def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp):
     """
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
-    wins = np.zeros(n_players, dtype=int)
-    losses = np.zeros(n_players, dtype=int)
-    matchups = {player: set() for player in player_indices.keys()}  # Suivre les adversaires rencontrés
 
-    # Parcourir les rounds de la permutation partielle
-    for round_data in perm:
-        for player, round_items in round_data.items():
-            if  isinstance(player, slice):
-                print(f"Skipping invalid key: {player}")
-            for round_item in round_items:
-                if round_item.player1 == player:
-                    opponent = round_item.player2
-                    win, loss = round_item.scores[0]
-                elif round_item.player2 == player:
-                    opponent = round_item.player1
-                    win, loss = round_item.scores[1]
-                else:
-                    continue  # Aucun adversaire valide trouvé
+    Match_wins = history["Match_wins"]
+    Match_losses = history["Match_losses"]
+    Game_wins = history["Game_wins"]
+    Game_losses = history["Game_losses"]
+    Game_draws = history["Game_draws"] 
+    matchups = history["matchups"]
 
-                if opponent is not None:
-                    # Vérifier que l'adversaire n'a pas déjà été rencontré
-                    # if opponent in matchups[player]:
-                    #     return False
-                    if not re.fullmatch(r'.\*{10}.', opponent):
-                        matchups[player].add(opponent)
-                        # matchups[opponent].add(player)
+    for player, round_items in match_combination.items():
+        for round_item in round_items:
+            if round_item.player1 == player:
+                opponent = round_item.player2
+                win, loss = round_item.scores[0]
+                M_win, M_loss,M_draw  = map(int, round_item.result.split('-'))  # Scores de player1
+            elif round_item.player2 == player:
+                opponent = round_item.player1
+                win, loss = round_item.scores[1]
+                M_loss,M_win,M_draw  = map(int, round_item.result.split('-'))  # Scores de player2
+            else:
+                continue
 
-                # Mettre à jour les statistiques
-                player_idx = player_indices[player]
-                wins[player_idx] += win
-                losses[player_idx] += loss
-
-                # Valider les limites de wins et losses
-                if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
+            if opponent is not None:
+                if opponent in matchups[player]:
                     return False
+                if not re.fullmatch(r'.\*{10}.', opponent):
+                    matchups[player].add(opponent)
+                    # matchups[opponent].add(player)
+
+            # Mettre à jour les statistiques
+            player_idx = player_indices[player]
+            Match_wins[player_idx] += win
+            Match_losses[player_idx] += loss
+
+            Game_wins[player_idx] += M_win
+            Game_losses[player_idx] += M_loss
+            Game_draws[player_idx] += M_draw
+
+            # Valider les limites de wins et losses
+            if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+                return False
 
     # Validation finale du GWP si wins et losses sont complets
     for player, player_idx in player_indices.items():
-        if wins[player_idx] == standings_wins[player_idx] and losses[player_idx] == standings_losses[player_idx]:
+        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
-            total_games = wins[player_idx] + losses[player_idx]
+            total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
             if total_games > 0:
-                gwp_calculated = wins[player_idx] / total_games
+                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx]/3)) / total_games
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
                     return False
 
