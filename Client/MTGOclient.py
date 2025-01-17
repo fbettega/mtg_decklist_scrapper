@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 from datetime import datetime, timezone #, timedelta
+from dateutil.parser import isoparse
 from urllib.parse import urljoin
 import os
 # import sys
@@ -71,7 +72,7 @@ class TournamentList:
                 url = tournament_node.select_one("a")["href"]
                 date_string = tournament_node.select_one("a > time")["datetime"]
 
-                parsed_date = datetime.fromisoformat(date_string).date()
+                parsed_date = isoparse(date_string).date()
                 url = urljoin(MTGOSettings.ROOT_URL, url)
 
                 format_ite = title.split()[0] 
