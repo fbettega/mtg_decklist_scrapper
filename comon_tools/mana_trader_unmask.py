@@ -23,30 +23,32 @@ class TreeNode:
     def add_child(self, child):
         self.children.append(child)
 
-def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, iteration=0):
-    """
-    Construction récursive de l'arbre de permutations avec plusieurs matchs par round.
-    """
+def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
+    if history is None:
+        history = []
+
     if not remaining_rounds or not node.valid:
-        print(f"Stopping recursion at iteration {iteration}: Node valid = {node.valid}, Remaining rounds = {len(remaining_rounds)}")
-        return  # Arrêt si aucune combinaison restante ou si le nœud est invalide
+        # print(f"Stopping recursion at iteration {iteration}: Node valid = {node.valid}, Remaining rounds = {len(remaining_rounds)}")
+        return
 
-    current_round = remaining_rounds[0]  # Combinaisons possibles pour le round actuel
-    print(f"Iteration {iteration}: Processing {len(current_round)} match combinations.")
+    current_round = remaining_rounds[0]
+    # print(f"Iteration {iteration}: Processing {len(current_round)} match combinations.")
+    for round_data in history:
+            for player, round_items in round_data.items():
+                if  isinstance(player, slice):
+                    print(f"Skipping invalid key: {player}")
 
-    for match_combination in current_round:  # Chaque combinaison représente un ensemble de matchs
-        
-
-        # Créer un nouveau nœud pour cette combinaison
+    for match_combination in current_round:
         child_node = TreeNode(match_combination)
+        # print(f"Iteration {iteration} add: Match combination = {match_combination}")
+        
+        # Créez une nouvelle copie de l'historique pour ce chemin
+        current_history = history + [match_combination]
+        # print(f"Iteration {iteration} history: Match combination = {current_history}")
 
-        # Historique des matchs : copie de l'historique existant
-        history = node.combination[:] if node.combination else []
-        history.append(match_combination)
-        print(f"Iteration {iteration}: Match combination = {history}")
-        # Valider la configuration actuelle
+        # Validez avec l'historique accumulé
         child_node.valid = validate_fn(
-            history,
+            current_history,
             player_indices,
             standings_wins,
             standings_losses,
@@ -55,22 +57,24 @@ def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wi
         )
 
         if child_node.valid:
-            print(f"Iteration {iteration}: Adding valid child node.")
-            node.add_child(child_node)  # Ajouter le nœud valide comme enfant
-            # Construire l'arbre pour les rounds suivants
+            # print(f"Iteration {iteration}: Adding valid child node.")
+            node.add_child(child_node)
+
+            # Passez l'historique mis à jour aux nœuds enfants
             build_tree(
                 child_node,
-                remaining_rounds[1:],  # Passer aux rounds restants
+                remaining_rounds[1:],
                 validate_fn,
                 player_indices,
                 standings_wins,
                 standings_losses,
                 standings_gwp,
                 n_players,
+                current_history,
                 iteration + 1
             )
-        else:
-            print(f"Iteration {iteration}: Invalid match combination.")
+        # else:
+        #     print(f"Iteration {iteration}: Invalid match combination.")
 
 
 def extract_valid_permutations(node, current_path=None):
@@ -131,8 +135,6 @@ def process_single_permutation(args):
     player_encounters = {}
     for round_index, round_dict in enumerate(round_combination):
         temp_round = temp_rounds[round_index]
-        if not isinstance(round_dict, dict):
-            print(f"Expected 'round_combination' to be a dict, got {type(round_combination).__name__}")
         for real_name, updated_matches in round_dict.items():
             for updated_match in updated_matches:
                 for match in temp_round.matches:
@@ -186,7 +188,6 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
     """
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
-    print(perm)
     wins = np.zeros(n_players, dtype=int)
     losses = np.zeros(n_players, dtype=int)
     matchups = {player: set() for player in player_indices.keys()}  # Suivre les adversaires rencontrés
@@ -194,6 +195,8 @@ def validate_permutation(perm, player_indices, standings_wins, standings_losses,
     # Parcourir les rounds de la permutation partielle
     for round_data in perm:
         for player, round_items in round_data.items():
+            if  isinstance(player, slice):
+                print(f"Skipping invalid key: {player}")
             for round_item in round_items:
                 if round_item.player1 == player:
                     opponent = round_item.player2
@@ -495,7 +498,12 @@ class Manatrader_fix_hidden_duplicate_name:
                 self.clean_round_combinations(self.generate_round_combinations(matches, actual_players, standings, round_name))
                 for round_name, matches in matches_by_round.items()
             ]
-
+                       
+            total_permutations = 1
+            for comb in valid_combinations:
+                    total_permutations *= len(comb)
+            print(f"{masked} Total permutations for parralelisation : {total_permutations}") 
+            start_time = time.time()  # Démarre le timer
             # Construire l'arbre des permutations
             root = TreeNode()
             build_tree(
@@ -512,27 +520,12 @@ class Manatrader_fix_hidden_duplicate_name:
             # Extraire les permutations valides
             valid_permutations = extract_valid_permutations(root)
 
-            # Si le nombre de permutations est énorme, utiliser multiprocessing
-            total_permutations = len(valid_permutations)
-            if total_permutations < 1000:
+            if valid_permutations:
                 assignments_per_masked[masked] = valid_permutations
-            elif total_permutations < 1_000_000_000:
-                print(f"Total permutations for parallelization: {total_permutations}")
-                chunk_size = min(10000, max(1000, total_permutations // (10 * cpu_count())))
-                valid_assignments = []
-                with Pool(cpu_count()) as pool:
-                    for i in range(0, len(valid_permutations), chunk_size):
-                        chunk = valid_permutations[i:i + chunk_size]
-                        results = pool.starmap(validate_permutation, [
-                            (perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players)
-                            for perm in chunk
-                        ])
-                        valid_assignments.extend(perm for perm, is_valid in zip(chunk, results) if is_valid)
-                assignments_per_masked[masked] = valid_assignments
-            else:
-                print(f"Total permutations too large: {total_permutations}")
+            else :
                 assignments_per_masked[masked] = None
-
+            end_time = time.time()  # Fin du timer
+            print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
         return assignments_per_masked
 
 # # Calculer le nombre d'objets pouvant être stockés
