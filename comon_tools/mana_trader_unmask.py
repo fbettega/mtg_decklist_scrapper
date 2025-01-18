@@ -719,8 +719,7 @@ class Manatrader_fix_hidden_duplicate_name:
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 local_deterministic_permutations, 
                 local_remaining_permutations, 
-                standings ,
-                True        
+                standings #, True        
             )
             # Mettre à jour les entrées pour la prochaine itération
             local_deterministic_permutations =  copy.deepcopy(not_determinist_permutations)
@@ -766,7 +765,10 @@ class Manatrader_fix_hidden_duplicate_name:
             args_list = []
             print(f"Traitement de {masked_name} avec {len(permutations)} permutations")
             # Construction des arguments pour multiprocessing
-            paralelization =  len(permutations) > 1000
+            paralelization =  len(permutations) > 1000 and len(permutations) <  100000
+            if len(permutations) >=  100000:
+                filterd_perm[masked_name] = permutations
+                continue
             for round_permutations in permutations:  # Chaque élément est un defaultdict
                 args = (
                     round_permutations, masked_name, modified_rounds, standings,
