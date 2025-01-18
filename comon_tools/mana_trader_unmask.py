@@ -68,6 +68,33 @@ def is_single_line_tree(node):
         current = current.children[0]  # Passer au seul enfant
     return True
     
+def apply_tree_permutations(node, modified_rounds, masked_name):
+    """
+    Applique les permutations contenues dans un nœud de l'arbre sur les rounds modifiés.
+    """
+    if not node:
+        print("not a node") 
+        return  
+    if node.combination is None:
+        # Continuer avec les enfants du nœud courant
+        for child in node.children:
+            apply_tree_permutations(child, modified_rounds, masked_name)
+        return
+
+    # Appliquer les modifications du nœud courant
+    for real_name, updated_matches in node.combination.items():  # Itère sur les paires clé-valeur
+        for updated_match in updated_matches:  # Parcourt les RoundItem associés
+            for modified_round in modified_rounds:
+                for match in modified_round.matches:
+                    if match.id == updated_match.id:  # Vérifier si l'ID correspond
+                        # Appliquer les modifications au joueur correspondant
+                        if match.player1 == masked_name:
+                            match.player1 = real_name
+                        elif match.player2 == masked_name:
+                            match.player2 = real_name
+    for child in node.children:
+        apply_tree_permutations(child, modified_rounds, masked_name)
+                    # Appliquer les permutations à partir de l'arbre racine
 def process_combination(task):
     """
     Traite une combinaison spécifique dans le cadre de la parallélisation.
@@ -462,7 +489,114 @@ class Manatrader_fix_hidden_duplicate_name:
             gwp=gwp,
             ogwp=ogwp
         )
-    
+
+            
+    def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing]):
+        # Initialiser les stats
+        points = 0
+        wins = 0
+        losses = 0
+        draws = 0
+        total_games_played = 0
+        total_games_won = 0
+        opponents = set()
+
+
+        # Variables auxiliaires pour GWP et OGP
+        player_names = {standing.player for standing in standings}
+        # Parcourir les matchs
+        for round in rounds:
+            for match in round.matches:
+                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+                # Identifier l'adversaire
+                if match.player1 == player:
+                    opponent = match.player2
+                    player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
+                elif match.player2 == player:
+                    opponent = match.player1
+                    player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
+                else:
+                    continue  # Ignorer les matchs où le joueur n'est pas impliqué
+
+                # Calculer les victoires, défaites et égalités
+                # Mise à jour des statistiques
+                # total_matches += 1
+                if player_wins > player_losses:
+                    wins += 1
+                elif player_wins < player_losses:
+                    losses += 1
+                else:
+                    draws += 1
+
+                # Ajouter aux jeux joués et gagnés
+                total_games_played += player_wins + player_losses + player_draw
+                total_games_won += player_wins + (player_draw/3)
+
+                # Ajouter l'adversaire à la liste
+                opponents.add(opponent)
+        # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
+        points += 3 * wins + draws
+
+        total_ogp = 0
+        total_opponents = 0
+
+        total_omp = 0
+        for opponent in opponents:
+        # Ignorer les adversaires qui correspondent à la regexp
+            if opponent is None:
+                continue
+            elif re.fullmatch(r'.\*{10}.', opponent):
+                continue
+            # Récupérer les matchs de l'adversaire
+            opponent_matches = [
+                match for rnd in rounds
+                for match in rnd.matches
+                if match.player1 == opponent or match.player2 == opponent
+            ]
+
+            opponent_match_won = 0
+            opponent_match_total_number = 0
+
+            opponent_games_won = 0
+            opponent_games_played = 0
+
+            for match in opponent_matches:
+                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+                # verifier les bye
+                if match.player1 == opponent:
+                    opponent_games_won += (p1_wins + (draws/3))
+                    opponent_games_played += p1_wins + p2_wins 
+                    opponent_match_won += 1 if p1_wins > p2_wins else 0
+                    opponent_match_total_number += 1
+                elif match.player2 == opponent:
+                    opponent_games_won += (p2_wins + (draws/3))
+                    opponent_games_played += p1_wins + p2_wins 
+                    opponent_match_won += 1 if p1_wins < p2_wins else 0
+                    opponent_match_total_number += 1
+                 
+            # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
+            if opponent_games_played > 0:
+                # OGWP
+                opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
+                total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
+                total_opponents += 1
+                # OMWP 
+                opponent_match_winrate = opponent_match_won/opponent_match_total_number 
+                total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
+
+        return {
+        'wins' : wins,
+        'losses' : losses,
+        'draws' : draws,
+        'total_games_played' : total_games_played,
+        'total_games_won' : total_games_won,
+        'opponents' : opponents,
+        'notmasked_opponent_result' :{
+           'numerator_ogwp': total_ogp if total_opponents > 0 else None ,
+           'numerator_omwp':total_omp if total_opponents > 0 else None,
+           'total_opponents' :total_opponents
+        }
+        }      
 
 
     def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
@@ -815,6 +949,20 @@ class Manatrader_fix_hidden_duplicate_name:
         filterd_perm = {}
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
 
+        player_with_real_name = set()
+            # Identifier l'adversaire
+        for round in modified_rounds:
+            for match in round.matches:
+                if match.player1 and not re.fullmatch(r'.\*{10}.', match.player1):
+                        player_with_real_name.add(match.player1)
+                if match.player2 and not re.fullmatch(r'.\*{10}.', match.player2):
+                        player_with_real_name.add(match.player2)
+
+        base_result_of_named_player = {}
+        for ite_player in player_with_real_name:
+           base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
+        
+        # Commentaire a reprendre ici
         for masked_name, permutations in sorted(
                 matching_permutation.items(), 
                 key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
@@ -909,35 +1057,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 root_tree = trees[0]  # Récupérer l'arbre unique
                 if is_single_line_tree(root_tree):
                     print(f"Permutation unique attribuée : {masked_name}")
-                    def apply_tree_permutations(node):
-                        """
-                        Applique les permutations contenues dans un nœud de l'arbre sur les rounds modifiés.
-                        """
-                        if not node:
-                            print("not a node") 
-                            return  
-                        if node.combination is None:
-                            # Continuer avec les enfants du nœud courant
-                            for child in node.children:
-                                apply_tree_permutations(child)
-                            return
-
-                        # Appliquer les modifications du nœud courant
-                        for real_name, updated_matches in node.combination.items():  # Itère sur les paires clé-valeur
-                            for updated_match in updated_matches:  # Parcourt les RoundItem associés
-                                for modified_round in modified_rounds:
-                                    for match in modified_round.matches:
-                                        if match.id == updated_match.id:  # Vérifier si l'ID correspond
-                                            # Appliquer les modifications au joueur correspondant
-                                            if match.player1 == masked_name:
-                                                match.player1 = real_name
-                                            elif match.player2 == masked_name:
-                                                match.player2 = real_name
-                                            for child in node.children:
-                                                apply_tree_permutations(child)
-                    # Appliquer les permutations à partir de l'arbre racine
-                    apply_tree_permutations(root_tree)
-
+                    apply_tree_permutations(root_tree, modified_rounds,masked_name)
                     # Supprimer le masque traité des permutations restantes
                     del remaining_permutations[masked_name]
 
