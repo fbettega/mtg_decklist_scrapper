@@ -14,6 +14,8 @@ import time
 import copy
 
 
+
+
 class TreeNode:
     def __init__(self, combination=None):
         self.combination = combination  # La configuration actuelle du round
@@ -22,6 +24,46 @@ class TreeNode:
 
     def add_child(self, child):
         self.children.append(child)
+def process_combination(task):
+    """
+    Traite une combinaison spécifique dans le cadre de la parallélisation.
+
+    Args:
+        task (tuple): Contient les informations nécessaires pour traiter une combinaison. 
+                      Format : (first_round_combination, remaining_rounds, validate_fn,
+                                player_indices, standings_wins, standings_losses, 
+                                standings_gwp, n_players)
+
+    Returns:
+        list: Une liste de permutations valides, ou None si aucune permutation n'est valide.
+    """
+    (
+        first_round_combination,  # La configuration initiale du premier round
+        remaining_rounds,         # Les rounds restants à traiter
+        validate_fn,              # Fonction de validation des combinaisons
+        player_indices,           # Mapping des joueurs aux indices
+        standings_wins,           # Statistiques des victoires des joueurs
+        standings_losses,         # Statistiques des défaites des joueurs
+        standings_gwp,            # Pourcentage de victoire dans les jeux
+        n_players                 # Nombre total de joueurs
+    ) = task
+    # Construire un arbre pour explorer les permutations valides des rounds restants
+    root = TreeNode()  # Nœud racine de l'arbre
+
+
+    build_tree(
+        root,
+        [[first_round_combination]] + remaining_rounds,
+        validate_fn,
+        player_indices,
+        standings_wins,
+        standings_losses,
+        standings_gwp,
+        n_players
+    )
+
+    # Extraire les permutations valides à partir de l'arbre
+    return extract_valid_permutations(root)
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
@@ -504,30 +546,64 @@ class Manatrader_fix_hidden_duplicate_name:
             total_permutations = 1
             for comb in valid_combinations:
                     total_permutations *= len(comb)
-            print(f"{masked} Total permutations for parralelisation : {total_permutations}") 
-            start_time = time.time()  # Démarre le timer
-            # Construire l'arbre des permutations
-            root = TreeNode()
-            build_tree(
-                root,
-                valid_combinations,  # Liste des rounds avec leurs combinaisons valides
-                validate_permutation,
-                player_indices,
-                standings_wins,
-                standings_losses,
-                standings_gwp,
-                n_players
-            )
+            
+            if total_permutations < 1000:
+                # Construire l'arbre des permutations
+                root = TreeNode()
+                build_tree(
+                    root,
+                    valid_combinations,  # Liste des rounds avec leurs combinaisons valides
+                    validate_permutation,
+                    player_indices,
+                    standings_wins,
+                    standings_losses,
+                    standings_gwp,
+                    n_players
+                )
 
-            # Extraire les permutations valides
-            valid_permutations = extract_valid_permutations(root)
+                # Extraire les permutations valides
+                valid_permutations = extract_valid_permutations(root)
 
-            if valid_permutations:
-                assignments_per_masked[masked] = valid_permutations
-            else :
+                if valid_permutations:
+                    assignments_per_masked[masked] = valid_permutations
+                else :
+                    assignments_per_masked[masked] = None
+            elif total_permutations < 5000000000:
+                # Parallélisation
+                print(f"Utilisation de la parallélisation. : {total_permutations}")
+                start_time = time.time()
+
+                # Préparer les arguments pour la parallélisation
+                first_round_xs = valid_combinations[0]  # Objets X du premier round
+                remaining_rounds = valid_combinations[1:]  # Rounds restants
+                tasks = [
+                    (
+                        x,
+                        remaining_rounds,
+                        validate_permutation,
+                        player_indices,
+                        standings_wins,
+                        standings_losses,
+                        standings_gwp,
+                        n_players,
+                    )
+                    for x in first_round_xs
+                ]
+
+                # Diviser les tâches pour chaque round dans valid_combinations
+                with Pool(cpu_count()) as pool:
+                    results = pool.map(process_combination, tasks)
+
+                # Fusionner les résultats valides
+                valid_permutations = [perm for result in results if result for perm in result]
+
+                assignments_per_masked[masked] = valid_permutations if valid_permutations else None
+                end_time = time.time()
+                print(f"Temps total d'exécution pour {masked}: {end_time - start_time:.2f} secondes")
+            else: 
+                print(f"{masked} Permutations trop nombreuses (>1 milliard), assignation à None.")
                 assignments_per_masked[masked] = None
-            end_time = time.time()  # Fin du timer
-            print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
+
         return assignments_per_masked
 
 # # Calculer le nombre d'objets pouvant être stockés
@@ -643,7 +719,8 @@ class Manatrader_fix_hidden_duplicate_name:
             not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
                 local_deterministic_permutations, 
                 local_remaining_permutations, 
-                standings   #  ,True        
+                standings ,
+                True        
             )
             # Mettre à jour les entrées pour la prochaine itération
             local_deterministic_permutations =  copy.deepcopy(not_determinist_permutations)
@@ -669,7 +746,8 @@ class Manatrader_fix_hidden_duplicate_name:
         debug_print = False
         ):
         """Traiter les permutations avec recalcul des statistiques."""
-
+        if debug_print:
+            print("debug")
         modified_rounds = [
             Round(
                 rnd.round_name,
