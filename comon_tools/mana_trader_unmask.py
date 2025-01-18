@@ -727,6 +727,14 @@ class Manatrader_fix_hidden_duplicate_name:
             # Mettre à jour la sortie actuelle
             current_output = (not_determinist_permutations, remaining_perm_not_determinist)
 
+
+        not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
+            local_deterministic_permutations, 
+            local_remaining_permutations, 
+            standings , 
+            True        
+        )
+
         for rounds  in not_determinist_permutations :
             for match in rounds.matches: 
                 if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
