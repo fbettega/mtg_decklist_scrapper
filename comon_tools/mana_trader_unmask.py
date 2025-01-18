@@ -24,6 +24,50 @@ class TreeNode:
 
     def add_child(self, child):
         self.children.append(child)
+
+def traverse_tree(node, operation):
+    """
+    Applique une opération sur chaque nœud de l'arbre.
+    
+    Args:
+        node (TreeNode): Le nœud racine à explorer.
+        operation (function): Une fonction à appliquer sur chaque nœud.
+    """
+    operation(node)  # Appliquer l'opération au nœud actuel
+    for child in node.children:
+        traverse_tree(child, operation)  # Explorer les enfants récursivement
+
+def count_nodes(node):
+    """
+    Compte le nombre de nœuds dans l'arbre.
+    """
+    count = 0
+
+    def increment_count(n):
+        nonlocal count
+        count += 1
+
+    traverse_tree(node, increment_count)
+    return count        
+def is_single_line_tree(node):
+    """
+    Vérifie si l'arbre est une simple ligne d'enfants (aucune branche).
+    
+    Args:
+        node (TreeNode): Le nœud racine de l'arbre.
+    
+    Returns:
+        bool: True si l'arbre est une ligne droite, False sinon.
+    """
+    current = node
+    while current:
+        if len(current.children) > 1:
+            return False  # Plus d'un enfant, ce n'est pas une ligne droite
+        if len(current.children) == 0:
+            break  # Feuille atteinte
+        current = current.children[0]  # Passer au seul enfant
+    return True
+    
 def process_combination(task):
     """
     Traite une combinaison spécifique dans le cadre de la parallélisation.
@@ -63,7 +107,8 @@ def process_combination(task):
     )
 
     # Extraire les permutations valides à partir de l'arbre
-    return extract_valid_permutations(root)
+    # return extract_valid_permutations(root)
+    return root
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
@@ -562,8 +607,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 )
 
                 # Extraire les permutations valides
-                valid_permutations = extract_valid_permutations(root)
-
+                # valid_permutations = extract_valid_permutations(root)
+                valid_permutations = [root]
                 if valid_permutations:
                     assignments_per_masked[masked] = valid_permutations
                 else :
@@ -595,7 +640,8 @@ class Manatrader_fix_hidden_duplicate_name:
                     results = pool.map(process_combination, tasks)
 
                 # Fusionner les résultats valides
-                valid_permutations = [perm for result in results if result for perm in result]
+                # valid_permutations = [perm for result in results if result for perm in result]
+                valid_permutations = results
 
                 assignments_per_masked[masked] = valid_permutations if valid_permutations else None
                 end_time = time.time()
@@ -699,7 +745,11 @@ class Manatrader_fix_hidden_duplicate_name:
             )
             if assignments_per_masked is None:
                 return None
-            print(sum(len(v) for v in assignments_per_masked.values()))
+            total_len = 0
+            for trees in assignments_per_masked.values():
+                for tree in trees:
+                   total_len += count_nodes(tree)
+            print(total_len)
             # temp refactoring remove after
             for key, value in assignments_per_masked.items():
                     matching_permutation[key] = value  # Créer une nouvelle clé si elle n'existe pas
@@ -847,26 +897,49 @@ class Manatrader_fix_hidden_duplicate_name:
             for rnd in rounds
         ]
 
+        # Longueurs initiales des rounds
         initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
+
         # Copie des permutations restantes
         remaining_permutations = matching_permutation.copy()
+
         # Parcours des masques et application des permutations uniques
-        for masked_name, permutations in matching_permutation.items():
-            if len(permutations) == 1:
-                print(f"Permutation unique attribué : {masked_name}")
-                for round_combinations in permutations:
-                    for round_dict in round_combinations:  # Itère sur chaque defaultdict
-                        for real_name, updated_matches in round_dict.items():  # Itère sur les paires clé-valeur
-                            for updated_match in updated_matches:  # Itère sur les RoundItem associés
-                                # Appliquer les modifications si le masque et l'autre joueur correspondent
+        for masked_name, trees in matching_permutation.items():
+            if len(trees) == 1:  # Cas où il y a une seule permutation (arbre)
+                root_tree = trees[0]  # Récupérer l'arbre unique
+                if is_single_line_tree(root_tree):
+                    print(f"Permutation unique attribuée : {masked_name}")
+                    def apply_tree_permutations(node):
+                        """
+                        Applique les permutations contenues dans un nœud de l'arbre sur les rounds modifiés.
+                        """
+                        if not node:
+                            print("not a node") 
+                            return  
+                        if node.combination is None:
+                            # Continuer avec les enfants du nœud courant
+                            for child in node.children:
+                                apply_tree_permutations(child)
+                            return
+
+                        # Appliquer les modifications du nœud courant
+                        for real_name, updated_matches in node.combination.items():  # Itère sur les paires clé-valeur
+                            for updated_match in updated_matches:  # Parcourt les RoundItem associés
                                 for modified_round in modified_rounds:
                                     for match in modified_round.matches:
-                                        if match.player1 == masked_name and match.id == updated_match.id:
-                                            match.player1 = real_name
-                                        elif match.player2 == masked_name and match.id == updated_match.id:
-                                            match.player2 = real_name
-                # Supprimer le masque traité des permutations restantes
-                del remaining_permutations[masked_name]
+                                        if match.id == updated_match.id:  # Vérifier si l'ID correspond
+                                            # Appliquer les modifications au joueur correspondant
+                                            if match.player1 == masked_name:
+                                                match.player1 = real_name
+                                            elif match.player2 == masked_name:
+                                                match.player2 = real_name
+                                            for child in node.children:
+                                                apply_tree_permutations(child)
+                    # Appliquer les permutations à partir de l'arbre racine
+                    apply_tree_permutations(root_tree)
+
+                    # Supprimer le masque traité des permutations restantes
+                    del remaining_permutations[masked_name]
 
 
         # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
