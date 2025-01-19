@@ -137,7 +137,7 @@ def process_combination(task):
     # return extract_valid_permutations(root)
     return root
 
-def gather_stats_from_standings_tree(node,base_table,player_result = None):
+def gather_stats_from_standings_tree(node,base_table,compute_stat_fun,masked_name,compare_standings,standings,player_result = None):
     base_table_update = copy.deepcopy(base_table)
 
     if player_result is None:
@@ -146,7 +146,7 @@ def gather_stats_from_standings_tree(node,base_table,player_result = None):
     if node.combination is None:
         # Continuer avec les enfants du nœud courant
         for child in node.children:
-            gather_stats_from_standings_tree(child, base_table_update,player_result)
+            gather_stats_from_standings_tree(child, base_table_update,compute_stat_fun,masked_name,compare_standings,standings,player_result)
         
     for real_name, matches in node.combination.items():
         if real_name not in player_result:
@@ -183,13 +183,25 @@ def gather_stats_from_standings_tree(node,base_table,player_result = None):
                     player_result[real_name]["matchups"].add(opponent)
 
     if not node.children:
-        print(f"Feuille atteinte : {node}")  # Remplacez ou personnalisez ce message
+        tree_standings_res = compute_stat_fun(base_table_update,player_result,masked_name)
+        standings_comparator_res = []
+        for unsure_standings in tree_standings_res:
+            real_standing_ite = next(
+                (standing for standing in standings if standing.player == unsure_standings.player), None
+            )
+            res_comparator = compare_standings(real_standing_ite, unsure_standings, 3, 3, 3)
+            # if not res_comparator:    
+            #     if debug_print:
+            #         print(f"Real : {real_standing_ite}" )  
+            #         print(f"Calc : {unsure_standings}" )       
+            #     return None
+            standings_comparator_res.append(res_comparator)
         return
 
     for child in node.children:
-        gather_stats_from_standings_tree(child,base_table_update,player_result)
+        gather_stats_from_standings_tree(child,base_table_update,compute_stat_fun,masked_name,compare_standings,standings,player_result)
 
-
+    
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
@@ -409,140 +421,81 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
 
 class Manatrader_fix_hidden_duplicate_name: 
-    def calculate_stats_for_matches(self, player: str, matches: List[RoundItem],rounds ,standings: List[Standing]):
+    def calculate_stats_for_matches(self, base_table_res,permutation_res_table,masked_name):
         # Initialiser les stats
-        points = 0
-        wins = 0
-        losses = 0
-        draws = 0
-        total_games_played = 0
-        total_games_won = 0
-        opponents = set()
+
+        opponent_names = set()
+        for data in permutation_res_table.values():
+                opponent_names.update(data['matchups']) 
+
+        update_player_standings = []
+        for player, data in permutation_res_table.items():
+                computable_ogp_omwp = True
+                number_of_opponent = 0
+                total_omp = 0
+                total_ogp = 0
+                for opo in data['matchups']:
+                    if re.fullmatch(r'.\*{10}.', opo):  
+                       computable_ogp_omwp = False
+                       break
+                    if opo :
+                        opponent_gwp = base_table_res[opo]["total_games_won"] / base_table_res[opo]["total_games_played"]  # GWP pour l'adversaire
+                        total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
+                        number_of_opponent += 1
+                        # OMWP 
+                        opponent_match_winrate = base_table_res[opo]["wins"] / (base_table_res[opo]["wins"] + base_table_res[opo]["losses"]) 
+                        total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
+                
+                update_player_standings.append(
+                        Standing(
+                        rank=None,
+                        player=player,
+                        points = (data['Match_wins']*3),
+                        wins=data['Match_wins'],
+                        losses=data['Match_losses'],
+                        draws=0,
+                        omwp= total_omp/number_of_opponent if computable_ogp_omwp else None,
+                        gwp=(data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses']),
+                        ogwp=total_ogp/number_of_opponent if computable_ogp_omwp else None
+                        )
+                        )
+
+        for oponent_name in opponent_names:
+            masked_opponents = {name for name in base_table_res[oponent_name]['opponents'] if re.fullmatch(r'.\*{10}.', name)}
+            if len(masked_opponents) == 1 and masked_name in masked_opponents:
+                player_omwp =0
+                number_of_player = 0
+                player_ogwp = 0
+                for player, data in permutation_res_table.items():
+                    if oponent_name in data['matchups']:
+                        number_of_player += 1
+                        ogwp_ite = (data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses'])
+                        omw_ite = data['Match_wins']/(data['Match_wins'] + data['Game_losses'])
+                        player_omwp += omw_ite if omw_ite >= 0.3333 else 0.33
+                        player_ogwp +=  ogwp_ite if ogwp_ite >= 0.3333 else 0.33
+                update_player_standings.append(
+                Standing(
+                rank=None,
+                player=oponent_name,
+                points = (base_table_res[oponent_name]['wins']*3),
+                wins=base_table_res[oponent_name]['wins'],
+                losses=base_table_res[oponent_name]['losses'],
+                draws=base_table_res[oponent_name]['draws'],
+
+                omwp= (base_table_res[oponent_name]['notmasked_opponent_result']['numerator_omwp'] + player_omwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player),
+
+                gwp=base_table_res[oponent_name]['total_games_won']/base_table_res[oponent_name]['total_games_played'],
+
+                ogwp=(base_table_res[oponent_name]['notmasked_opponent_result']['numerator_ogwp'] + player_ogwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player)
+                )
+                )
 
 
-        # Variables auxiliaires pour GWP et OGP
-        player_names = {standing.player for standing in standings}
-        # Parcourir les matchs
-        for match in matches:
-            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+        return update_player_standings
 
-            # Identifier l'adversaire
-            if match.player1 == player:
-                opponent = match.player2
-                player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
-            elif match.player2 == player:
-                opponent = match.player1
-                player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
-            else:
-                continue  # Ignorer les matchs où le joueur n'est pas impliqué
 
-            # Calculer les victoires, défaites et égalités
-            # Mise à jour des statistiques
-            # total_matches += 1
-            if player_wins > player_losses:
-                wins += 1
-            elif player_wins < player_losses:
-                losses += 1
-            else:
-                draws += 1
 
-            # Ajouter aux jeux joués et gagnés
-            total_games_played += player_wins + player_losses + player_draw
-            total_games_won += player_wins + (player_draw/3)
 
-            # Ajouter l'adversaire à la liste
-            opponents.add(opponent)
-        # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
-        points += 3 * wins + draws
-        # Calculer GWP (Game-Win Percentage)
-        # gwp = truncate(total_games_won / total_games_played) if total_games_played > 0 else 0
-        gwp = total_games_won / total_games_played if total_games_played > 0 else 0
-
-        # Calculer OGP (Opponents’ Game-Win Percentage)
-
-        total_ogp = 0
-        total_opponents = 0
-
-        total_omp = 0
-        stop_compute_ogwp_omwp = False
-        for opponent in opponents:
-        # Ignorer les adversaires qui correspondent à la regexp
-            if opponent is None:
-                continue
-            elif re.fullmatch(r'.\*{10}.', opponent):
-                stop_compute_ogwp_omwp = True
-                break
-            # Récupérer les matchs de l'adversaire
-            opponent_matches = [
-                match for rnd in rounds
-                for match in rnd.matches
-                if match.player1 == opponent or match.player2 == opponent
-            ]
-
-            opponent_match_won = 0
-            opponent_match_total_number = 0
-
-            opponent_games_won = 0
-            opponent_games_played = 0
-
-            for match in opponent_matches:
-                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
-                # verifier les bye
-                if match.player1 == opponent:
-                    opponent_games_won += (p1_wins + (draws/3))
-                    opponent_games_played += p1_wins + p2_wins 
-                    opponent_match_won += 1 if p1_wins > p2_wins else 0
-                    opponent_match_total_number += 1
-                elif match.player2 == opponent:
-                    opponent_games_won += (p2_wins + (draws/3))
-                    opponent_games_played += p1_wins + p2_wins 
-                    opponent_match_won += 1 if p1_wins < p2_wins else 0
-                    opponent_match_total_number += 1
-                 
-            # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
-            if opponent_games_played > 0:
-                # OGWP
-                opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
-                total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
-                total_opponents += 1
-                # OMWP 
-                opponent_match_winrate = opponent_match_won/opponent_match_total_number 
-                total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
-
-        # Moyenne des GWP des adversaires (OGP)
-        if stop_compute_ogwp_omwp:
-            ogwp = None
-            omwp = None
-        else :
-            ogwp = total_ogp / total_opponents if total_opponents > 0 else None
-            # après calcule la version tronqué est fausse
-            # ogwp = truncate(total_ogp / total_opponents) if total_opponents > 0 else None
-            omwp =  total_omp / total_opponents if total_opponents > 0 else None
-            # omwp =  truncate(total_omp / total_opponents) if total_opponents > 0 else None
-        # Calculer OMWP (Opponents' Match-Win Percentage)
-
-        # Calculer le rang du joueur en fonction des points
-        standings_with_updated_points = sorted(
-            standings + [Standing(player=player, points=points)],
-            key=lambda s: s.points,
-            reverse=True,
-        )
-        rank = next(
-            (i + 1 for i, s in enumerate(standings_with_updated_points) if s.player == player),
-            None,
-        )
-        # Créer et retourner l'objet Standing avec les valeurs calculées
-        return Standing(
-            rank=rank,  # Le classement est optionnel ici
-            player=player,
-            points=points,
-            wins=wins,
-            losses=losses,
-            draws=draws,
-            omwp=omwp,
-            gwp=gwp,
-            ogwp=ogwp
-        )
 
             
     def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing]):
@@ -1024,7 +977,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
             ):
             if masked_name == 'K**********v':
-                a = gather_stats_from_standings_tree(permutations[0],base_result_of_named_player)
+                a = gather_stats_from_standings_tree(permutations[0],base_result_of_named_player,self.calculate_stats_for_matches,masked_name,self.compare_standings,standings)
             else:
                 continue
 
@@ -1133,65 +1086,11 @@ class Manatrader_fix_hidden_duplicate_name:
 
         return modified_rounds, remaining_permutations
 
-    def find_best_combinations(self, recalculated_stats, real_standings_by_player):
-        matching_combinations = {}
-        for masked_name, player_combinations in recalculated_stats.items():
-            matching_combinations[masked_name] = []
-            closest_combination = None
-            min_gwp_difference = float('inf')
-            min_ogwp_difference = float('inf')
 
-            for combination_index, combination in enumerate(player_combinations):
-                is_matching = True
-                ogwp_differences = []
-                gwp_differences = []  # Liste pour stocker les différences de gwp
-                comparison_details = []
-
-                for player, recalculated_standing in combination.items():
-                    real_standing = real_standings_by_player.get(player)
-                    if not real_standing or not self.compare_standings(real_standing, recalculated_standing):
-                        is_matching = False
-                        break
-
-                    # Calculer la différence de gwp pour ce joueur
-                    if real_standing.gwp is not None and recalculated_standing.gwp is not None:
-                        gwp_differences.append(abs(real_standing.gwp - recalculated_standing.gwp))
-
-                    # Calculer la différence de ogwp pour ce joueur
-                    if real_standing.ogwp is not None and recalculated_standing.ogwp is not None:
-                        ogwp_differences.append(abs(real_standing.ogwp - recalculated_standing.ogwp))
-
-                    # Collecter les détails pour le débogage
-                    comparison_details.append((player, real_standing, recalculated_standing))
-                # Si la combinaison correspond aux critères principaux
-                if is_matching:
-                    # Calculer la moyenne des différences de gwp et ogwp pour la combinaison
-                    avg_gwp_diff = sum(gwp_differences) / len(gwp_differences) if gwp_differences else float('inf')
-                    avg_ogwp_diff = sum(ogwp_differences) / len(ogwp_differences) if ogwp_differences else float('inf')
-
-                    # Comparer et sélectionner la meilleure combinaison en fonction des critères
-                    if avg_gwp_diff < min_gwp_difference:
-                        min_gwp_difference = avg_gwp_diff
-                        min_ogwp_difference = avg_ogwp_diff
-                        closest_combination = [combination_index]
-                    elif avg_gwp_diff == min_gwp_difference and avg_ogwp_diff < min_ogwp_difference:
-                        min_ogwp_difference = avg_ogwp_diff
-                        closest_combination = [combination_index]
-                    elif avg_gwp_diff == min_gwp_difference and avg_ogwp_diff == min_ogwp_difference:
-                        closest_combination.append(combination_index)  # Ajouter l'indice si égalité
-
-            # Si plusieurs permutations sont trouvées pour le joueur masqué, on sélectionne la meilleure
-            if closest_combination:
-                matching_combinations[masked_name] = closest_combination
-
-        return matching_combinations
-
-
-    # def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-4):
     def compare_standings(self,real_standing, recalculated_standing,  compare_gwp=None, compare_omwp=None, compare_ogwp=None, tolerance=1e-3):
         """Compare deux standings et retourne True s'ils sont identiques, sinon False."""
         matches = (
-            real_standing.rank == recalculated_standing.rank and
+            # real_standing.rank == recalculated_standing.rank and
             real_standing.points == recalculated_standing.points and
             real_standing.wins == recalculated_standing.wins and
             real_standing.losses == recalculated_standing.losses 
@@ -1207,17 +1106,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 recalculated_standing.gwp, 
                 tolerance
             )
-            # matches = matches and are_close(
-            #     custom_round(real_standing.gwp, compare_gwp),
-            #     custom_round(recalculated_standing.gwp, compare_gwp),
-            #     tolerance
-            # )
         if compare_omwp and real_standing.omwp is not None and recalculated_standing.omwp is not None:
-            # matches = matches and are_close(
-            #     custom_round(real_standing.omwp, compare_omwp),
-            #     custom_round(recalculated_standing.omwp, compare_omwp),
-            #     tolerance
-            # )
+
             matches = matches and are_close(
                 real_standing.omwp, 
                 recalculated_standing.omwp, 
@@ -1229,11 +1119,6 @@ class Manatrader_fix_hidden_duplicate_name:
                 recalculated_standing.omwp, 
                 tolerance
             )
-            # matches = matches and are_close(
-            #     custom_round(real_standing.ogwp, compare_ogwp),
-            #     custom_round(recalculated_standing.ogwp, compare_ogwp),
-            #     tolerance
-            # )
 
         return matches
 
