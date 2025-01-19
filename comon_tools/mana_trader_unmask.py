@@ -137,6 +137,60 @@ def process_combination(task):
     # return extract_valid_permutations(root)
     return root
 
+def gather_stats_from_standings_tree(node,base_table,player_result = None):
+    base_table_update = copy.deepcopy(base_table)
+
+    if player_result is None:
+        player_result={}
+
+    if node.combination is None:
+        # Continuer avec les enfants du nœud courant
+        for child in node.children:
+            gather_stats_from_standings_tree(child, base_table_update,player_result)
+        
+    for real_name, matches in node.combination.items():
+        if real_name not in player_result:
+            player_result[real_name] ={
+            "Match_wins": 0,
+            "Match_losses": 0,
+            "Game_wins": 0,
+            "Game_losses": 0,
+            "Game_draws": 0,
+            "matchups":  set() 
+        }
+        for match in matches:  # Parcourt les RoundItem associés
+            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+
+            # Identifier si le joueur traité est Player1 ou Player2
+            if match.player1 == real_name or match.player2 == real_name:
+                is_player1 = (match.player1 == real_name)
+
+                # Détermine les scores et l'adversaire en fonction de la position
+                win, loss = match.scores[0] if is_player1 else match.scores[1]
+                opponent = match.player2 if is_player1 else match.player1
+                game_wins = p1_wins if is_player1 else p2_wins
+                game_losses = p2_wins if is_player1 else p1_wins
+
+                # Mise à jour des statistiques du joueur
+                player_result[real_name]["Match_wins"] += win
+                player_result[real_name]["Match_losses"] += loss
+                player_result[real_name]["Game_wins"] += game_wins
+                player_result[real_name]["Game_losses"] += game_losses
+                player_result[real_name]["Game_draws"] += draws
+
+                # Ajout de l'adversaire si pertinent
+                if opponent is not None and not re.fullmatch(r'.\*{10}.', opponent):
+                    player_result[real_name]["matchups"].add(opponent)
+
+    if not node.children:
+        print(f"Feuille atteinte : {node}")  # Remplacez ou personnalisez ce message
+        return
+
+    for child in node.children:
+        gather_stats_from_standings_tree(child,base_table_update,player_result)
+
+
+
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
         history = {
@@ -962,11 +1016,19 @@ class Manatrader_fix_hidden_duplicate_name:
         for ite_player in player_with_real_name:
            base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
         
+
+
         # Commentaire a reprendre ici
         for masked_name, permutations in sorted(
                 matching_permutation.items(), 
                 key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
             ):
+            if masked_name == 'K**********v':
+                a = gather_stats_from_standings_tree(permutations[0],base_result_of_named_player)
+            else:
+                continue
+
+
             valide_perm = []
             args_list = []
             print(f"Traitement de {masked_name} avec {len(permutations)} permutations")
