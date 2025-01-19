@@ -25,6 +25,12 @@ class TreeNode:
     def add_child(self, child):
         self.children.append(child)
 
+class FilteredNode:
+    """Classe pour représenter un nœud filtré avec ses sous-nœuds valides."""
+    def __init__(self, combination, children=None):
+        self.combination = combination
+        self.children = children if children else []
+
 def traverse_tree(node, operation):
     """
     Applique une opération sur chaque nœud de l'arbre.
@@ -137,54 +143,55 @@ def process_combination(task):
     # return extract_valid_permutations(root)
     return root
 
-def gather_stats_from_standings_tree(node,base_table,compute_stat_fun,masked_name,compare_standings,standings,player_result = None):
+
+
+def gather_stats_from_standings_tree(node, base_table, compute_stat_fun, masked_name, compare_standings, standings, player_result=None):
     base_table_update = copy.deepcopy(base_table)
 
     if player_result is None:
-        player_result={}
+        player_result = {}
 
-    if node.combination is None:
-        # Continuer avec les enfants du nœud courant
-        for child in node.children:
-            gather_stats_from_standings_tree(child, base_table_update,compute_stat_fun,masked_name,compare_standings,standings,player_result)
-        
-    for real_name, matches in node.combination.items():
-        if real_name not in player_result:
-            player_result[real_name] ={
-            "Match_wins": 0,
-            "Match_losses": 0,
-            "Game_wins": 0,
-            "Game_losses": 0,
-            "Game_draws": 0,
-            "matchups":  set() 
-        }
-        for match in matches:  # Parcourt les RoundItem associés
-            p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+    # Mettre à jour les statistiques pour le nœud courant
+    if node.combination is not None:
+        for real_name, matches in node.combination.items():
+            if real_name not in player_result:
+                player_result[real_name] = {
+                    "Match_wins": 0,
+                    "Match_losses": 0,
+                    "Game_wins": 0,
+                    "Game_losses": 0,
+                    "Game_draws": 0,
+                    "matchups": set(),
+                }
+            for match in matches:
+                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
 
-            # Identifier si le joueur traité est Player1 ou Player2
-            if match.player1 == real_name or match.player2 == real_name:
-                is_player1 = (match.player1 == real_name)
+                # Identifier si le joueur traité est Player1 ou Player2
+                if match.player1 == real_name or match.player2 == real_name:
+                    is_player1 = (match.player1 == real_name)
 
-                # Détermine les scores et l'adversaire en fonction de la position
-                win, loss = match.scores[0] if is_player1 else match.scores[1]
-                opponent = match.player2 if is_player1 else match.player1
-                game_wins = p1_wins if is_player1 else p2_wins
-                game_losses = p2_wins if is_player1 else p1_wins
+                    # Détermine les scores et l'adversaire en fonction de la position
+                    win, loss = match.scores[0] if is_player1 else match.scores[1]
+                    opponent = match.player2 if is_player1 else match.player1
+                    game_wins = p1_wins if is_player1 else p2_wins
+                    game_losses = p2_wins if is_player1 else p1_wins
 
-                # Mise à jour des statistiques du joueur
-                player_result[real_name]["Match_wins"] += win
-                player_result[real_name]["Match_losses"] += loss
-                player_result[real_name]["Game_wins"] += game_wins
-                player_result[real_name]["Game_losses"] += game_losses
-                player_result[real_name]["Game_draws"] += draws
+                    # Mise à jour des statistiques du joueur
+                    player_result[real_name]["Match_wins"] += win
+                    player_result[real_name]["Match_losses"] += loss
+                    player_result[real_name]["Game_wins"] += game_wins
+                    player_result[real_name]["Game_losses"] += game_losses
+                    player_result[real_name]["Game_draws"] += draws
 
-                # Ajout de l'adversaire si pertinent
-                if opponent is not None and not re.fullmatch(r'.\*{10}.', opponent):
-                    player_result[real_name]["matchups"].add(opponent)
+                    # Ajout de l'adversaire si pertinent
+                    if opponent is not None and not re.fullmatch(r'.\*{10}.', opponent):
+                        player_result[real_name]["matchups"].add(opponent)
 
+    # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
     if not node.children:
-        tree_standings_res = compute_stat_fun(base_table_update,player_result,masked_name)
+        tree_standings_res = compute_stat_fun(base_table_update, player_result, masked_name)
         standings_comparator_res = []
+
         for unsure_standings in tree_standings_res:
             real_standing_ite = next(
                 (standing for standing in standings if standing.player == unsure_standings.player), None
@@ -194,14 +201,31 @@ def gather_stats_from_standings_tree(node,base_table,compute_stat_fun,masked_nam
             #     if debug_print:
             #         print(f"Real : {real_standing_ite}" )  
             #         print(f"Calc : {unsure_standings}" )       
-            #     return None
+            #     return None  
             standings_comparator_res.append(res_comparator)
-        return
 
+        # Vérifie si toutes les comparaisons sont `True`
+        if all(standings_comparator_res):
+            return FilteredNode(node.combination)  # Retourne le nœud filtré
+
+        return None  # Nœud non valide
+
+    # Parcourt les enfants et filtre les sous-arbres valides
+    valid_children = []
     for child in node.children:
-        gather_stats_from_standings_tree(child,base_table_update,compute_stat_fun,masked_name,compare_standings,standings,player_result)
+        filtered_child = gather_stats_from_standings_tree(
+            child, base_table_update, compute_stat_fun, masked_name, compare_standings, standings, player_result
+        )
+        if filtered_child:
+            valid_children.append(filtered_child)
 
-    
+    # Si ce nœud ou ses enfants sont valides, créer un nœud filtré
+    if valid_children or node.combination is not None:
+        return FilteredNode(node.combination, valid_children)
+
+    return None  # Aucun nœud valide
+
+ 
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
     if history is None:
@@ -969,7 +993,12 @@ class Manatrader_fix_hidden_duplicate_name:
         for ite_player in player_with_real_name:
            base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
         
-
+def print_tree(node, depth=0):
+    """Affiche récursivement l'arbre filtré."""
+    if node:
+        print("  " * depth + f"Combination: {node.combination}")
+        for child in node.children:
+            print_tree(child, depth + 1)
 
         # Commentaire a reprendre ici
         for masked_name, permutations in sorted(
