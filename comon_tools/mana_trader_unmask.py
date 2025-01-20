@@ -485,34 +485,35 @@ class Manatrader_fix_hidden_duplicate_name:
                         )
 
         for oponent_name in opponent_names:
-            masked_opponents = {name for name in base_table_res[oponent_name]['opponents'] if re.fullmatch(r'.\*{10}.', name)}
-            if len(masked_opponents) == 1 and masked_name in masked_opponents:
-                player_omwp =0
-                number_of_player = 0
-                player_ogwp = 0
-                for player, data in permutation_res_table.items():
-                    if oponent_name in data['matchups']:
-                        number_of_player += 1
-                        ogwp_ite = (data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses'])
-                        omw_ite = data['Match_wins']/(data['Match_wins'] + data['Game_losses'])
-                        player_omwp += omw_ite if omw_ite >= 0.3333 else 0.33
-                        player_ogwp +=  ogwp_ite if ogwp_ite >= 0.3333 else 0.33
-                update_player_standings.append(
-                Standing(
-                rank=None,
-                player=oponent_name,
-                points = (base_table_res[oponent_name]['wins']*3),
-                wins=base_table_res[oponent_name]['wins'],
-                losses=base_table_res[oponent_name]['losses'],
-                draws=base_table_res[oponent_name]['draws'],
+            if oponent_name:
+                masked_opponents = {name for name in base_table_res[oponent_name]['opponents'] if re.fullmatch(r'.\*{10}.', name)}
+                if len(masked_opponents) == 1 and masked_name in masked_opponents:
+                    player_omwp =0
+                    number_of_player = 0
+                    player_ogwp = 0
+                    for player, data in permutation_res_table.items():
+                        if oponent_name in data['matchups']:
+                            number_of_player += 1
+                            ogwp_ite = (data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses'])
+                            omw_ite = data['Match_wins']/(data['Match_wins'] + data['Game_losses'])
+                            player_omwp += omw_ite if omw_ite >= 0.3333 else 0.33
+                            player_ogwp +=  ogwp_ite if ogwp_ite >= 0.3333 else 0.33
+                    update_player_standings.append(
+                    Standing(
+                    rank=None,
+                    player=oponent_name,
+                    points = (base_table_res[oponent_name]['wins']*3),
+                    wins=base_table_res[oponent_name]['wins'],
+                    losses=base_table_res[oponent_name]['losses'],
+                    draws=base_table_res[oponent_name]['draws'],
 
-                omwp= (base_table_res[oponent_name]['notmasked_opponent_result']['numerator_omwp'] + player_omwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player),
+                    omwp= (base_table_res[oponent_name]['notmasked_opponent_result']['numerator_omwp'] + player_omwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player),
 
-                gwp=base_table_res[oponent_name]['total_games_won']/base_table_res[oponent_name]['total_games_played'],
+                    gwp=base_table_res[oponent_name]['total_games_won']/base_table_res[oponent_name]['total_games_played'],
 
-                ogwp=(base_table_res[oponent_name]['notmasked_opponent_result']['numerator_ogwp'] + player_ogwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player)
-                )
-                )
+                    ogwp=(base_table_res[oponent_name]['notmasked_opponent_result']['numerator_ogwp'] + player_ogwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player)
+                    )
+                    )
 
 
         return update_player_standings
@@ -993,73 +994,48 @@ class Manatrader_fix_hidden_duplicate_name:
         for ite_player in player_with_real_name:
            base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
         
-def print_tree(node, depth=0):
-    """Affiche récursivement l'arbre filtré."""
-    if node:
-        print("  " * depth + f"Combination: {node.combination}")
-        for child in node.children:
-            print_tree(child, depth + 1)
+        # def print_tree(node, depth=0):
+        #     """Affiche récursivement l'arbre filtré."""
+        #     if node:
+        #         print("  " * depth + f"Combination: {node.combination}")
+        #         for child in node.children:
+        #             print_tree(child, depth + 1)
 
         # Commentaire a reprendre ici
         for masked_name, permutations in sorted(
                 matching_permutation.items(), 
                 key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
             ):
-            if masked_name == 'K**********v':
-                a = gather_stats_from_standings_tree(permutations[0],base_result_of_named_player,self.calculate_stats_for_matches,masked_name,self.compare_standings,standings)
+            if len(permutations) == 1:
+                Tree_with_correct_standings = [gather_stats_from_standings_tree(permutations[0],base_result_of_named_player,self.calculate_stats_for_matches,masked_name,self.compare_standings,standings)]
             else:
+                # ajouter parrallelle ici
                 continue
 
+            if Tree_with_correct_standings and len(Tree_with_correct_standings) == 1:  # Cas où il y a une seule permutation (arbre)
+                root_tree = Tree_with_correct_standings[0]  # Récupérer l'arbre unique
+                if is_single_line_tree(root_tree):
+                    print(f"Permutation unique attribuée : {masked_name}")
+                    apply_tree_permutations(root_tree, modified_rounds,masked_name)
+                    # A réfléchir propobablement méthode a def 
+                    player_with_real_name = set()
+                    # Identifier l'adversaire
+                    for round in modified_rounds:
+                        for match in round.matches:
+                            if match.player1 and not re.fullmatch(r'.\*{10}.', match.player1):
+                                    player_with_real_name.add(match.player1)
+                            if match.player2 and not re.fullmatch(r'.\*{10}.', match.player2):
+                                    player_with_real_name.add(match.player2)
 
-            valide_perm = []
-            args_list = []
-            print(f"Traitement de {masked_name} avec {len(permutations)} permutations")
-            # Construction des arguments pour multiprocessing
-            paralelization =  len(permutations) > 1000 and len(permutations) <  100000
-            if len(permutations) >=  100000:
-                filterd_perm[masked_name] = permutations
-                continue
-            for round_permutations in permutations:  # Chaque élément est un defaultdict
-                args = (
-                    round_permutations, masked_name, modified_rounds, standings,
-                    self.calculate_stats_for_matches, self.compare_standings,debug_print
-                )
-                if not paralelization:
-                    # Traitement séquentiel pour certains noms masqués
-                    result = process_single_permutation(args)
-                    if result is not None:
-                        valide_perm.append(result)
-                        if masked_name not in filterd_perm:
-                            filterd_perm[masked_name] = []
-                        filterd_perm[masked_name].append(result)
+                    base_result_of_named_player = {}
+                    for ite_player in player_with_real_name:
+                        base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
+                    # Supprimer le masque traité des permutations restantes
                 else:
-                    # Ajouter aux arguments pour parallélisation
-                    args_list.append(args)
+                    filterd_perm[masked_name] = Tree_with_correct_standings
 
-            # Parallélisation avec Pool
-            if args_list:
-                start_time = time.time()
-                print(f"{masked_name} parralelisation : {len(permutations)}") 
-                with Pool(processes=cpu_count()) as pool:
-                    results = pool.map(process_single_permutation, args_list, chunksize=50)
-                end_time = time.time()  # Fin du timer
-                print(f"Temps total d'exécution : {end_time - start_time:.2f} secondes")
-
-                # Traitement des résultats
-                for result in results:
-                    if result is not None:
-                        valide_perm.append(result)
-                        if masked_name not in filterd_perm:
-                            filterd_perm[masked_name] = []
-                        filterd_perm[masked_name].append(result)
-
-            if len(valide_perm) ==0:
-                print(f"0 Valide permutation : {masked_name}")         
-                filterd_perm[masked_name] = permutations
-            if len(valide_perm) == 1:
-                print(f"Permutation trouvée : {masked_name}")
-                modified_rounds = self.update_modified_rounds_with_valid_permutation(modified_rounds, valide_perm,masked_name)
-                del filterd_perm[masked_name]
+            else :
+                filterd_perm[masked_name] = Tree_with_correct_standings
 
 
         final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
