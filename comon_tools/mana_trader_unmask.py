@@ -207,23 +207,27 @@ def gather_stats_from_standings_tree(node, base_table, compute_stat_fun, masked_
         # Vérifie si toutes les comparaisons sont `True`
         if all(standings_comparator_res):
             return FilteredNode(node.combination)  # Retourne le nœud filtré
+        # else:
+            # print("no match")
         return None  # Nœud non valide
 
+
     # Parcourt les enfants et filtre les sous-arbres valides
-    valid_children = []
-    for child in node.children:
-        filtered_child = gather_stats_from_standings_tree(
+    valid_children = [
+        gather_stats_from_standings_tree(
             child, base_table_update, compute_stat_fun, masked_name, compare_standings, standings, player_result
         )
-        if filtered_child:
-            valid_children.append(filtered_child)
+        for child in node.children
+    ]
+    valid_children = [child for child in valid_children if child is not None]
 
-    # Si ce nœud ou ses enfants sont valides, créer un nœud filtré
-    if valid_children or node.combination is not None:
+    # Si ce nœud est valide ou possède des enfants valides, créer un nœud filtré
+    if valid_children:
         return FilteredNode(node.combination, valid_children)
+    elif node.combination is not None:  # Vérifie si ce nœud seul est valide
+        return FilteredNode(node.combination)
 
     return None  # Aucun nœud valide
-
  
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
@@ -1022,9 +1026,16 @@ class Manatrader_fix_hidden_duplicate_name:
             ):
             if len(permutations) == 1:
                 print(f"compute tree : {masked_name}")
-                
+                ##############################################################################
+                total_len = 0
+                for tree in permutations:
+                    total_len += count_nodes(tree)
+                print(total_len)
+                ##############################################################################
                 Tree_with_correct_standings = [gather_stats_from_standings_tree(permutations[0],base_result_of_named_player,self.calculate_stats_for_matches,masked_name,self.compare_standings,standings)]
             else:
+                # debug poupose
+                continue
                 # Parallélisation
                 print(f"Utilisation de la parallélisation. : {masked_name}")
                 start_time = time.time()
@@ -1073,6 +1084,12 @@ class Manatrader_fix_hidden_duplicate_name:
                         base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
                     # Supprimer le masque traité des permutations restantes
                 else:
+                    ##############################################################################
+                    total_len = 0
+                    for tree in Tree_with_correct_standings:
+                        total_len += count_nodes(tree)
+                    print(total_len)
+                    ##############################################################################
                     filterd_perm[masked_name] = Tree_with_correct_standings
 
             else :
