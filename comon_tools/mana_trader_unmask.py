@@ -123,7 +123,6 @@ def process_combination(task):
         standings_gwp,
         standings_omwp,
         standings_ogwp, 
-        n_players,
         base_result_from_know_player,
         standings                # Nombre total de joueurs
     ) = task
@@ -143,7 +142,6 @@ def process_combination(task):
         standings_gwp,
         standings_omwp,
         standings_ogwp, 
-        n_players,
         base_result_from_know_player,
         standings
     )
@@ -240,8 +238,10 @@ def gather_stats_from_standings_tree(node, base_table, compute_stat_fun, masked_
  
 
 def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, n_players,base_result_from_know_player,standings, history=None, iteration=0):
+                standings_ogwp, base_result_from_know_player,standings, history=None, iteration=0):
     if history is None:
+        n_players = len(player_indices)
+
         history = {
             "Match_wins": np.zeros(n_players, dtype=int),
             "Match_losses": np.zeros(n_players, dtype=int),
@@ -250,6 +250,21 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
             "Game_draws": np.zeros(n_players, dtype=int),
             "matchups": {player: set() for player in player_indices.keys()}
         }
+            # Mise à jour de l'historique avec les informations de base_result_from_know_player
+        for player, idx in player_indices.items():
+            if player in base_result_from_know_player:
+                # On récupère les informations du joueur dans base_result_from_know_player
+                player_data = base_result_from_know_player[player]
+                
+                # Mise à jour des statistiques du joueur dans history
+                history["Match_wins"][idx] = player_data['wins']
+                history["Match_losses"][idx] = player_data['losses']
+                history["Game_wins"][idx] = player_data['total_games_won']
+                history["Game_losses"][idx] = player_data['total_games_played'] - player_data['total_games_won'] - player_data['draws']
+                history["Game_draws"][idx] = player_data['draws']
+
+                # Initialisation des matchups (peut être vide ou déjà défini)
+                history["matchups"][player] = set(player_data['opponents'])
 
     if not node.valid:
         return
@@ -307,7 +322,6 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
                 standings_gwp,
                 standings_omwp,
                 standings_ogwp,
-                n_players,
                 base_result_from_know_player,
                 new_history,
                 iteration + 1
@@ -318,9 +332,11 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
     node.children = valid_children
 
     # Si le nœud a au moins un enfant valide, retourne-le ; sinon, retourne None
-    if valid_children:
+    if valid_children and valid:
         return node
     else:
+        if iteration > 2:
+            print(iteration)
         return None
 
 
@@ -443,38 +459,31 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     Game_draws = history["Game_draws"] 
     matchups = history["matchups"]
 
-    for player, round_items in match_combination.items():
-        for round_item in round_items:
-            if round_item.player1 == player:
-                opponent = round_item.player2
-                win, loss = round_item.scores[0]
-                M_win, M_loss,M_draw  = map(int, round_item.result.split('-'))  # Scores de player1
-            elif round_item.player2 == player:
-                opponent = round_item.player1
-                win, loss = round_item.scores[1]
-                M_loss,M_win,M_draw  = map(int, round_item.result.split('-'))  # Scores de player2
-            else:
-                continue
+    for round_item in match_combination:
+        # Traiter à la fois player1 et player2 sans conditions if/elif
+        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *map(int, round_item.result.split('-'))),
+                    (round_item.player2, round_item.player1, *round_item.scores[1], *map(int, round_item.result.split('-')))]
 
-            if opponent is not None:
+        # Itérer sur les deux joueurs de chaque match
+        for player, opponent, win, loss, M_win, M_loss, M_draw in players:
+            # Vérifier que le joueur n'est pas None et valider les résultats
+            if player is not None:
                 if opponent in matchups[player]:
                     return False
                 if not re.fullmatch(r'.\*{10}.', opponent):
                     matchups[player].add(opponent)
-                    # matchups[opponent].add(player)
 
-            # Mettre à jour les statistiques
-            player_idx = player_indices[player]
-            Match_wins[player_idx] += win
-            Match_losses[player_idx] += loss
+                # Mettre à jour les statistiques
+                player_idx = player_indices[player]
+                Match_wins[player_idx] += win
+                Match_losses[player_idx] += loss
+                Game_wins[player_idx] += M_win
+                Game_losses[player_idx] += M_loss
+                Game_draws[player_idx] += M_draw
 
-            Game_wins[player_idx] += M_win
-            Game_losses[player_idx] += M_loss
-            Game_draws[player_idx] += M_draw
-
-            # Valider les limites de wins et losses
-            if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                return False
+                # Valider les limites de wins et losses
+                if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+                    return False
 
     # Validation finale du GWP si wins et losses sont complets
     for player, player_idx in player_indices.items():
@@ -731,49 +740,7 @@ class Manatrader_fix_hidden_duplicate_name:
         return masked_to_actual
 
 
-    # def generate_round_combinations(self, matches, actual_players, standings,round_name):
-    #     """Générer les permutations pour chaque round en tenant compte du nombre de matchs du joueur."""
-    #     round_combinations = []
-    #     # Calculer le nombre total de matchs pour chaque joueur
-    #     # Convertir standings en un dictionnaire, où la clé est le nom du joueur
-    #     standings_dict = {standing.player: standing for standing in standings}
-    #     # Calculer le nombre total de matchs pour chaque joueur
-    #     player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in actual_players}
-    #     # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
-    #         # Étendre les joueurs pour correspondre au nombre de matchs
-    #     match_round = int(round_name.replace('Round ', ''))
-    #     valid_player = [player for player in actual_players if player_match_count[player] >= match_round]
-    #     for perm in permutations(valid_player, len(matches)):
-    #         replaced_matches = defaultdict(list)
-    #         for (role, match), player in zip(matches, perm):
-    #         # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
-    #             # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
-    #             p1_wins, p2_wins, _ = map(int, match.result.split('-'))
-    #             if (role == 'player1'  and (
-    #                 (p1_wins > p2_wins and standings_dict[player].wins == 0) or 
-    #                 (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
-    #                 (p1_wins > 0 and standings_dict[player].gwp == 0) or
-    #                 (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and custom_round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1) 
-    #                 )):
-    #                 break
-    #             elif (role == 'player2' and (
-    #                 (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
-    #                 (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
-    #                 (p2_wins > 0 and standings_dict[player].gwp == 0) or 
-    #                 (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and custom_round(standings_dict[player].gwp, 2) == 0.33 and p2_wins != 1)
-    #                 )):
-    #                 break      
-    #             else:
-    #                 new_match = RoundItem(
-    #                     player1=match.player1 if role != 'player1' else player,
-    #                     player2=match.player2 if role != 'player2' else player,
-    #                     result=match.result,
-    #                     id=match.id
-    #                 )
-    #                 replaced_matches[player].append(new_match)
-    #         if len(replaced_matches) == len(valid_player):
-    #             round_combinations.append(replaced_matches)
-    #     return round_combinations
+
     def generate_round_combinations(self, round_obj: Round, actual_players, standings):
         """Générer les permutations pour un round donné en tenant compte du nombre de matchs du joueur."""
         def is_valid_combination(player1, player2, p1_wins, p2_wins):
@@ -929,7 +896,6 @@ class Manatrader_fix_hidden_duplicate_name:
                 standings_gwp,
                 standings_omwp,
                 standings_ogwp,
-                n_players,
                 base_result_of_named_player,
                 standings
             )
