@@ -207,24 +207,27 @@ def gather_stats_from_standings_tree(node, base_table, compute_stat_fun, masked_
         # Vérifie si toutes les comparaisons sont `True`
         if all(standings_comparator_res):
             return FilteredNode(node.combination)  # Retourne le nœud filtré
-
+        # else:
+            # print("no match")
         return None  # Nœud non valide
 
+
     # Parcourt les enfants et filtre les sous-arbres valides
-    valid_children = []
-    for child in node.children:
-        filtered_child = gather_stats_from_standings_tree(
+    valid_children = [
+        gather_stats_from_standings_tree(
             child, base_table_update, compute_stat_fun, masked_name, compare_standings, standings, player_result
         )
-        if filtered_child:
-            valid_children.append(filtered_child)
+        for child in node.children
+    ]
+    valid_children = [child for child in valid_children if child is not None]
 
-    # Si ce nœud ou ses enfants sont valides, créer un nœud filtré
-    if valid_children or node.combination is not None:
+    # Si ce nœud est valide ou possède des enfants valides, créer un nœud filtré
+    if valid_children:
         return FilteredNode(node.combination, valid_children)
+    elif node.combination is not None:  # Vérifie si ce nœud seul est valide
+        return FilteredNode(node.combination)
 
     return None  # Aucun nœud valide
-
  
 
 def build_tree(node, remaining_rounds, validate_fn, player_indices, standings_wins, standings_losses, standings_gwp, n_players, history=None, iteration=0):
@@ -450,7 +453,9 @@ class Manatrader_fix_hidden_duplicate_name:
 
         opponent_names = set()
         for data in permutation_res_table.values():
-                opponent_names.update(data['matchups']) 
+                opponent_names.update(x for x in data['matchups'] if x is not None)
+
+
 
         update_player_standings = []
         for player, data in permutation_res_table.items():
@@ -458,18 +463,20 @@ class Manatrader_fix_hidden_duplicate_name:
                 number_of_opponent = 0
                 total_omp = 0
                 total_ogp = 0
-                for opo in data['matchups']:
-                    if re.fullmatch(r'.\*{10}.', opo):  
-                       computable_ogp_omwp = False
-                       break
-                    if opo :
-                        opponent_gwp = base_table_res[opo]["total_games_won"] / base_table_res[opo]["total_games_played"]  # GWP pour l'adversaire
-                        total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
-                        number_of_opponent += 1
-                        # OMWP 
-                        opponent_match_winrate = base_table_res[opo]["wins"] / (base_table_res[opo]["wins"] + base_table_res[opo]["losses"]) 
-                        total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
-                
+                if len(permutation_res_table[player]['matchups']) == 0:
+                    computable_ogp_omwp = False
+                else:
+                    for opo in data['matchups']:
+                        if re.fullmatch(r'.\*{10}.', opo):  
+                            computable_ogp_omwp = False
+                            break
+                        if opo :
+                            opponent_gwp = base_table_res[opo]["total_games_won"] / base_table_res[opo]["total_games_played"]  # GWP pour l'adversaire
+                            total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
+                            number_of_opponent += 1
+                            # OMWP 
+                            opponent_match_winrate = base_table_res[opo]["wins"] / (base_table_res[opo]["wins"] + base_table_res[opo]["losses"]) 
+                            total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
                 update_player_standings.append(
                         Standing(
                         rank=None,
@@ -485,35 +492,46 @@ class Manatrader_fix_hidden_duplicate_name:
                         )
 
         for oponent_name in opponent_names:
-            if oponent_name:
-                masked_opponents = {name for name in base_table_res[oponent_name]['opponents'] if re.fullmatch(r'.\*{10}.', name)}
-                if len(masked_opponents) == 1 and masked_name in masked_opponents:
-                    player_omwp =0
-                    number_of_player = 0
-                    player_ogwp = 0
-                    for player, data in permutation_res_table.items():
-                        if oponent_name in data['matchups']:
-                            number_of_player += 1
-                            ogwp_ite = (data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses'])
-                            omw_ite = data['Match_wins']/(data['Match_wins'] + data['Game_losses'])
-                            player_omwp += omw_ite if omw_ite >= 0.3333 else 0.33
-                            player_ogwp +=  ogwp_ite if ogwp_ite >= 0.3333 else 0.33
-                    update_player_standings.append(
+            masked_opponents = {name for name in base_table_res[oponent_name]['opponents'] if name and re.fullmatch(r'.\*{10}.', name)}
+            if len(masked_opponents) == 1 and masked_name in masked_opponents:
+                player_omwp =0
+                number_of_player = 0
+                player_ogwp = 0
+                for player, data in permutation_res_table.items():
+                    if oponent_name in data['matchups']:
+                        number_of_player += 1
+                        ogwp_ite = (data['Game_wins'] + (data['Game_draws']/3))/(data['Game_wins'] + data['Game_draws'] +data['Game_losses'])
+                        omw_ite = data['Match_wins']/(data['Match_wins'] + data['Game_losses'])
+                        player_omwp += omw_ite if omw_ite >= 0.3333 else 0.33
+                        player_ogwp +=  ogwp_ite if ogwp_ite >= 0.3333 else 0.33
+
+
+                opponent_data = base_table_res.get(oponent_name, {})
+                notmasked_result = opponent_data.get('notmasked_opponent_result', {})
+
+                # Gestion de total_opponents avec valeur par défaut 0
+                opoponent_numbers_base = notmasked_result.get('total_opponents', 0) or 0
+                opoponent_numbers = opoponent_numbers_base + number_of_player
+
+                # Gestion des valeurs manquantes pour éviter les erreurs
+                numerator_omwp = notmasked_result.get('numerator_omwp', 0) or 0
+                numerator_ogwp = notmasked_result.get('numerator_ogwp', 0) or 0
+                total_games_won = opponent_data.get('total_games_won', 0) or 0
+                total_games_played = opponent_data.get('total_games_played', 1) or 1  # Éviter la division par zéro
+
+                update_player_standings.append(
                     Standing(
-                    rank=None,
-                    player=oponent_name,
-                    points = (base_table_res[oponent_name]['wins']*3),
-                    wins=base_table_res[oponent_name]['wins'],
-                    losses=base_table_res[oponent_name]['losses'],
-                    draws=base_table_res[oponent_name]['draws'],
-
-                    omwp= (base_table_res[oponent_name]['notmasked_opponent_result']['numerator_omwp'] + player_omwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player),
-
-                    gwp=base_table_res[oponent_name]['total_games_won']/base_table_res[oponent_name]['total_games_played'],
-
-                    ogwp=(base_table_res[oponent_name]['notmasked_opponent_result']['numerator_ogwp'] + player_ogwp)/(base_table_res[oponent_name]['notmasked_opponent_result']['total_opponents']+number_of_player)
+                        rank=None,
+                        player=oponent_name,
+                        points=(opponent_data.get('wins', 0) * 3),
+                        wins=opponent_data.get('wins', 0),
+                        losses=opponent_data.get('losses', 0),
+                        draws=opponent_data.get('draws', 0),
+                        omwp=(numerator_omwp + player_omwp) / opoponent_numbers,
+                        gwp=total_games_won / total_games_played,
+                        ogwp=(numerator_ogwp + player_ogwp) / opoponent_numbers
                     )
-                    )
+                )
 
 
         return update_player_standings
@@ -1008,15 +1026,49 @@ class Manatrader_fix_hidden_duplicate_name:
                 key=lambda x: len(x[1])  # Trier par la longueur de la liste de defaultdict
             ):
             if len(permutations) == 1:
+                print(f"compute tree : {masked_name}")
+                ##############################################################################
+                total_len = 0
+                for tree in permutations:
+                    total_len += count_nodes(tree)
+                print(total_len)
+                ##############################################################################
                 Tree_with_correct_standings = [gather_stats_from_standings_tree(permutations[0],base_result_of_named_player,self.calculate_stats_for_matches,masked_name,self.compare_standings,standings)]
             else:
-                # ajouter parrallelle ici
+                # debug poupose
                 continue
+                # Parallélisation
+                print(f"Utilisation de la parallélisation. : {masked_name}")
+                start_time = time.time()
+
+                # Préparer les arguments pour la parallélisation
+                tasks = [
+                    (
+                        x,
+                        base_result_of_named_player,
+                        self.calculate_stats_for_matches,
+                        masked_name,
+                        self.compare_standings,
+                        standings
+                        )
+                    for x in permutations
+                ]
+
+                # Diviser les tâches pour chaque round dans valid_combinations
+                with Pool(cpu_count()) as pool:
+                    results = pool.starmap(gather_stats_from_standings_tree, tasks)
+                # Fusionner les résultats valides
+                # valid_permutations = [perm for result in results if result for perm in result]
+                Tree_with_correct_standings = results if results else None
+
+                end_time = time.time()
+                print(f"Temps total d'exécution pour {masked_name}: {end_time - start_time:.2f} secondes")
+
 
             if Tree_with_correct_standings and len(Tree_with_correct_standings) == 1:  # Cas où il y a une seule permutation (arbre)
                 root_tree = Tree_with_correct_standings[0]  # Récupérer l'arbre unique
                 if is_single_line_tree(root_tree):
-                    print(f"Permutation unique attribuée : {masked_name}")
+                    print(f"Permutation attribuée : {masked_name}")
                     apply_tree_permutations(root_tree, modified_rounds,masked_name)
                     # A réfléchir propobablement méthode a def 
                     player_with_real_name = set()
@@ -1033,6 +1085,12 @@ class Manatrader_fix_hidden_duplicate_name:
                         base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, modified_rounds ,standings)
                     # Supprimer le masque traité des permutations restantes
                 else:
+                    ##############################################################################
+                    total_len = 0
+                    for tree in Tree_with_correct_standings:
+                        total_len += count_nodes(tree)
+                    print(total_len)
+                    ##############################################################################
                     filterd_perm[masked_name] = Tree_with_correct_standings
 
             else :
