@@ -898,6 +898,7 @@ class Manatrader_fix_hidden_duplicate_name:
         duplicated_masked_names = {
             masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
         }
+        # on repete tout ici pour tout faire en une fois 
         matching_permutation = {}
         for masked_name in duplicated_masked_names:
             print(f"Traitement pour le nom masqué : {masked_name}")
