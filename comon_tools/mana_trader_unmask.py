@@ -24,32 +24,7 @@ class TreeNode:
 
     def add_child(self, child):
         self.children.append(child)
-
-
-def traverse_tree(node, operation):
-    """
-    Applique une opération sur chaque nœud de l'arbre.
-    
-    Args:
-        node (TreeNode): Le nœud racine à explorer.
-        operation (function): Une fonction à appliquer sur chaque nœud.
-    """
-    operation(node)  # Appliquer l'opération au nœud actuel
-    for child in node.children:
-        traverse_tree(child, operation)  # Explorer les enfants récursivement
-
-def count_nodes(node):
-    """
-    Compte le nombre de nœuds dans l'arbre.
-    """
-    count = 0
-
-    def increment_count(n):
-        nonlocal count
-        count += 1
-
-    traverse_tree(node, increment_count)
-    return count        
+     
 def is_single_line_tree(node):
     """
     Vérifie si l'arbre est une simple ligne d'enfants (aucune branche).
@@ -150,91 +125,6 @@ def process_combination(task):
 
     return root
 
-
-
-def gather_stats_from_standings_tree(node, base_table, compute_stat_fun, masked_name, compare_standings, standings, player_result=None):
-    base_table_update = copy.deepcopy(base_table)
-
-    if player_result is None:
-        player_result = {}
-
-    # Mettre à jour les statistiques pour le nœud courant
-    if node.combination is not None:
-        for real_name, matches in node.combination.items():
-            if real_name not in player_result:
-                player_result[real_name] = {
-                    "Match_wins": 0,
-                    "Match_losses": 0,
-                    "Game_wins": 0,
-                    "Game_losses": 0,
-                    "Game_draws": 0,
-                    "matchups": set(),
-                }
-            for match in matches:
-                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
-
-                # Identifier si le joueur traité est Player1 ou Player2
-                if match.player1 == real_name or match.player2 == real_name:
-                    is_player1 = (match.player1 == real_name)
-
-                    # Détermine les scores et l'adversaire en fonction de la position
-                    win, loss = match.scores[0] if is_player1 else match.scores[1]
-                    opponent = match.player2 if is_player1 else match.player1
-                    game_wins = p1_wins if is_player1 else p2_wins
-                    game_losses = p2_wins if is_player1 else p1_wins
-
-                    # Mise à jour des statistiques du joueur
-                    player_result[real_name]["Match_wins"] += win
-                    player_result[real_name]["Match_losses"] += loss
-                    player_result[real_name]["Game_wins"] += game_wins
-                    player_result[real_name]["Game_losses"] += game_losses
-                    player_result[real_name]["Game_draws"] += draws
-
-                    # Ajout de l'adversaire si pertinent
-                    if opponent is not None and not re.fullmatch(r'.\*{10}.', opponent):
-                        player_result[real_name]["matchups"].add(opponent)
-
-    # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
-    if not node.children:
-        tree_standings_res = compute_stat_fun(base_table_update, player_result, masked_name)
-        standings_comparator_res = []
-
-        for unsure_standings in tree_standings_res:
-            real_standing_ite = next(
-                (standing for standing in standings if standing.player == unsure_standings.player), None
-            )
-            res_comparator = compare_standings(real_standing_ite, unsure_standings, 3, 3, 3)
-            # if not res_comparator:    
-            #     if debug_print:
-            #         print(f"Real : {real_standing_ite}" )  
-            #         print(f"Calc : {unsure_standings}" )       
-            #     return None  
-            standings_comparator_res.append(res_comparator)
-
-        # Vérifie si toutes les comparaisons sont `True`
-        if all(standings_comparator_res):
-            return FilteredNode(node.combination)  # Retourne le nœud filtré
-        # else:
-            # print("no match")
-        return None  # Nœud non valide
-
-
-    # Parcourt les enfants et filtre les sous-arbres valides
-    valid_children = [
-        gather_stats_from_standings_tree(
-            child, base_table_update, compute_stat_fun, masked_name, compare_standings, standings, player_result
-        )
-        for child in node.children
-    ]
-    valid_children = [child for child in valid_children if child is not None]
-
-    # Si ce nœud est valide ou possède des enfants valides, créer un nœud filtré
-    if valid_children:
-        return FilteredNode(node.combination, valid_children)
-    elif node.combination is not None:  # Vérifie si ce nœud seul est valide
-        return FilteredNode(node.combination)
-
-    return None  # Aucun nœud valide
  
 
 def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
@@ -242,6 +132,7 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
     if history is None:
         n_players = len(player_indices)
         base_result_from_know_player['Olivetti']
+
         history = {
             "Match_wins": np.zeros(n_players, dtype=int),
             "Match_losses": np.zeros(n_players, dtype=int),
@@ -250,12 +141,15 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
             "Game_draws": np.zeros(n_players, dtype=int),
             "matchups": {player: set() for player in player_indices.keys()}
         }
-            # Mise à jour de l'historique avec les informations de base_result_from_know_player
+        # Mise à jour de l'historique avec les informations de base_result_from_know_player
         for player, idx in player_indices.items():
             if player in base_result_from_know_player:
                 # On récupère les informations du joueur dans base_result_from_know_player
                 player_data = base_result_from_know_player[player]
-                
+                # if player == 'Olivetti':
+                #     print(f"idx {idx}")
+                #     print(f"Match_wins {player_data['wins']}")
+                #     print(f"Match_losses {player_data['losses']}")
                 # Mise à jour des statistiques du joueur dans history
                 history["Match_wins"][idx] = player_data['wins']
                 history["Match_losses"][idx] = player_data['losses']
@@ -345,9 +239,6 @@ def custom_round(value, decimals=0):
     epsilon = 10 ** (-decimals -3)
     return round(value + epsilon, decimals)
 
-def truncate(number, decimals=4):
-    factor = 10.0 ** decimals
-    return math.floor(number * factor) / factor
 
 def update_encounters(encounters, player1, player2):
     """
@@ -372,17 +263,18 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
 
-    Match_wins = history["Match_wins"]
-    Match_losses = history["Match_losses"]
-    Game_wins = history["Game_wins"]
-    Game_losses = history["Game_losses"]
-    Game_draws = history["Game_draws"] 
-    matchups = history["matchups"]
+    Match_wins = history["Match_wins"].copy()
+    Match_losses = history["Match_losses"].copy()
+    Game_wins = history["Game_wins"].copy()
+    Game_losses = history["Game_losses"].copy()
+    Game_draws = history["Game_draws"].copy() 
+    matchups = history["matchups"].copy()
 
     for round_item in match_combination:
         # Traiter à la fois player1 et player2 sans conditions if/elif
-        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *map(int, round_item.result.split('-'))),
-                    (round_item.player2, round_item.player1, *round_item.scores[1], *map(int, round_item.result.split('-')))]
+        results_match = list(map(int, round_item.result.split('-')))
+        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
+                    (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
 
         # Itérer sur les deux joueurs de chaque match
         for player, opponent, win, loss, M_win, M_loss, M_draw in players:
@@ -404,7 +296,11 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 # Valider les limites de wins et losses
                 if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
                     return False
-
+                
+    # history['Match_wins'][player_idx]
+    # history['Match_losses'][player_idx]
+    # history['Game_wins'][player_idx]
+    # history['Game_losses'][player_idx]
     # Validation finale du GWP si wins et losses sont complets
     for player, player_idx in player_indices.items():
         if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
@@ -645,7 +541,85 @@ class Manatrader_fix_hidden_duplicate_name:
         return masked_to_actual
 
 
+#########################################################################
+# old 
+    # def generate_round_combinations(self, round_obj: Round, actual_players, standings):
+    #     """Générer les permutations pour un round donné en tenant compte du nombre de matchs du joueur."""
+    #     def is_valid_combination(player1, player2, p1_wins, p2_wins):
+    #         """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
+    #         if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
+    #         (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
+    #         (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
+    #         (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1) :
+    #             return False
+    #         if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
+    #         (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
+    #         (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
+    #         (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1) :
+    #             return False
+    #         return True
+        
+                
+    #     round_combinations = []
+    #     standings_dict = {standing.player: standing for standing in standings}
+    #     player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in standings_dict}
+    #     match_round = int(round_obj.round_name.replace('Round ', ''))
 
+    #     # if match_round == 3:
+    #     #     print("debug")
+    #     valid_player = defaultdict(list)
+    #     for masked, possible_players in actual_players.items():
+    #         filtered_players = [
+    #             player for player in possible_players
+    #             if player_match_count.get(player, 0) >= match_round
+    #         ]
+    #         if filtered_players:  # Ajouter seulement si la liste n'est pas vide
+    #             valid_player[masked] = filtered_players
+   
+
+    #     # Identifier les matchs avec des noms masqués
+    #     masked_matches = [
+    #         match for match in round_obj.matches
+    #         if match.player1 in valid_player or match.player2 in valid_player
+    #     ]
+        
+    #     # Générer toutes les combinaisons possibles pour les joueurs masqués
+    #     all_permutations = list(product(*valid_player.values()))
+    #     all_permutations = permutations(valid_player.values())
+
+    #     # Filtrer les permutations invalides
+    #     for perm in all_permutations:
+    #         player_mapping = {masked: player for masked, player in zip(valid_player.keys(), perm)}
+    #         valid_round = True
+    #         new_round = []
+    #         used_players = set()
+    #         for match in masked_matches:
+    #             player1 = player_mapping.get(match.player1, match.player1)
+    #             player2 = player_mapping.get(match.player2, match.player2)
+    #             p1_wins, p2_wins, _ = map(int, match.result.split('-'))
+                
+    #             # Vérifier la validité de la permutation
+    #             if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins):
+    #                 valid_round = False
+    #                 break
+                
+    #             # Construire un nouveau match
+    #             new_round.append(RoundItem(
+    #                 id = match.id,
+    #                 player1=player1,
+    #                 player2=player2,
+    #                 result=match.result
+    #             ))
+    #             # Marquer les joueurs comme utilisés
+    #             used_players.add(player1)
+    #             used_players.add(player2)
+            
+    #         if valid_round:
+    #             round_combinations.append(new_round)
+        
+    #     return round_combinations
+
+#########################################################################
     def generate_round_combinations(self, round_obj: Round, actual_players, standings):
         """Générer les permutations pour un round donné en tenant compte du nombre de matchs du joueur."""
         def is_valid_combination(player1, player2, p1_wins, p2_wins):
@@ -653,22 +627,55 @@ class Manatrader_fix_hidden_duplicate_name:
             if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
             (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
             (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
-            (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1) :
+            (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and 
+                custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1):
                 return False
             if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
             (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
             (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
-            (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1) :
+            (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and 
+                custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1):
                 return False
             return True
-        
+
+        def generate_combinations(index, current_mapping, used_players,masked_keys):
+            """Génère récursivement les combinaisons valides."""
+            if index == len(masked_keys):
+                # Vérification et construction des matchs
+                new_round = []
+                for match in masked_matches:
+                    player1 = current_mapping.get(match.player1, match.player1)
+                    player2 = current_mapping.get(match.player2, match.player2)
+                    p1_wins, p2_wins, _ = map(int, match.result.split('-'))
+                    
+                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins):
+                        return  # Combinaison invalide
+                    
+                    new_round.append(RoundItem(
+                        id=match.id,
+                        player1=player1,
+                        player2=player2,
+                        result=match.result
+                    ))
+                round_combinations.append(new_round)
+                return
+
+            # Traitement récursif pour chaque joueur possible
+            masked = masked_keys[index]
+            for player in valid_player[masked]:
+                if player not in used_players:
+                    current_mapping[masked] = player
+                    used_players.add(player)
+                    generate_combinations(index + 1, current_mapping, used_players,masked_keys)
+                    used_players.remove(player)
+
+        # Préparation des données
         round_combinations = []
         standings_dict = {standing.player: standing for standing in standings}
         player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in standings_dict}
         match_round = int(round_obj.round_name.replace('Round ', ''))
 
-        # if match_round == 3:
-        #     print("debug")
+        # Filtrage des joueurs valides
         valid_player = defaultdict(list)
         for masked, possible_players in actual_players.items():
             filtered_players = [
@@ -677,44 +684,20 @@ class Manatrader_fix_hidden_duplicate_name:
             ]
             if filtered_players:  # Ajouter seulement si la liste n'est pas vide
                 valid_player[masked] = filtered_players
-   
 
         # Identifier les matchs avec des noms masqués
         masked_matches = [
             match for match in round_obj.matches
             if match.player1 in valid_player or match.player2 in valid_player
         ]
-        
-        # Générer toutes les combinaisons possibles pour les joueurs masqués
-        all_permutations = list(product(*valid_player.values()))
-        
-        # Filtrer les permutations invalides
-        for perm in all_permutations:
-            player_mapping = {masked: player for masked, player in zip(valid_player.keys(), perm)}
-            valid_round = True
-            new_round = []
-            
-            for match in masked_matches:
-                player1 = player_mapping.get(match.player1, match.player1)
-                player2 = player_mapping.get(match.player2, match.player2)
-                p1_wins, p2_wins, _ = map(int, match.result.split('-'))
-                
-                # Vérifier la validité de la permutation
-                if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins):
-                    valid_round = False
-                    break
-                
-                # Construire un nouveau match
-                new_round.append(RoundItem(
-                    player1=player1,
-                    player2=player2,
-                    result=match.result
-                ))
-            
-            if valid_round:
-                round_combinations.append(new_round)
+        masked_keys = list(valid_player.keys())
+
+        # Générer les combinaisons
+        generate_combinations(0, {}, set(),masked_keys)
         
         return round_combinations
+
+#########################################################################
 
 
 
@@ -733,9 +716,8 @@ class Manatrader_fix_hidden_duplicate_name:
         assignments_per_round = []
         start_time = time.time()
         for round_obj in rounds:
-            print(round_obj.round_name)
+            # print(round_obj.round_name)
             valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
-            # assignments_per_round.append((round_obj.round_name, valid_combinations))
             assignments_per_round.append( valid_combinations)
         end_time = time.time()
         print(f"Temps total d'exécution pour genérer les perm: {end_time - start_time:.2f} secondes")
@@ -758,10 +740,10 @@ class Manatrader_fix_hidden_duplicate_name:
             for round_obj in rounds
         ]
         # dict_standings = self.standings_to_dict(standings)
-        for round_obj in full_name_matches:
-            print(f"Round: {round_obj.round_name}")
-            for match in round_obj.matches:
-                print(f"Match: {match.player1} vs {match.player2}")
+        # for round_obj in full_name_matches:
+        #     print(f"Round: {round_obj.round_name}")
+        #     for match in round_obj.matches:
+        #         print(f"Match: {match.player1} vs {match.player2}")
         player_with_real_name = set()
             # Identifier l'adversaire
         for round in full_name_matches:
