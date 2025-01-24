@@ -131,8 +131,9 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
                 standings_ogwp, base_result_from_know_player,standings, history=None, iteration=0):
     if history is None:
         n_players = len(player_indices)
-        base_result_from_know_player['Olivetti']
 
+        if not isinstance(player_indices, dict):
+            print("Erreur : player_indices n'est pas un dictionnaire !")
         history = {
             "Match_wins": np.zeros(n_players, dtype=int),
             "Match_losses": np.zeros(n_players, dtype=int),
@@ -210,6 +211,8 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
                 child_node,
                 remaining_rounds[1:],
                 validate_fn,
+                compute_stat_fun,
+                compare_standings_fun,
                 player_indices,
                 standings_wins,
                 standings_losses,
@@ -217,6 +220,7 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
                 standings_omwp,
                 standings_ogwp,
                 base_result_from_know_player,
+                standings,
                 new_history,
                 iteration + 1
             )
@@ -227,10 +231,10 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
 
     # Si le nœud a au moins un enfant valide, retourne-le ; sinon, retourne None
     if valid_children and valid:
+        if iteration > 6:
+            print(iteration)
         return node
     else:
-        if iteration > 2:
-            print(iteration)
         return None
 
 
@@ -263,12 +267,14 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
 
-    Match_wins = history["Match_wins"].copy()
-    Match_losses = history["Match_losses"].copy()
-    Game_wins = history["Game_wins"].copy()
-    Game_losses = history["Game_losses"].copy()
-    Game_draws = history["Game_draws"].copy() 
-    matchups = history["matchups"].copy()
+    Match_wins = history["Match_wins"]
+    Match_losses = history["Match_losses"]
+    Game_wins = history["Game_wins"]
+    Game_losses = history["Game_losses"]
+    Game_draws = history["Game_draws"]
+    matchups = history["matchups"]
+
+    modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
 
     for round_item in match_combination:
         # Traiter à la fois player1 et player2 sans conditions if/elif
@@ -295,21 +301,23 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
                 # Valider les limites de wins et losses
                 if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+                    if ite > 4:
+                        print("debug")
                     return False
                 
-    # history['Match_wins'][player_idx]
-    # history['Match_losses'][player_idx]
-    # history['Game_wins'][player_idx]
-    # history['Game_losses'][player_idx]
-    # Validation finale du GWP si wins et losses sont complets
-    for player, player_idx in player_indices.items():
+    # Validation finale du GWP uniquement pour les joueurs modifiés
+    for player in modified_players:
+        player_idx = player_indices[player]
         if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
             total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
             if total_games > 0:
-                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx]/3)) / total_games
+                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
+                    if ite > 4:
+                        print("debug")
                     return False
+
 
     return True
 
