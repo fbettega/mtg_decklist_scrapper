@@ -25,7 +25,7 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 import time
 import copy
-from comon_tools.mana_trader_unmask import Manatrader_fix_hidden_duplicate_name, custom_round ,truncate,update_encounters,process_single_permutation,validate_permutation
+from comon_tools.mana_trader_unmask import Manatrader_fix_hidden_duplicate_name, custom_round ,truncate,update_encounters,validate_permutation
 
 # tolerance=1e-4
 
