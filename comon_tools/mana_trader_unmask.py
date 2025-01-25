@@ -199,7 +199,7 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
         }
 
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid = validate_fn(match_combination, new_history, player_indices, standings_wins, standings_losses, standings_gwp,iteration,standings)
+        valid = validate_fn(match_combination, new_history, player_indices, standings_wins, standings_losses, standings_gwp,iteration,standings,base_result_from_know_player)
 
         if valid:
             child_node = TreeNode(match_combination)
@@ -231,7 +231,7 @@ def build_tree(node, remaining_rounds, validate_fn,compute_stat_fun,compare_stan
 
     # Si le nœud a au moins un enfant valide, retourne-le ; sinon, retourne None
     if valid_children and valid:
-        if iteration > 6:
+        if iteration > 4:
             print(iteration)
         return node
     else:
@@ -262,7 +262,7 @@ def update_encounters(encounters, player1, player2):
     return True
 
 
-def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,ite,standings):
+def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,ite,standings,base_result_from_know_player):
     """
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
@@ -281,12 +281,19 @@ def validate_permutation(match_combination, history, player_indices, standings_w
         results_match = list(map(int, round_item.result.split('-')))
         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
                     (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
+        
+        if round_item.player1 in modified_players or round_item.player2 in modified_players:
+            print("problem") 
+        modified_players.add(round_item.player1)
+        modified_players.add(round_item.player2)
 
         # Itérer sur les deux joueurs de chaque match
         for player, opponent, win, loss, M_win, M_loss, M_draw in players:
             # Vérifier que le joueur n'est pas None et valider les résultats
             if player is not None:
                 if opponent in matchups[player]:
+                    if ite > 1:                    
+                        print("opo")
                     return False
                 if not re.fullmatch(r'.\*{10}.', opponent):
                     matchups[player].add(opponent)
@@ -301,8 +308,9 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
                 # Valider les limites de wins et losses
                 if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                    if ite > 4:
-                        print("debug")
+                    if ite >0:
+                        # print(base_result_from_know_player[player])
+                        print("win or loose")
                     return False
                 
     # Validation finale du GWP uniquement pour les joueurs modifiés
@@ -314,7 +322,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             if total_games > 0:
                 gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-                    if ite > 4:
+                    if ite > 0:
                         print("debug")
                     return False
 
@@ -650,15 +658,17 @@ class Manatrader_fix_hidden_duplicate_name:
             """Génère récursivement les combinaisons valides."""
             if index == len(masked_keys):
                 # Vérification et construction des matchs
+                seen_players = set()  # Vérifie qu'aucun joueur n'apparaît deux fois
                 new_round = []
                 for match in masked_matches:
                     player1 = current_mapping.get(match.player1, match.player1)
                     player2 = current_mapping.get(match.player2, match.player2)
                     p1_wins, p2_wins, _ = map(int, match.result.split('-'))
                     
-                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins):
+                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins)or player1 in seen_players or player2 in seen_players:
                         return  # Combinaison invalide
-                    
+                    seen_players.add(player1)
+                    seen_players.add(player2)
                     new_round.append(RoundItem(
                         id=match.id,
                         player1=player1,
@@ -675,14 +685,14 @@ class Manatrader_fix_hidden_duplicate_name:
                     current_mapping[masked] = player
                     used_players.add(player)
                     generate_combinations(index + 1, current_mapping, used_players,masked_keys)
+                    del current_mapping[masked]
                     used_players.remove(player)
 
         # Préparation des données
         round_combinations = []
         standings_dict = {standing.player: standing for standing in standings}
         player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in standings_dict}
-        match_round = int(round_obj.round_name.replace('Round ', ''))
-
+        match_round = int(round_obj.round_name.replace('Round ', ''))     
         # Filtrage des joueurs valides
         valid_player = defaultdict(list)
         for masked, possible_players in actual_players.items():
@@ -700,16 +710,25 @@ class Manatrader_fix_hidden_duplicate_name:
         ]
         masked_keys = list(valid_player.keys())
 
+
+
         # Générer les combinaisons
         generate_combinations(0, {}, set(),masked_keys)
         
+        # debug print 
+        errors = {}
+        for i, round_matches in enumerate(round_combinations):
+            seen_players = set() 
+            for match in round_matches:
+                for player in (match.player1, match.player2):  # Vérifie player1 et player2
+                    if player in seen_players:
+                        errors.setdefault(i, []).append(player)
+                    else:
+                        seen_players.add(player)
+        print(f"Number of match : {len(masked_matches)}")
         return round_combinations
 
 #########################################################################
-
-
-
-
     def organize_matches_by_round(self, matches_info):
         """Organiser les matchs par round."""
         matches_by_round = defaultdict(list)
@@ -724,7 +743,7 @@ class Manatrader_fix_hidden_duplicate_name:
         assignments_per_round = []
         start_time = time.time()
         for round_obj in rounds:
-            # print(round_obj.round_name)
+            print(round_obj.round_name)
             valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
             assignments_per_round.append( valid_combinations)
         end_time = time.time()
