@@ -12,7 +12,7 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 import time
 import copy
-
+from collections import Counter
 
 
 
@@ -654,38 +654,57 @@ class Manatrader_fix_hidden_duplicate_name:
                 return False
             return True
 
-        def generate_combinations(index, current_mapping, used_players,masked_keys):
+        def generate_combinations(index, current_mapping, used_players, masked_keys, masked_matches, valid_player):
             """Génère récursivement les combinaisons valides."""
             if index == len(masked_keys):
                 # Vérification et construction des matchs
                 seen_players = set()  # Vérifie qu'aucun joueur n'apparaît deux fois
                 new_round = []
+                local_mapping = copy.deepcopy(current_mapping) 
                 for match in masked_matches:
-                    player1 = current_mapping.get(match.player1, match.player1)
-                    player2 = current_mapping.get(match.player2, match.player2)
+                    # Assigner les joueurs réels aux masques
+                    if match.player1 in current_mapping.keys():
+                        player1 = local_mapping.get(match.player1)[0]
+                        local_mapping[match.player1] = local_mapping[match.player1][1:]
+                    else :
+                        player1 = match.player1
+                    # Assigner les joueurs réels aux masques pour player2
+                    if match.player2 in current_mapping.keys():
+                        player2 = local_mapping.get(match.player2)[0]
+                        local_mapping[match.player2] = local_mapping[match.player2][1:]
+                    else:
+                        player2 = match.player2
                     p1_wins, p2_wins, _ = map(int, match.result.split('-'))
                     
-                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins)or player1 in seen_players or player2 in seen_players:
+                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins) or player1 in seen_players or player2 in seen_players:
                         return  # Combinaison invalide
                     seen_players.add(player1)
                     seen_players.add(player2)
+
                     new_round.append(RoundItem(
                         id=match.id,
                         player1=player1,
                         player2=player2,
                         result=match.result
                     ))
+                print("valid combination")
                 round_combinations.append(new_round)
                 return
 
             # Traitement récursif pour chaque joueur possible
             masked = masked_keys[index]
-            for player in valid_player[masked]:
-                if player not in used_players:
-                    current_mapping[masked] = player
-                    used_players.add(player)
-                    generate_combinations(index + 1, current_mapping, used_players,masked_keys)
-                    del current_mapping[masked]
+            all_permutations = permutations(valid_player[masked])
+            for perm in all_permutations:
+                # Attribuer la permutation de joueurs aux matchs
+                current_mapping[masked] = perm
+                used_players.update(perm)
+                
+                # Appel récursif pour générer la prochaine combinaison
+                generate_combinations(index + 1, current_mapping, used_players, masked_keys, masked_matches, valid_player)
+                
+                # Annuler l'attribution pour backtracking
+                del current_mapping[masked]
+                for player in perm:
                     used_players.remove(player)
 
         # Préparation des données
@@ -695,12 +714,14 @@ class Manatrader_fix_hidden_duplicate_name:
         match_round = int(round_obj.round_name.replace('Round ', ''))     
         # Filtrage des joueurs valides
         valid_player = defaultdict(list)
+        number_of_filterd_player = 0
         for masked, possible_players in actual_players.items():
             filtered_players = [
                 player for player in possible_players
                 if player_match_count.get(player, 0) >= match_round
             ]
             if filtered_players:  # Ajouter seulement si la liste n'est pas vide
+                number_of_filterd_player += 1
                 valid_player[masked] = filtered_players
 
         # Identifier les matchs avec des noms masqués
@@ -709,13 +730,29 @@ class Manatrader_fix_hidden_duplicate_name:
             if match.player1 in valid_player or match.player2 in valid_player
         ]
         masked_keys = list(valid_player.keys())
-
-
-
+        # Générer toutes les permutations globales possibles
+        all_combinations = product(*(permutations(valid_player[key]) for key in masked_keys))
+        a = list(all_combinations)
         # Générer les combinaisons
-        generate_combinations(0, {}, set(),masked_keys)
+        generate_combinations(0, {}, set(), masked_keys, masked_matches, valid_player)
         
+        #######################################################################################################################
         # debug print 
+        masked_name_counts = Counter()
+        for match in masked_matches:
+            if match.player1 in valid_player:
+                masked_name_counts[match.player1] += 1
+            if match.player2 in valid_player:
+                masked_name_counts[match.player2] += 1
+
+        # Vérifier les longueurs
+        for masked_name, players in valid_player.items():
+            expected_count = len(players)
+            actual_count = masked_name_counts.get(masked_name, 0)
+            if actual_count != expected_count:
+                print(f"Mismatch for {masked_name}: expected {expected_count}, found {actual_count}")
+            # else:
+            #     print(f"{masked_name} is correct with {actual_count} matches.")
         errors = {}
         for i, round_matches in enumerate(round_combinations):
             seen_players = set() 
@@ -725,6 +762,7 @@ class Manatrader_fix_hidden_duplicate_name:
                         errors.setdefault(i, []).append(player)
                     else:
                         seen_players.add(player)
+        #######################################################################################################################
         print(f"Number of match : {len(masked_matches)}")
         return round_combinations
 
@@ -744,8 +782,9 @@ class Manatrader_fix_hidden_duplicate_name:
         start_time = time.time()
         for round_obj in rounds:
             print(round_obj.round_name)
-            valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
-            assignments_per_round.append( valid_combinations)
+            if round_obj.round_name == "Round 5":
+                valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
+                assignments_per_round.append( valid_combinations)
         end_time = time.time()
         print(f"Temps total d'exécution pour genérer les perm: {end_time - start_time:.2f} secondes")
         return assignments_per_round
