@@ -27,19 +27,49 @@ class Assignation_TreeNode:
         self.used_players = used_players  # Joueurs déjà utilisés
         self.remaining_masks = remaining_masks  # Masques restants à attribuer
         self.children = []  # Branches descendantes
+        self.invalid_permutations = set()  # Permutations invalides déjà rencontrées à ce niveau
 
-def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict):
+def is_valid_partial_combination(current_mapping, masked_matches, standings_dict, is_valid_combination):
+    """Vérifie si une configuration partielle est valide."""
+    seen_players = set()
+    local_mapping = copy.deepcopy(current_mapping) 
+    for match in masked_matches:
+        if match.player1 in current_mapping.keys() or match.player2 in current_mapping.keys() :
+            if match.player1 in current_mapping.keys():
+                player1 = local_mapping.get(match.player1)[0]
+                local_mapping[match.player1] = local_mapping[match.player1][1:]
+            else :
+                player1 = match.player1
+            # Assigner les joueurs réels aux masques pour player2
+            if match.player2 in current_mapping.keys():
+                player2 = local_mapping.get(match.player2)[0]
+                local_mapping[match.player2] = local_mapping[match.player2][1:]
+            else:
+                player2 = match.player2
+
+            if player1 in seen_players or player2 in seen_players:
+                return False
+            p1_wins, p2_wins, _ = map(int, match.result.split('-'))
+            if not is_valid_combination(player1, player2, p1_wins, p2_wins, standings_dict):
+                return False
+            if  not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+                seen_players.add(player1)
+            if  not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+                seen_players.add(player2)
+    return True
+
+def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict, is_valid_combination):
     """Construit l'arbre des permutations."""
-    root = TreeNode(level=0, current_mapping={}, used_players=set(), remaining_masks=masked_keys)
+    root = Assignation_TreeNode(level=0, current_mapping={}, used_players=set(), remaining_masks=masked_keys)
     stack = [root]  # Pile pour explorer l'arbre
     valid_combinations = []
 
     while stack:
         node = stack.pop()
-
         # Si nous avons atteint une configuration complète, vérifier et l'ajouter si valide
+
         if not node.remaining_masks:
-            if is_valid_partial_combination(node.current_mapping, masked_matches, standings_dict):
+            if is_valid_partial_combination(node.current_mapping, masked_matches, standings_dict, is_valid_combination):
                 valid_combinations.append(node.current_mapping)
             continue
 
@@ -49,6 +79,10 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
 
         # Explorer toutes les permutations possibles pour le masque actuel
         for perm in permutations(valid_player[current_mask]):
+            # Si cette permutation a déjà été essayée et invalidée, on passe à la suivante
+            if perm in node.invalid_permutations:
+                continue  # Passer cette permutation
+
             if any(player in node.used_players for player in perm):
                 continue  # Éviter les conflits de joueurs déjà utilisés
 
@@ -57,14 +91,20 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
             new_mapping[current_mask] = perm
             new_used_players = node.used_players.union(perm)
 
-            child_node = TreeNode(
+            child_node = Assignation_TreeNode(
                 level=node.level + 1,
                 current_mapping=new_mapping,
                 used_players=new_used_players,
                 remaining_masks=remaining_masks
             )
             node.children.append(child_node)
-            stack.append(child_node)  # Ajouter le nœud à la pile pour exploration
+
+            # Si cette configuration est valide, continuer l'exploration
+            if is_valid_partial_combination(new_mapping, masked_matches, standings_dict, is_valid_combination):
+                stack.append(child_node)  # Ajouter le nœud à la pile pour exploration
+            else:
+                # Si cette permutation est invalide, ajouter à la liste des permutations invalides
+                node.invalid_permutations.add(perm)
 
     return valid_combinations
 
@@ -614,74 +654,23 @@ class Manatrader_fix_hidden_duplicate_name:
 
     def generate_round_combinations(self, round_obj: Round, actual_players, standings):
         """Générer les permutations pour un round donné en tenant compte du nombre de matchs du joueur."""
-        def is_valid_combination(player1, player2, p1_wins, p2_wins):
+        def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
             """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
-            if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
-            (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
-            (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
-            (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and 
-                custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1):
-                return False
-            if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
-            (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
-            (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
-            (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and 
-                custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1):
-                return False
+            if not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+                if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
+                (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
+                (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
+                (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and 
+                    custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1):
+                    return False
+            if not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+                if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
+                (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
+                (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
+                (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and 
+                    custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1):
+                    return False
             return True
-
-        def generate_combinations(index, current_mapping, used_players, masked_keys, masked_matches, valid_player):
-            """Génère récursivement les combinaisons valides."""
-            if index == len(masked_keys):
-                # Vérification et construction des matchs
-                seen_players = set()  # Vérifie qu'aucun joueur n'apparaît deux fois
-                new_round = []
-                local_mapping = copy.deepcopy(current_mapping) 
-                for match in masked_matches:
-                    # Assigner les joueurs réels aux masques
-                    if match.player1 in current_mapping.keys():
-                        player1 = local_mapping.get(match.player1)[0]
-                        local_mapping[match.player1] = local_mapping[match.player1][1:]
-                    else :
-                        player1 = match.player1
-                    # Assigner les joueurs réels aux masques pour player2
-                    if match.player2 in current_mapping.keys():
-                        player2 = local_mapping.get(match.player2)[0]
-                        local_mapping[match.player2] = local_mapping[match.player2][1:]
-                    else:
-                        player2 = match.player2
-                    p1_wins, p2_wins, _ = map(int, match.result.split('-'))
-                    
-                    if player1 == player2 or not is_valid_combination(player1, player2, p1_wins, p2_wins) or player1 in seen_players or player2 in seen_players:
-                        return  # Combinaison invalide
-                    seen_players.add(player1)
-                    seen_players.add(player2)
-
-                    new_round.append(RoundItem(
-                        id=match.id,
-                        player1=player1,
-                        player2=player2,
-                        result=match.result
-                    ))
-                print("valid combination")
-                round_combinations.append(new_round)
-                return
-
-            # Traitement récursif pour chaque joueur possible
-            masked = masked_keys[index]
-            all_permutations = permutations(valid_player[masked])
-            for perm in all_permutations:
-                # Attribuer la permutation de joueurs aux matchs
-                current_mapping[masked] = perm
-                used_players.update(perm)
-                
-                # Appel récursif pour générer la prochaine combinaison
-                generate_combinations(index + 1, current_mapping, used_players, masked_keys, masked_matches, valid_player)
-                
-                # Annuler l'attribution pour backtracking
-                del current_mapping[masked]
-                for player in perm:
-                    used_players.remove(player)
 
         # Préparation des données
         round_combinations = []
@@ -706,10 +695,8 @@ class Manatrader_fix_hidden_duplicate_name:
             if match.player1 in valid_player or match.player2 in valid_player
         ]
         masked_keys = list(valid_player.keys())
-        # Générer toutes les permutations globales possibles
-        all_combinations = product(*(permutations(valid_player[key]) for key in masked_keys))
         # Générer les combinaisons
-        generate_combinations(0, {}, set(), masked_keys, masked_matches, valid_player)
+        valid_player_permutation = Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict,is_valid_combination)
         
         #######################################################################################################################
         # debug print 
