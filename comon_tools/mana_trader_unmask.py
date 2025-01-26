@@ -3,7 +3,7 @@ import re
 # import os
 import math
 from typing import List,Tuple,Dict, DefaultDict,Optional
-from itertools import permutations,product,islice
+from itertools import permutations,product,islice,chain
 # import html
 from models.base_model import *
 from comon_tools.tools import *
@@ -29,7 +29,25 @@ class Assignation_TreeNode:
         self.children = []  # Branches descendantes
         self.invalid_permutations = set()  # Permutations invalides déjà rencontrées à ce niveau
 
-def is_valid_partial_combination(current_mapping, masked_matches, standings_dict, is_valid_combination):
+def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
+    """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
+    if not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+        if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
+        (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
+        (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
+        (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and 
+            custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1):
+            return False
+    if not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+        if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
+        (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
+        (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
+        (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and 
+            custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1):
+            return False
+    return True
+
+def is_valid_partial_combination(current_mapping, masked_matches, standings_dict):
     """Vérifie si une configuration partielle est valide."""
     seen_players = set()
     local_mapping = copy.deepcopy(current_mapping) 
@@ -58,7 +76,8 @@ def is_valid_partial_combination(current_mapping, masked_matches, standings_dict
                 seen_players.add(player2)
     return True
 
-def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict, is_valid_combination):
+
+def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict):
     """Construit l'arbre des permutations."""
     root = Assignation_TreeNode(level=0, current_mapping={}, used_players=set(), remaining_masks=masked_keys)
     stack = [root]  # Pile pour explorer l'arbre
@@ -67,9 +86,8 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
     while stack:
         node = stack.pop()
         # Si nous avons atteint une configuration complète, vérifier et l'ajouter si valide
-
         if not node.remaining_masks:
-            if is_valid_partial_combination(node.current_mapping, masked_matches, standings_dict, is_valid_combination):
+            if is_valid_partial_combination(node.current_mapping, masked_matches, standings_dict):
                 valid_combinations.append(node.current_mapping)
             continue
 
@@ -79,10 +97,6 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
 
         # Explorer toutes les permutations possibles pour le masque actuel
         for perm in permutations(valid_player[current_mask]):
-            # Si cette permutation a déjà été essayée et invalidée, on passe à la suivante
-            if perm in node.invalid_permutations:
-                continue  # Passer cette permutation
-
             if any(player in node.used_players for player in perm):
                 continue  # Éviter les conflits de joueurs déjà utilisés
 
@@ -98,16 +112,31 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
                 remaining_masks=remaining_masks
             )
             node.children.append(child_node)
-
-            # Si cette configuration est valide, continuer l'exploration
-            if is_valid_partial_combination(new_mapping, masked_matches, standings_dict, is_valid_combination):
-                stack.append(child_node)  # Ajouter le nœud à la pile pour exploration
-            else:
-                # Si cette permutation est invalide, ajouter à la liste des permutations invalides
-                node.invalid_permutations.add(perm)
+            stack.append(child_node)  # Ajouter le nœud à la pile pour exploration
 
     return valid_combinations
 
+def player_assignment_process_combination(task):
+    """
+    Traite chaque permutation (pour le premier round) et génère toutes les combinaisons possibles pour les autres masques.
+    """
+    x, remaining_masks, masked_matches, standings_dict, valid_player = task
+    # Préparer la structure d'entrée pour Assignation_build_tree
+    # Construire les combinaisons pour les autres masques
+    if not is_valid_partial_combination(x, masked_matches, standings_dict):
+        return
+
+    valid_combinations = Assignation_build_tree(remaining_masks, valid_player, masked_matches, standings_dict)
+    # Ajouter la permutation du premier round dans les combinaisons
+    all_combinations = []
+    for comb in valid_combinations:
+        new_comb = copy.deepcopy(comb)
+        # Ajouter la permutation du premier round pour le masque actuel
+        for key, value in x.items():  # Parcours de chaque clé-valeur dans x
+            new_comb[key] = value
+        all_combinations.append(new_comb)
+
+    return all_combinations
 #######################################################################################################################
 # stat tree 
 
@@ -654,24 +683,6 @@ class Manatrader_fix_hidden_duplicate_name:
 
     def generate_round_combinations(self, round_obj: Round, actual_players, standings):
         """Générer les permutations pour un round donné en tenant compte du nombre de matchs du joueur."""
-        def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
-            """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
-            if not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
-                if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
-                (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
-                (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
-                (standings_dict[player1].losses > 0 and standings_dict[player1].wins == 0 and 
-                    custom_round(standings_dict[player1].gwp, 2) == 0.33 and p1_wins != 1):
-                    return False
-            if not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
-                if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
-                (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
-                (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
-                (standings_dict[player2].losses > 0 and standings_dict[player2].wins == 0 and 
-                    custom_round(standings_dict[player2].gwp, 2) == 0.33 and p2_wins != 1):
-                    return False
-            return True
-
         # Préparation des données
         round_combinations = []
         standings_dict = {standing.player: standing for standing in standings}
@@ -696,37 +707,75 @@ class Manatrader_fix_hidden_duplicate_name:
         ]
         masked_keys = list(valid_player.keys())
         # Générer les combinaisons
-        valid_player_permutation = Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict,is_valid_combination)
-        
-        #######################################################################################################################
-        # debug print 
-        masked_name_counts = Counter()
-        for match in masked_matches:
-            if match.player1 in valid_player:
-                masked_name_counts[match.player1] += 1
-            if match.player2 in valid_player:
-                masked_name_counts[match.player2] += 1
+        largest_mask = max(
+            [key for key, value in valid_player.items() if len(value) > 5],
+            key=lambda key: len(valid_player[key]),
+            default=None
+            )
+        first_round_xs = list(permutations(valid_player.get(largest_mask, [])))  # Objets X du premier round
+        remaining_mask = [mask for mask in valid_player.keys() if mask != largest_mask]  # Rounds restants
+        if len(first_round_xs) > 1:
+            tasks = [
+                (
+                    {largest_mask: x},
+                    remaining_mask,
+                    masked_matches,
+                    standings_dict,
+                    valid_player
+                )
+                for x in first_round_xs  # Distribuer les permutations du premier round en tâches
+            ]
+            # Étape 3 : Diviser les tâches pour chaque round et paralléliser leur traitement
+            with Pool(cpu_count()) as pool:
+                multiproc_res = pool.map(player_assignment_process_combination, tasks)
+                permutation_assignment = list(chain.from_iterable(filter(None, multiproc_res)))
 
-        # Vérifier les longueurs
-        for masked_name, players in valid_player.items():
-            expected_count = len(players)
-            actual_count = masked_name_counts.get(masked_name, 0)
-            if actual_count != expected_count:
-                print(f"Mismatch for {masked_name}: expected {expected_count}, found {actual_count}")
-            # else:
-            #     print(f"{masked_name} is correct with {actual_count} matches.")
-        errors = {}
-        for i, round_matches in enumerate(round_combinations):
-            seen_players = set() 
-            for match in round_matches:
-                for player in (match.player1, match.player2):  # Vérifie player1 et player2
-                    if player in seen_players:
-                        errors.setdefault(i, []).append(player)
-                    else:
-                        seen_players.add(player)
-        #######################################################################################################################
-        print(f"Number of match : {len(masked_matches)}")
-        return round_combinations
+        else :
+              permutation_assignment =  Assignation_build_tree(remaining_mask, valid_player, masked_matches, standings_dict)
+
+        seen = set()
+        for perm in permutation_assignment:
+            # Convertir le dictionnaire en une version immuable (tuple des items triés)
+            perm_tuple = tuple(sorted(perm.items()))
+            if perm_tuple in seen:
+                print("Il y a des doublons dans permutation_assignment.")
+            seen.add(perm_tuple)
+
+
+        return permutation_assignment
+
+
+        # valid_player_permutation = Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict)
+        
+        # #######################################################################################################################
+        # # debug print 
+        # masked_name_counts = Counter()
+        # for match in masked_matches:
+        #     if match.player1 in valid_player:
+        #         masked_name_counts[match.player1] += 1
+        #     if match.player2 in valid_player:
+        #         masked_name_counts[match.player2] += 1
+
+        # # Vérifier les longueurs
+        # for masked_name, players in valid_player.items():
+        #     expected_count = len(players)
+        #     actual_count = masked_name_counts.get(masked_name, 0)
+        #     if actual_count != expected_count:
+        #         print(f"Mismatch for {masked_name}: expected {expected_count}, found {actual_count}")
+        #     # else:
+        #     #     print(f"{masked_name} is correct with {actual_count} matches.")
+        # errors = {}
+        # for i, round_matches in enumerate(round_combinations):
+        #     seen_players = set() 
+        #     for match in round_matches:
+        #         for player in (match.player1, match.player2):  # Vérifie player1 et player2
+        #             if player in seen_players:
+        #                 errors.setdefault(i, []).append(player)
+        #             else:
+        #                 seen_players.add(player)
+        # #######################################################################################################################
+        # print(f"Number of match : {len(masked_matches)}")
+        # return round_combinations
 
 #########################################################################
     def organize_matches_by_round(self, matches_info):
