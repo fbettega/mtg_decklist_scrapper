@@ -78,17 +78,25 @@ def is_valid_partial_combination(current_mapping, masked_matches, standings_dict
 
 
 def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict):
-    """Construit l'arbre des permutations."""
-    root = Assignation_TreeNode(level=0, current_mapping={}, used_players=set(), remaining_masks=masked_keys)
-    stack = [root]  # Pile pour explorer l'arbre
+    """Construit l'arbre des permutations en optimisant la gestion des copies."""
+    root = Assignation_TreeNode(
+        level=0,
+        current_mapping={},
+        used_players=set(),
+        remaining_masks=masked_keys
+    )
+    stack = [(root, masked_matches)]  # Pas de deepcopy ici, les modifications seront locales
     valid_combinations = []
+    modified_matches_list = []
 
     while stack:
-        node = stack.pop()
-        # Si nous avons atteint une configuration complète, vérifier et l'ajouter si valide
+        node, current_matches = stack.pop()
+
+        # Si nous avons atteint une configuration complète
         if not node.remaining_masks:
-            if is_valid_partial_combination(node.current_mapping, masked_matches, standings_dict):
+            if is_valid_partial_combination(node.current_mapping, current_matches, standings_dict):
                 valid_combinations.append(node.current_mapping)
+                modified_matches_list.append(current_matches)
             continue
 
         # Sélectionner le prochain masque à traiter
@@ -99,6 +107,38 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
         for perm in permutations(valid_player[current_mask]):
             if any(player in node.used_players for player in perm):
                 continue  # Éviter les conflits de joueurs déjà utilisés
+
+            # Mise à jour des masked_matches directement avec cette permutation
+            updated_matches = []
+            local_mapping = {**node.current_mapping, current_mask: perm}
+
+            is_valid = True
+            for match in current_matches:
+                # Copier localement uniquement les matches modifiés
+                updated_match = copy.copy(match)
+
+                # Modifier player1 si nécessaire
+                if match.player1 in local_mapping:
+                    if not local_mapping[match.player1]:
+                        is_valid = False
+                        break
+                    player1_perm = local_mapping[match.player1][0]
+                    updated_match.player1 = player1_perm
+                    local_mapping[match.player1] = local_mapping[match.player1][1:]
+
+                # Modifier player2 si nécessaire
+                if match.player2 in local_mapping:
+                    if not local_mapping[match.player2]:
+                        is_valid = False
+                        break
+                    player2_perm = local_mapping[match.player2][0]
+                    updated_match.player2 = player2_perm
+                    local_mapping[match.player2] = local_mapping[match.player2][1:]
+
+                updated_matches.append(updated_match)
+
+            if not is_valid:
+                continue  # Ignorer cette branche si elle est invalide
 
             # Créer un nouveau nœud avec la configuration mise à jour
             new_mapping = node.current_mapping.copy()
@@ -112,31 +152,57 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
                 remaining_masks=remaining_masks
             )
             node.children.append(child_node)
-            stack.append(child_node)  # Ajouter le nœud à la pile pour exploration
+            stack.append((child_node, updated_matches))  # Ajouter le nœud avec les matches mis à jour
 
-    return valid_combinations
+    return valid_combinations, modified_matches_list
+
 
 def player_assignment_process_combination(task):
     """
     Traite chaque permutation (pour le premier round) et génère toutes les combinaisons possibles pour les autres masques.
     """
     x, remaining_masks, masked_matches, standings_dict, valid_player = task
-    # Préparer la structure d'entrée pour Assignation_build_tree
-    # Construire les combinaisons pour les autres masques
+
+    # Vérifier la validité initiale de la permutation
     if not is_valid_partial_combination(x, masked_matches, standings_dict):
         return
 
-    valid_combinations = Assignation_build_tree(remaining_masks, valid_player, masked_matches, standings_dict)
+    valid_combinations, modified_matches_list = Assignation_build_tree(
+        remaining_masks, valid_player, masked_matches, standings_dict
+    )
+
     # Ajouter la permutation du premier round dans les combinaisons
     all_combinations = []
-    for comb in valid_combinations:
-        new_comb = copy.deepcopy(comb)
-        # Ajouter la permutation du premier round pour le masque actuel
-        for key, value in x.items():  # Parcours de chaque clé-valeur dans x
-            new_comb[key] = value
-        all_combinations.append(new_comb)
+    all_modified_matches = []
 
-    return all_combinations
+    for comb, modified_matches in zip(valid_combinations, modified_matches_list):
+        new_comb = copy.deepcopy(comb)
+
+        # Ajouter la permutation du premier round pour le masque actuel
+        for key, value in x.items():
+            new_comb[key] = value
+
+        # Mettre à jour les masked_matches avec la permutation du premier round
+        updated_matches = []
+        local_mapping = copy.deepcopy(x)
+        for match in modified_matches:
+            updated_match = copy.copy(match)
+            if match.player1 in local_mapping:
+                player1_perm = local_mapping[match.player1][0]
+                updated_match.player1 = player1_perm
+                local_mapping[match.player1] = local_mapping[match.player1][1:]
+
+            if match.player2 in local_mapping:
+                player2_perm = local_mapping[match.player2][0]
+                updated_match.player2 = player2_perm
+                local_mapping[match.player2] = local_mapping[match.player2][1:]
+
+            updated_matches.append(updated_match)
+
+        all_combinations.append(new_comb)
+        all_modified_matches.append(updated_matches)
+
+    return all_combinations, all_modified_matches
 #######################################################################################################################
 # stat tree 
 
@@ -715,6 +781,7 @@ class Manatrader_fix_hidden_duplicate_name:
         first_round_xs = list(permutations(valid_player.get(largest_mask, [])))  # Objets X du premier round
         remaining_mask = [mask for mask in valid_player.keys() if mask != largest_mask]  # Rounds restants
         if len(first_round_xs) > 1:
+            start_time = time.time()
             tasks = [
                 (
                     {largest_mask: x},
@@ -728,10 +795,17 @@ class Manatrader_fix_hidden_duplicate_name:
             # Étape 3 : Diviser les tâches pour chaque round et paralléliser leur traitement
             with Pool(cpu_count()) as pool:
                 multiproc_res = pool.map(player_assignment_process_combination, tasks)
-                permutation_assignment = list(chain.from_iterable(filter(None, multiproc_res)))
+                # Séparer les deux résultats
+                multiproc_res_dict_perm = [res[0] for res in multiproc_res if res is not None]
+                multiproc_res_modified_round = [res[1] for res in multiproc_res if res is not None]
 
+                # Aplatir les résultats
+                permutation_assignment = list(chain.from_iterable(multiproc_res_dict_perm))
+                Round_assignment = list(chain.from_iterable(multiproc_res_modified_round))
+            end_time = time.time()
+            print(f"Temps pour genérer les perm para: {end_time - start_time:.2f} secondes")
         else :
-              permutation_assignment =  Assignation_build_tree(remaining_mask, valid_player, masked_matches, standings_dict)
+              permutation_assignment ,Round_assignment=  Assignation_build_tree(remaining_mask, valid_player, masked_matches, standings_dict)
 
         seen = set()
         for perm in permutation_assignment:
@@ -742,7 +816,7 @@ class Manatrader_fix_hidden_duplicate_name:
             seen.add(perm_tuple)
 
 
-        return permutation_assignment
+        return permutation_assignment,Round_assignment
 
 
         # valid_player_permutation = Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict)
@@ -789,16 +863,18 @@ class Manatrader_fix_hidden_duplicate_name:
         """Optimiser la génération des assignments avec multiprocessing."""
         assignments_per_masked = {}
         dict_standings = self.standings_to_dict(standings)
+        permutation_dict = []
         assignments_per_round = []
         start_time = time.time()
         for round_obj in rounds:
             print(round_obj.round_name)
             # if round_obj.round_name == "Round 5":
-            valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
+            valide_player_dict,valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
             assignments_per_round.append( valid_combinations)
+            permutation_dict.append( valide_player_dict)
         end_time = time.time()
         print(f"Temps total d'exécution pour genérer les perm: {end_time - start_time:.2f} secondes")
-        return assignments_per_round
+        return assignments_per_round ,permutation_dict
     
     def find_real_tournament_from_permutation(self,assignments_per_masked,masked_to_actual, rounds, standings):
         # Préparer les données
@@ -960,10 +1036,11 @@ class Manatrader_fix_hidden_duplicate_name:
         }
         # on repete tout ici pour tout faire en une fois 
         matching_permutation = {}
-        assignments_per_masked = self.generate_assignments(
+        assignments_per_masked,dict_of_permuted_player = self.generate_assignments(
             rounds, masked_to_actual, standings
         )
-        
+
+        print("ok")
         resulting_tree =  self.find_real_tournament_from_permutation(
             assignments_per_masked,masked_to_actual, rounds, standings
         )
