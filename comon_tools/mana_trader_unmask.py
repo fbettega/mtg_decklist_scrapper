@@ -309,7 +309,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     current_round = remaining_rounds[0]
     valid_children = []
-    for match_combination in current_round:
+    remaining_combinations = current_round[:] 
+    for match_combination in remaining_combinations:
         # Copier l'historique actuel pour ce chemin
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
@@ -339,6 +340,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,iteration,standings,base_result_from_know_player)
         # if problematic_player != "ok":
         #     print("debug")
+
+        if not valid:
+            # Ajouter la permutation problématique pour la transmission horizontale
+            for suspect_player in problematic_player:
+                for masked_name, player_tuple in match_combination.items():
+                    if suspect_player in player_tuple: 
+                        remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+
+            continue  # Ignorez cette combinaison invalide
+
         if valid:
             child_node = TreeNode(match_combination)
             child_node.valid = True
@@ -375,6 +386,25 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         return node
     else:
         return None
+
+def filter_other_node_combinations(remaining_combinations, masked_name, player_tuple):
+    """
+    Supprime les éléments de remaining_combinations contenant exactement 
+    (masked_name, player_tuple).
+    
+    Args:
+        remaining_combinations (list): Liste de dictionnaires de type match_combination.
+        masked_name (str): Le nom masqué à vérifier.
+        player_tuple (tuple): Le tuple de joueurs à vérifier.
+    
+    Returns:
+        list: Liste filtrée de remaining_combinations.
+    """
+    return [
+        combination
+        for combination in remaining_combinations
+        if not (masked_name in combination and combination[masked_name] == player_tuple)
+    ]
 
 
 def custom_round(value, decimals=0):
@@ -433,7 +463,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if opponent in matchups[player]:
                     # if ite > 1:                    
                     #     print("opo")
-                    return False,player
+                    return False,(player,opponent)
                 if not re.fullmatch(r'.\*{10}.', opponent):
                     matchups[player].add(opponent)
 
@@ -450,7 +480,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                     # if ite >0:
                     #     # print(base_result_from_know_player[player])
                     #     print("win or loose")
-                    return False,player
+                    return False,(player,opponent)
                 
     # Validation finale du GWP uniquement pour les joueurs modifiés
     for player in modified_players:
@@ -463,7 +493,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
                     # if ite > 0:
                     #     print("debug")
-                    return False,player
+                    return False,(player)
 
 
     return True, "ok"
