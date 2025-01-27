@@ -197,59 +197,8 @@ def apply_tree_permutations(node, modified_rounds, masked_name):
                     # Appliquer les permutations à partir de l'arbre racine
 
 
-def process_combination(task):
-    """
-    Traite une combinaison spécifique dans le cadre de la parallélisation.
-
-    Args:
-        task (tuple): Contient les informations nécessaires pour traiter une combinaison. 
-                      Format : (first_round_combination, remaining_rounds, validate_fn,
-                                player_indices, standings_wins, standings_losses, 
-                                standings_gwp, n_players)
-
-    Returns:
-        list: Une liste de permutations valides, ou None si aucune permutation n'est valide.
-    """
-    (
-        first_round_combination,  # La configuration initiale du premier round
-        remaining_rounds,         # Les rounds restants à traiter
-        masked_name_matches,
-        validate_fn,
-        compute_stat_fun,
-        compare_standings_fun,
-        player_indices,
-         standings_wins, 
-        standings_losses, 
-        standings_gwp,
-        standings_omwp,
-        standings_ogwp, 
-        base_result_from_know_player,
-        standings                # Nombre total de joueurs
-    ) = task
-    # Construire un arbre pour explorer les permutations valides des rounds restants
-    root = TreeNode()  # Nœud racine de l'arbre
 
 
-    build_tree(
-        root,
-        [[first_round_combination]] + remaining_rounds, 
-        masked_name_matches,
-        validate_fn,
-        compute_stat_fun,
-        compare_standings_fun,
-        player_indices,
-         standings_wins, 
-        standings_losses, 
-        standings_gwp,
-        standings_omwp,
-        standings_ogwp, 
-        base_result_from_know_player,
-        standings
-    )
-
-    # Extraire les permutations valides à partir de l'arbre
-
-    return root
 
  
 
@@ -310,7 +259,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     current_round = remaining_rounds[0]
     valid_children = []
     remaining_combinations = current_round[:] 
-    for match_combination in remaining_combinations:
+    i = 0
+
+    while i < len(remaining_combinations):
+        match_combination = remaining_combinations[i]
         # Copier l'historique actuel pour ce chemin
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
@@ -347,10 +299,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 for masked_name, player_tuple in match_combination.items():
                     if suspect_player in player_tuple: 
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-
+                        # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
             continue  # Ignorez cette combinaison invalide
-
+        
         if valid:
+            if iteration > 4:
+                print(iteration)
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
@@ -376,13 +330,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             )
             if result is not None:
                 valid_children.append(child_node)
+        i += 1
     # Met à jour les enfants du nœud actuel avec les enfants valides
     node.children = valid_children
 
     # Si le nœud a au moins un enfant valide, retourne-le ; sinon, retourne None
     if valid_children and valid:
-        if iteration > 4:
-            print(iteration)
         return node
     else:
         return None
@@ -493,9 +446,8 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
                     # if ite > 0:
                     #     print("debug")
-                    return False,(player)
-
-
+                    return False,(player,list(matchups[player])[-1])
+                
     return True, "ok"
 
 
@@ -874,31 +826,23 @@ class Manatrader_fix_hidden_duplicate_name:
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
-        first_round_xs = assignments_per_masked[0]  # Objets X du premier round
-        remaining_rounds = assignments_per_masked[1:]  # Rounds restants
-        tasks = [
-            (
-                x,
-                remaining_rounds,
-                masked_name_matches,
-                validate_permutation,
-                self.calculate_stats_for_matches,
-                self.compare_standings,
-                player_indices,
-                standings_wins,
-                standings_losses,
-                standings_gwp,
-                standings_omwp,
-                standings_ogwp,
-                base_result_of_named_player,
-                standings
-            )
-            for x in first_round_xs
-        ]
-
-        # Diviser les tâches pour chaque round dans valid_combinations
-        with Pool(cpu_count()) as pool:
-            results = pool.map(process_combination, tasks)
+        root = TreeNode()  # Nœud racine de l'arbre
+        build_tree(
+            root,
+            assignments_per_masked, 
+            masked_name_matches,
+            validate_permutation,
+            self.calculate_stats_for_matches,
+            self.compare_standings,
+            player_indices,
+            standings_wins, 
+            standings_losses, 
+            standings_gwp,
+            standings_omwp,
+            standings_ogwp, 
+            base_result_of_named_player,
+            standings
+        )
 
         # Fusionner les résultats valides
         # valid_permutations = [perm for result in results if result for perm in result]
@@ -906,7 +850,7 @@ class Manatrader_fix_hidden_duplicate_name:
         end_time = time.time()
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
-        return results
+        return root
 
 
     def standings_to_dict(self,standings: List[Standing]) -> Dict[str, Dict]:
