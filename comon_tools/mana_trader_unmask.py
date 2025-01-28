@@ -202,8 +202,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     if history is None:
         n_players = len(player_indices)
 
-        if not isinstance(player_indices, dict):
-            print("Erreur : player_indices n'est pas un dictionnaire !")
         history = {
             "Match_wins": np.zeros(n_players, dtype=int),
             "Match_losses": np.zeros(n_players, dtype=int),
@@ -249,24 +247,24 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     i = 0
 
     # Construire un set des tuples à exclure pour éviter des itérations multiples
-# Création du set avec les masques
     bad_tuples_set = {
-        (player_mask := f"{bad_data['tuple'][0][0]}{'*' * 10}{bad_data['tuple'][0][-1]}", tuple(bad_data["tuple"]))
+        (tuple(bad_data["tuple"]))
         for player, bad_tuples in Global_bad_tupple_history.items()
         for bad_data in bad_tuples
         if history["matchups"][player] == bad_data["history"]
     }
 
-    if iteration > 1:
-        print("debug")
+
     # Filtrage optimisé avec un set
-    remaining_combinations2 = [
-        comb for comb in remaining_combinations if not any(
-            (player, tuple(comb.values())) in bad_tuples_set
-            for player in comb
-        )
+    remaining_combinations = [
+    combination
+    for combination in remaining_combinations
+    if not any(value in bad_tuples_set for value in combination.values())
     ]
-    # print(f"Initial filter using other_tree iteration : {iteration} remove {player} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+    print(f"Initial filter using other_tree iteration : {iteration} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+    if iteration > 1 and len(remaining_combinations) == 0:
+        dead_combination = 
+        print("debug")
 
     while i < len(remaining_combinations):
         match_combination = remaining_combinations[i]
@@ -310,7 +308,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             'tuple' : player_tuple,
                             'history' : history["matchups"][suspect_player].copy()
                         })
-                        print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+                        print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             continue  # Ignorez cette combinaison invalide
         
         if valid:
