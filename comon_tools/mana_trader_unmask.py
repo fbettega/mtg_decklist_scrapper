@@ -198,7 +198,7 @@ def apply_tree_permutations(node, modified_rounds, masked_name):
 
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = {}, history=None, iteration=0):
+                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list), history=None, iteration=0):
     if history is None:
         n_players = len(player_indices)
 
@@ -237,15 +237,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         # ajouter ici un merge avec le base_result_from_know_player
         for unsure_standings in tree_standings_res:
             res_comparator = compare_standings_fun(standings, unsure_standings, 3, 3, 3)
-            # if not res_comparator:    
-            #     if debug_print:
-            #         print(f"Real : {real_standing_ite}" )  
-            #         print(f"Calc : {unsure_standings}" )       
-            #     return None  
             standings_comparator_res.append(res_comparator)
-
-        # Vérifie si toutes les comparaisons sont `True`
-        # Vérifie si toutes les comparaisons sont `True`
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:
@@ -256,20 +248,25 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     remaining_combinations = current_round[:] 
     i = 0
 
-    # Vérification des tuples problématiques dans Global_bad_tupple_history
-    for player, bad_tuples  in Global_bad_tupple_history.items():
-        for bad_data in bad_tuples:
-            bad_history = bad_data["history"]
-            bad_tuple = bad_data["tuple"]
+    # Construire un set des tuples à exclure pour éviter des itérations multiples
+# Création du set avec les masques
+    bad_tuples_set = {
+        (player_mask := f"{bad_data['tuple'][0][0]}{'*' * 10}{bad_data['tuple'][0][-1]}", tuple(bad_data["tuple"]))
+        for player, bad_tuples in Global_bad_tupple_history.items()
+        for bad_data in bad_tuples
+        if history["matchups"][player] == bad_data["history"]
+    }
 
-            # Si l'historique de matchups du joueur correspond
-            if history["matchups"][player] == bad_history:
-                # Filtrer rapidement les combinaisons restantes pour exclure celles contenant bad_tuple
-                remaining_combinations = [
-                    comb for comb in remaining_combinations
-                    if bad_tuple not in comb.values()
-                ]
-                print(f"Initial filter using other_tree iteration : {iteration} remove {player} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+    if iteration > 1:
+        print("debug")
+    # Filtrage optimisé avec un set
+    remaining_combinations2 = [
+        comb for comb in remaining_combinations if not any(
+            (player, tuple(comb.values())) in bad_tuples_set
+            for player in comb
+        )
+    ]
+    # print(f"Initial filter using other_tree iteration : {iteration} remove {player} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
     while i < len(remaining_combinations):
         match_combination = remaining_combinations[i]
@@ -309,9 +306,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 for masked_name, player_tuple in match_combination.items():
                     if suspect_player in player_tuple: 
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-                        if suspect_player not in Global_bad_tupple_history:
-                            Global_bad_tupple_history[suspect_player] = [] 
-                            
                         Global_bad_tupple_history[suspect_player].append({
                             'tuple' : player_tuple,
                             'history' : history["matchups"][suspect_player].copy()
