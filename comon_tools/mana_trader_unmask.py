@@ -3,7 +3,7 @@ import re
 # import os
 import math
 from typing import List,Tuple,Dict, DefaultDict,Optional
-from itertools import permutations,product,islice,chain
+from itertools import permutations,product,islice,chain, combinations
 # import html
 from models.base_model import *
 from comon_tools.tools import *
@@ -196,6 +196,46 @@ def apply_tree_permutations(node, modified_rounds, masked_name):
         apply_tree_permutations(child, modified_rounds, masked_name)
                     # Appliquer les permutations à partir de l'arbre racine
 
+def all_subsets(bad_tuples_dict):
+    subsets = []
+    keys = list(bad_tuples_dict.keys())
+    for n in range(1, len(keys) + 1):  # Taille des sous-ensembles de 1 à len(bad_tuples_dict)
+        for subset_keys in combinations(keys, n):
+            # Générer les produits cartésiens pour les clés sélectionnées
+            for tuples_combination in product(*(bad_tuples_dict[key] for key in subset_keys)):
+                # Créer un dictionnaire pour ce sous-ensemble
+                subset = dict(zip(subset_keys, tuples_combination))
+                subsets.append(subset)
+    return subsets
+
+# Fonction pour trouver toutes les combinaisons minimales de tuples par clé qui vident remaining_combinations
+def find_minimal_combinations(bad_tuples_dict, remaining_combinations):
+    emptying_combinations = []
+
+    # Obtenir toutes les combinaisons de clés (1 à len(bad_tuples_dict))
+    for n in range(1, len(bad_tuples_dict) + 1):
+        for subset_keys in combinations(bad_tuples_dict.keys(), n):
+            # Pour chaque sous-ensemble de clés, générer toutes les combinaisons possibles de tuples
+            for tuple_combination in product(*(bad_tuples_dict[key] for key in subset_keys)):
+                # Construire un dictionnaire temporaire
+                temp_dict = dict(zip(subset_keys, tuple_combination))
+
+                # Filtrer remaining_combinations
+                filtered_combinations = [
+                    combination
+                    for combination in remaining_combinations
+                    if not any(
+                        key in temp_dict and combination[key] == temp_dict[key]
+                        for key in combination
+                    )
+                ]
+
+                # Si remaining_combinations est vide, ajouter cette combinaison
+                if not filtered_combinations:
+                    emptying_combinations.append(tuple_combination)
+
+    return emptying_combinations
+
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
                 standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list), history=None, iteration=0):
@@ -247,24 +287,53 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     i = 0
 
     # Construire un set des tuples à exclure pour éviter des itérations multiples
-    bad_tuples_set = {
-        (tuple(bad_data["tuple"]))
-        for player, bad_tuples in Global_bad_tupple_history.items()
-        for bad_data in bad_tuples
-        if history["matchups"][player] == bad_data["history"]
-    }
+    bad_tuples_dict = defaultdict(set)
+
+    for player, bad_tuples in Global_bad_tupple_history.items():
+        for bad_data in bad_tuples:
+            if history["matchups"][player] == bad_data["history"]:
+                player_mask = f"{bad_data['tuple'][0][0]}{'*' * 10}{bad_data['tuple'][0][-1]}"
+                bad_tuples_dict[player_mask].add(tuple(bad_data["tuple"]))
 
 
     # Filtrage optimisé avec un set
-    remaining_combinations = [
-    combination
-    for combination in remaining_combinations
-    if not any(value in bad_tuples_set for value in combination.values())
-    ]
-    print(f"Initial filter using other_tree iteration : {iteration} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+    remaining_combinations =[
+        combination
+        for combination in remaining_combinations
+        if not any(
+            key in bad_tuples_dict and combination[key] in bad_tuples_dict[key]
+            for key in combination
+        )
+        ]
+    
+    print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
     if iteration > 1 and len(remaining_combinations) == 0:
-        dead_combination = 
+        # dead_combination = 
         print("debug")
+        # # Trouver les combinaisons qui vident `remaining_combinations`
+        # emptying_combinations = []
+        # test_reaming_combination = current_round[:] 
+
+        # results = find_minimal_combinations(bad_tuples_dict, test_reaming_combination)
+
+        # for subset in all_subsets(bad_tuples_dict):
+        #     # Construire un ensemble de tuples à partir du sous-ensemble
+        #     subset_as_set = set(subset.items())  # Convertir en un ensemble clé-tuple
+
+        #     # Filtrer les combinaisons restantes
+        #     filtered_combinations = [
+        #         combination
+        #         for combination in test_reaming_combination
+        #         if not any(
+        #             key in subset and combination[key] == subset[key]
+        #             for key in combination
+        #         )
+        #     ]
+
+        #     # Si remaining_combinations est vide, ajouter ce sous-ensemble aux résultats
+        #     if not filtered_combinations:
+        #         emptying_combinations.append(subset)
+
 
     while i < len(remaining_combinations):
         match_combination = remaining_combinations[i]
