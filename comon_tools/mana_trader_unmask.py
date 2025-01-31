@@ -17,6 +17,10 @@ from collections import Counter
 
 
 
+def chunked(iterable, size):
+    """Divise une liste en sous-listes de taille `size`"""
+    it = iter(iterable)
+    return iter(lambda: list(islice(it, size)), [])
 
 # generate permutation tree
 class Assignation_TreeNode:
@@ -210,60 +214,80 @@ def all_subsets(bad_tuples_dict):
 
 # Fonction pour trouver toutes les combinaisons minimales de tuples par clé qui vident remaining_combinations
 def find_minimal_combinations(bad_tuples_dict, remaining_combinations):
-    emptying_combinations = []
+    minimal_combinations = []
+    keys_list = list(bad_tuples_dict.keys())
 
-    # Obtenir toutes les combinaisons de clés (1 à len(bad_tuples_dict))
-    for n in range(1, len(bad_tuples_dict) + 1):
-        for subset_keys in combinations(bad_tuples_dict.keys(), n):
-            # Pour chaque sous-ensemble de clés, générer toutes les combinaisons possibles de tuples
-            for tuple_combination in product(*(bad_tuples_dict[key] for key in subset_keys)):
-                # Construire un dictionnaire temporaire
-                temp_dict = dict(zip(subset_keys, tuple_combination))
+    # Tester toutes les tailles de combinaison de clés (de 1 à tout)
+    for n in range(1, len(keys_list) + 1):
+        for keys_subset in combinations(keys_list, n):
+            # Construire un set des tuples à exclure
+            tuples_to_exclude = set()
+            for key in keys_subset:
+                tuples_to_exclude.update(bad_tuples_dict[key])  # Ajouter tous les tuples de chaque clé
 
-                # Filtrer remaining_combinations
-                filtered_combinations = [
-                    combination
-                    for combination in remaining_combinations
-                    if not any(
-                        key in temp_dict and combination[key] == temp_dict[key]
-                        for key in combination
-                    )
-                ]
+            # Appliquer le filtre
+            filtered_combinations = [
+                combination
+                for combination in remaining_combinations
+                if not any(
+                    key in keys_subset and combination[key] in tuples_to_exclude
+                    for key in combination
+                )
+            ]
 
-                # Si remaining_combinations est vide, ajouter cette combinaison
-                if not filtered_combinations:
-                    emptying_combinations.append(tuple_combination)
+            # Si remaining_combinations est vide, on garde cette combinaison
+            if not filtered_combinations:
+                minimal_combinations.append(set(keys_subset))
 
-    return emptying_combinations
+        # Dès qu'on trouve des solutions pour une taille `n`, on arrête
+        if minimal_combinations:
+            break
 
+    return minimal_combinations
+
+def backward_remove_matching_combinations(remaining_combinations, dead_combination_backward):
+    filtered_combinations = []
+
+    for combination in remaining_combinations:
+        combination_values = set(combination.values())  # Ensemble des tuples de la combinaison
+        
+        # Vérifier si combination contient tous les tuples d'un élément de dead_combination_backward
+        to_remove = any(set(dead_tuple) <= combination_values for dead_tuple in dead_combination_backward)
+
+        if not to_remove:
+            filtered_combinations.append(combination)
+
+    return filtered_combinations
+
+def build_tree_init_history(player_indices, base_result_from_know_player, history=None):
+    n_players = len(player_indices)
+
+    history = {
+        "Match_wins": np.zeros(n_players, dtype=int),
+        "Match_losses": np.zeros(n_players, dtype=int),
+        "Game_wins": np.zeros(n_players, dtype=int),
+        "Game_losses": np.zeros(n_players, dtype=int),
+        "Game_draws": np.zeros(n_players, dtype=int),
+        "matchups": {player: [] for player in player_indices.keys()}
+    }
+
+    # Mise à jour de l'historique avec les informations de base_result_from_know_player
+    for player, idx in player_indices.items():
+        if player in base_result_from_know_player:
+            player_data = base_result_from_know_player[player]
+            history["Match_wins"][idx] = player_data['wins']
+            history["Match_losses"][idx] = player_data['losses']
+            history["Game_wins"][idx] = player_data['total_games_won']
+            history["Game_losses"][idx] = player_data['total_games_played'] - player_data['total_games_won']
+            history["Game_draws"][idx] = player_data['draws']
+            history["matchups"][player].extend(player_data['opponents'])
+
+    return history
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list), history=None, iteration=0):
+                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list),dead_combination_backward = set(), history=None, iteration=0):
     if history is None:
-        n_players = len(player_indices)
-
-        history = {
-            "Match_wins": np.zeros(n_players, dtype=int),
-            "Match_losses": np.zeros(n_players, dtype=int),
-            "Game_wins": np.zeros(n_players, dtype=int),
-            "Game_losses": np.zeros(n_players, dtype=int),
-            "Game_draws": np.zeros(n_players, dtype=int),
-            "matchups": {player: set() for player in player_indices.keys()}
-        }
-        # Mise à jour de l'historique avec les informations de base_result_from_know_player
-        for player, idx in player_indices.items():
-            if player in base_result_from_know_player:
-                # On récupère les informations du joueur dans base_result_from_know_player
-                player_data = base_result_from_know_player[player]
-                # Mise à jour des statistiques du joueur dans history
-                history["Match_wins"][idx] = player_data['wins']
-                history["Match_losses"][idx] = player_data['losses']
-                history["Game_wins"][idx] = player_data['total_games_won']
-                history["Game_losses"][idx] = player_data['total_games_played'] - player_data['total_games_won'] 
-                history["Game_draws"][idx] = player_data['draws']
-
-                # Initialisation des matchups (peut être vide ou déjà défini)
-                history["matchups"][player] = set(player_data['opponents'])
+        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
 
     if not node.valid:
         return
@@ -284,20 +308,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     current_round = remaining_rounds[0]
     valid_children = []
     remaining_combinations = current_round[:] 
-    i = 0
-
     # Construire un set des tuples à exclure pour éviter des itérations multiples
     bad_tuples_dict = defaultdict(set)
-
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
             if history["matchups"][player] == bad_data["history"]:
                 player_mask = f"{bad_data['tuple'][0][0]}{'*' * 10}{bad_data['tuple'][0][-1]}"
                 bad_tuples_dict[player_mask].add(tuple(bad_data["tuple"]))
 
-
     # Filtrage optimisé avec un set
-    remaining_combinations =[
+    remaining_combinations = [
         combination
         for combination in remaining_combinations
         if not any(
@@ -305,38 +325,22 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for key in combination
         )
         ]
-    
     print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
-    if iteration > 1 and len(remaining_combinations) == 0:
-        # dead_combination = 
-        print("debug")
+
+    if len(remaining_combinations) == 0:
         # # Trouver les combinaisons qui vident `remaining_combinations`
-        # emptying_combinations = []
-        # test_reaming_combination = current_round[:] 
+        test_reaming_combination = current_round[:] 
+        dead_key_list = find_minimal_combinations(bad_tuples_dict, test_reaming_combination)
+        if len(dead_key_list) > 1:
+            print("debug3")
+        for keys in dead_key_list:
+            temp_combination_set = set()
+            for key in keys:
+                temp_combination_set.add(node.combination[key])
+            dead_combination_backward.add(frozenset(temp_combination_set))
 
-        # results = find_minimal_combinations(bad_tuples_dict, test_reaming_combination)
-
-        # for subset in all_subsets(bad_tuples_dict):
-        #     # Construire un ensemble de tuples à partir du sous-ensemble
-        #     subset_as_set = set(subset.items())  # Convertir en un ensemble clé-tuple
-
-        #     # Filtrer les combinaisons restantes
-        #     filtered_combinations = [
-        #         combination
-        #         for combination in test_reaming_combination
-        #         if not any(
-        #             key in subset and combination[key] == subset[key]
-        #             for key in combination
-        #         )
-        #     ]
-
-        #     # Si remaining_combinations est vide, ajouter ce sous-ensemble aux résultats
-        #     if not filtered_combinations:
-        #         emptying_combinations.append(subset)
-
-
-    while i < len(remaining_combinations):
-        match_combination = remaining_combinations[i]
+    while remaining_combinations:
+        match_combination = remaining_combinations.pop(0)  #
         # Copier l'historique actuel pour ce chemin
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
@@ -355,7 +359,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 used_players[match.player1] += 1
                 player1_real_names = match_combination[match.player1]
                 match.player1 = player1_real_names[used_players[match.player1] -1]
-                
             # Remplacer player2 si c'est un nom masqué
             if match.player2 in match_combination:
                 used_players[match.player2] += 1
@@ -364,8 +367,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         # Mettre à jour les statistiques pour la combinaison actuelle
         valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,iteration,standings,base_result_from_know_player)
-        # if problematic_player != "ok":
-        #     print("debug")
 
         if not valid:
             # Ajouter la permutation problématique pour la transmission horizontale
@@ -378,6 +379,11 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             'history' : history["matchups"][suspect_player].copy()
                         })
                         print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
+            if iteration == 0:
+                for suspect_player in problematic_player:
+                    for masked_name, player_tuple in match_combination.items():
+
+                        print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             continue  # Ignorez cette combinaison invalide
         
         if valid:
@@ -386,7 +392,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
-
+            previous_dead_combination_backward = copy.deepcopy(dead_combination_backward.copy)
             # Appel récursif avec l'historique mis à jour
             result = build_tree(
                 child_node,
@@ -404,12 +410,22 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 base_result_from_know_player,
                 standings,
                 Global_bad_tupple_history,
+                dead_combination_backward,
                 new_history,
                 iteration + 1
             )
+            if result is None and iteration ==1 and dead_combination_backward != previous_dead_combination_backward: 
+                    len_before_filter =  len(remaining_combinations)                  
+                    remaining_combinations = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
+                    print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len_before_filter}")
+                    # needed to reset after clearing this level 
+                    dead_combination_backward = set()
+                    previous_dead_combination_backward = set()
+            if len(remaining_combinations) == 0 and iteration == 0:
+                print("problem")
+
             if result is not None:
                 valid_children.append(child_node)
-        i += 1
     # Met à jour les enfants du nœud actuel avec les enfants valides
     node.children = valid_children
 
@@ -497,7 +513,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                     #     print("opo")
                     return False,(player,opponent)
                 if not re.fullmatch(r'.\*{10}.', opponent):
-                    matchups[player].add(opponent)
+                    matchups[player].extend(opponent)
 
                 # Mettre à jour les statistiques
                 player_idx = player_indices[player]
@@ -529,6 +545,60 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 
     return True, "ok"
 
+
+def process_combination(task):
+    """
+    Traite une combinaison spécifique dans le cadre de la parallélisation.
+
+    Args:
+        task (tuple): Contient les informations nécessaires pour traiter une combinaison. 
+                      Format : (first_round_combination, remaining_rounds, validate_fn,
+                                player_indices, standings_wins, standings_losses, 
+                                standings_gwp, n_players)
+
+    Returns:
+        list: Une liste de permutations valides, ou None si aucune permutation n'est valide.
+    """
+    (
+        first_round_combination,  # La configuration initiale du premier round
+        remaining_rounds,         # Les rounds restants à traiter
+        masked_name_matches,
+        validate_fn,
+        compute_stat_fun,
+        compare_standings_fun,
+        player_indices,
+        standings_wins, 
+        standings_losses, 
+        standings_gwp,
+        standings_omwp,
+        standings_ogwp, 
+        base_result_of_named_player,
+        standings
+    ) = task
+    # Construire un arbre pour explorer les permutations valides des rounds restants
+    root = TreeNode()  # Nœud racine de l'arbre
+
+
+    build_tree(
+        root,
+        [[first_round_combination]] + remaining_rounds, 
+        masked_name_matches,
+        validate_fn,
+        compute_stat_fun,
+        compare_standings_fun,
+        player_indices,
+        standings_wins, 
+        standings_losses, 
+        standings_gwp,
+        standings_omwp,
+        standings_ogwp, 
+        base_result_of_named_player,
+        standings
+    )
+
+    # Extraire les permutations valides à partir de l'arbre
+
+    return root
 
 
 class Manatrader_fix_hidden_duplicate_name: 
@@ -905,30 +975,86 @@ class Manatrader_fix_hidden_duplicate_name:
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
-        root = TreeNode()  # Nœud racine de l'arbre
-        build_tree(
-            root,
-            assignments_per_masked, 
-            masked_name_matches,
-            validate_permutation,
-            self.calculate_stats_for_matches,
-            self.compare_standings,
-            player_indices,
-            standings_wins, 
-            standings_losses, 
-            standings_gwp,
-            standings_omwp,
-            standings_ogwp, 
-            base_result_of_named_player,
-            standings
-        )
+        first_round_xs = assignments_per_masked[0]  # Objets X du premier round
+        remaining_rounds = assignments_per_masked[1:]  # Rounds restants
+        chunk_size = 100  # Ajuste selon la taille souhaitée
+        first_round_chunks = list(chunked(first_round_xs, chunk_size))
+        tasks = [
+            (
+                chunk,
+                remaining_rounds,
+                masked_name_matches,
+                validate_permutation,
+                self.calculate_stats_for_matches,
+                self.compare_standings,
+                player_indices,
+                standings_wins, 
+                standings_losses, 
+                standings_gwp,
+                standings_omwp,
+                standings_ogwp, 
+                base_result_of_named_player,
+                standings
+            )
+            for chunk in first_round_chunks
+        ]
+
+        # tasks = [
+        #     (
+        #         x,
+        #         remaining_rounds,
+        #         masked_name_matches,
+        #         validate_permutation,
+        #         self.calculate_stats_for_matches,
+        #         self.compare_standings,
+        #         player_indices,
+        #         standings_wins, 
+        #         standings_losses, 
+        #         standings_gwp,
+        #         standings_omwp,
+        #         standings_ogwp, 
+        #         base_result_of_named_player,
+        #         standings
+        #     )
+        #     for x in first_round_xs
+        # ]
+
+        # Diviser les tâches pour chaque round dans valid_combinations
+        with Pool(cpu_count()) as pool:
+            results = pool.map(process_combination, tasks)
 
         # Fusionner les résultats valides
         # valid_permutations = [perm for result in results if result for perm in result]
 
         end_time = time.time()
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
-        print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
+
+
+        # start_time = time.time()
+        # # Préparer les arguments pour la parallélisation
+        # root = TreeNode()  # Nœud racine de l'arbre
+        # build_tree(
+        #     root,
+        #     assignments_per_masked, 
+        #     masked_name_matches,
+        #     validate_permutation,
+        #     self.calculate_stats_for_matches,
+        #     self.compare_standings,
+        #     player_indices,
+        #     standings_wins, 
+        #     standings_losses, 
+        #     standings_gwp,
+        #     standings_omwp,
+        #     standings_ogwp, 
+        #     base_result_of_named_player,
+        #     standings
+        # )
+
+        # # Fusionner les résultats valides
+        # # valid_permutations = [perm for result in results if result for perm in result]
+
+        # end_time = time.time()
+        # print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
         return root
 
 
