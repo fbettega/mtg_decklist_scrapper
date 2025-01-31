@@ -320,13 +320,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
             if history["matchups"][player] == bad_data["history"]:
-                bad_tuple = bad_data["tuple"]
-                
-                # Trouver la position exacte du player dans le bad_tuple
-                if player in bad_tuple:
-                    pos = bad_tuple.index(player)
-                    player_mask = f"{bad_tuple[0][0]}{'*' * 10}{bad_tuple[0][-1]}"
-                    bad_tuples_dict[player_mask][pos].add(player)
+                for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
+                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+                        bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
     remaining_combinations = [
@@ -351,7 +348,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         for keys in dead_key_list:
             temp_combination_set = set()
             for key in keys:
+                bad_tuples_dict[key]
                 temp_combination_set.add(node.combination[key])
+            if iteration == 1:
+                print("debug")
             dead_combination_backward.add(frozenset(temp_combination_set))
 
     while remaining_combinations:
@@ -389,8 +389,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 for masked_name, player_tuple in match_combination.items():
                     if suspect_player in player_tuple: 
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                        # Trouver la position exacte de suspect_player
+                        player_position = player_tuple.index(suspect_player)
                         Global_bad_tupple_history[suspect_player].append({
-                            'tuple' : player_tuple,
+                            'tuple' : {suspect_player : player_position},
                             'history' : history["matchups"][suspect_player].copy()
                         })
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
