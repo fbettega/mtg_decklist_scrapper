@@ -1,6 +1,7 @@
 import json
 import re
 # import os
+import sys
 import math
 from typing import List,Tuple,Dict, DefaultDict,Optional
 from itertools import permutations,product,islice,chain, combinations
@@ -215,23 +216,27 @@ def all_subsets(bad_tuples_dict):
 # Fonction pour trouver toutes les combinaisons minimales de tuples par clé qui vident remaining_combinations
 def find_minimal_combinations(bad_tuples_dict, remaining_combinations):
     minimal_combinations = []
-    keys_list = list(bad_tuples_dict.keys())
+    keys_list = list(bad_tuples_dict.keys())  # Liste des clés de bad_tuples_dict
 
     # Tester toutes les tailles de combinaison de clés (de 1 à tout)
     for n in range(1, len(keys_list) + 1):
         for keys_subset in combinations(keys_list, n):
-            # Construire un set des tuples à exclure
-            tuples_to_exclude = set()
+            # Construire un dictionnaire des positions interdites par clé
+            positions_to_exclude = defaultdict(lambda: defaultdict(set))
             for key in keys_subset:
-                tuples_to_exclude.update(bad_tuples_dict[key])  # Ajouter tous les tuples de chaque clé
+                for pos, players in bad_tuples_dict[key].items():
+                    positions_to_exclude[key][pos].update(players)
 
             # Appliquer le filtre
             filtered_combinations = [
                 combination
                 for combination in remaining_combinations
-                if not any(
-                    key in keys_subset and combination[key] in tuples_to_exclude
-                    for key in combination
+                if all(
+                    not any(
+                        key in positions_to_exclude and pos in positions_to_exclude[key] and player in positions_to_exclude[key][pos]
+                        for pos, player in enumerate(players)
+                    )
+                    for key, players in combination.items()
                 )
             ]
 
@@ -308,24 +313,34 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     current_round = remaining_rounds[0]
     valid_children = []
     remaining_combinations = current_round[:] 
-    # Construire un set des tuples à exclure pour éviter des itérations multiples
-    bad_tuples_dict = defaultdict(set)
+
+    # Construire un dictionnaire stockant les positions interdites pour chaque joueur
+    bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
             if history["matchups"][player] == bad_data["history"]:
-                player_mask = f"{bad_data['tuple'][0][0]}{'*' * 10}{bad_data['tuple'][0][-1]}"
-                bad_tuples_dict[player_mask].add(tuple(bad_data["tuple"]))
+                bad_tuple = bad_data["tuple"]
+                
+                # Trouver la position exacte du player dans le bad_tuple
+                if player in bad_tuple:
+                    pos = bad_tuple.index(player)
+                    player_mask = f"{bad_tuple[0][0]}{'*' * 10}{bad_tuple[0][-1]}"
+                    bad_tuples_dict[player_mask][pos].add(player)
 
-    # Filtrage optimisé avec un set
+    # Filtrer les combinaisons où un joueur est à une position interdite
     remaining_combinations = [
         combination
         for combination in remaining_combinations
-        if not any(
-            key in bad_tuples_dict and combination[key] in bad_tuples_dict[key]
-            for key in combination
+        if all(
+            not any(
+                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+                for pos, player in enumerate(players)
+            )
+            for key, players in combination.items()
         )
-        ]
-    print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
+    ]
+    # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
     if len(remaining_combinations) == 0:
         # # Trouver les combinaisons qui vident `remaining_combinations`
@@ -378,12 +393,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             'tuple' : player_tuple,
                             'history' : history["matchups"][suspect_player].copy()
                         })
-                        print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
+                        # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             if iteration == 0:
                 for suspect_player in problematic_player:
                     for masked_name, player_tuple in match_combination.items():
-
-                        print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
+                        print(f"iteration : {iteration} test on ite 0 remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
+                        sys.stdout.flush()
             continue  # Ignorez cette combinaison invalide
         
         if valid:
@@ -392,7 +407,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
-            previous_dead_combination_backward = copy.deepcopy(dead_combination_backward.copy)
+            previous_dead_combination_backward = copy.deepcopy(dead_combination_backward)
             # Appel récursif avec l'historique mis à jour
             result = build_tree(
                 child_node,
@@ -414,13 +429,19 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 new_history,
                 iteration + 1
             )
-            if result is None and iteration ==1 and dead_combination_backward != previous_dead_combination_backward: 
-                    len_before_filter =  len(remaining_combinations)                  
-                    remaining_combinations = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
-                    print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len_before_filter}")
-                    # needed to reset after clearing this level 
-                    dead_combination_backward = set()
-                    previous_dead_combination_backward = set()
+            if result is None and dead_combination_backward != previous_dead_combination_backward: 
+                len_before_filter =  len(remaining_combinations)  
+                if iteration == 0:
+                    print("degug")      
+                    remaining_combinations2 = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
+                    print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations2)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations2)}")          
+                
+                remaining_combinations = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
+                print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations)}") 
+                sys.stdout.flush()
+                # needed to reset after clearing this level 
+                dead_combination_backward = set()
+                previous_dead_combination_backward = set()
             if len(remaining_combinations) == 0 and iteration == 0:
                 print("problem")
 
@@ -490,7 +511,6 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     Game_losses = history["Game_losses"]
     Game_draws = history["Game_draws"]
     matchups = history["matchups"]
-
     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
 
     for round_item in match_combination:
@@ -510,10 +530,10 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             if player is not None:
                 if opponent in matchups[player]:
                     # if ite > 1:                    
-                    #     print("opo")
+                    # print("opo")
                     return False,(player,opponent)
                 if not re.fullmatch(r'.\*{10}.', opponent):
-                    matchups[player].extend(opponent)
+                    matchups[player].extend([opponent])
 
                 # Mettre à jour les statistiques
                 player_idx = player_indices[player]
@@ -581,7 +601,7 @@ def process_combination(task):
 
     build_tree(
         root,
-        [[first_round_combination]] + remaining_rounds, 
+        [first_round_combination] + remaining_rounds, 
         masked_name_matches,
         validate_fn,
         compute_stat_fun,
@@ -975,33 +995,13 @@ class Manatrader_fix_hidden_duplicate_name:
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
-        first_round_xs = assignments_per_masked[0]  # Objets X du premier round
-        remaining_rounds = assignments_per_masked[1:]  # Rounds restants
-        chunk_size = 100  # Ajuste selon la taille souhaitée
-        first_round_chunks = list(chunked(first_round_xs, chunk_size))
-        tasks = [
-            (
-                chunk,
-                remaining_rounds,
-                masked_name_matches,
-                validate_permutation,
-                self.calculate_stats_for_matches,
-                self.compare_standings,
-                player_indices,
-                standings_wins, 
-                standings_losses, 
-                standings_gwp,
-                standings_omwp,
-                standings_ogwp, 
-                base_result_of_named_player,
-                standings
-            )
-            for chunk in first_round_chunks
-        ]
-
+        # first_round_xs = assignments_per_masked[0]  # Objets X du premier round
+        # remaining_rounds = assignments_per_masked[1:]  # Rounds restants
+        # chunk_size = 100  # Ajuste selon la taille souhaitée
+        # first_round_chunks = list(chunked(first_round_xs, chunk_size))
         # tasks = [
         #     (
-        #         x,
+        #         chunk,
         #         remaining_rounds,
         #         masked_name_matches,
         #         validate_permutation,
@@ -1016,45 +1016,38 @@ class Manatrader_fix_hidden_duplicate_name:
         #         base_result_of_named_player,
         #         standings
         #     )
-        #     for x in first_round_xs
+        #     for chunk in first_round_chunks
         # ]
+        # # Diviser les tâches pour chaque round dans valid_combinations
+        # with Pool(cpu_count()) as pool:
+        #     results = pool.map(process_combination, tasks)
 
-        # Diviser les tâches pour chaque round dans valid_combinations
-        with Pool(cpu_count()) as pool:
-            results = pool.map(process_combination, tasks)
+        # Fusionner les résultats valides
+        # valid_permutations = [perm for result in results if result for perm in result]
+        # Préparer les arguments pour la parallélisation
+        root = TreeNode()  # Nœud racine de l'arbre
+        build_tree(
+            root,
+            assignments_per_masked, 
+            masked_name_matches,
+            validate_permutation,
+            self.calculate_stats_for_matches,
+            self.compare_standings,
+            player_indices,
+            standings_wins, 
+            standings_losses, 
+            standings_gwp,
+            standings_omwp,
+            standings_ogwp, 
+            base_result_of_named_player,
+            standings
+        )
 
         # Fusionner les résultats valides
         # valid_permutations = [perm for result in results if result for perm in result]
 
         end_time = time.time()
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
-
-
-        # start_time = time.time()
-        # # Préparer les arguments pour la parallélisation
-        # root = TreeNode()  # Nœud racine de l'arbre
-        # build_tree(
-        #     root,
-        #     assignments_per_masked, 
-        #     masked_name_matches,
-        #     validate_permutation,
-        #     self.calculate_stats_for_matches,
-        #     self.compare_standings,
-        #     player_indices,
-        #     standings_wins, 
-        #     standings_losses, 
-        #     standings_gwp,
-        #     standings_omwp,
-        #     standings_ogwp, 
-        #     base_result_of_named_player,
-        #     standings
-        # )
-
-        # # Fusionner les résultats valides
-        # # valid_permutations = [perm for result in results if result for perm in result]
-
-        # end_time = time.time()
-        # print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
         return root
 
 
@@ -1139,6 +1132,7 @@ class Manatrader_fix_hidden_duplicate_name:
         assignments_per_masked = self.generate_assignments(
             rounds, masked_to_actual, standings
         )
+        
         print("ok")
         resulting_tree =  self.find_real_tournament_from_permutation(
             assignments_per_masked,masked_to_actual, rounds, standings
