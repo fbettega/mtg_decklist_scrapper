@@ -214,54 +214,100 @@ def all_subsets(bad_tuples_dict):
     return subsets
 
 # Fonction pour trouver toutes les combinaisons minimales de tuples par clé qui vident remaining_combinations
+def combination_has_forbidden(combination, positions_to_exclude):
+    """
+    Renvoie True si pour au moins une clé présente dans positions_to_exclude, 
+    la combinaison possède dans la position indiquée un joueur interdit.
+    """
+    # Pour chaque clé qui doit être exclue
+    for key, pos_forbidden in positions_to_exclude.items():
+        # Si la clé n'est pas dans la combinaison, on ne peut rien vérifier pour celle-ci
+        if key not in combination:
+            continue
+        players = combination[key]
+        # Pour chaque position et ensemble de joueurs interdits pour cette clé
+        for pos, forbidden_players in pos_forbidden.items():
+            # Si la position est dans le tuple et que le joueur à cette position est interdit
+            if pos < len(players) and players[pos] in forbidden_players:
+                return True
+    return False
+
 def find_minimal_combinations(bad_tuples_dict, remaining_combinations):
     minimal_combinations = []
-    keys_list = list(bad_tuples_dict.keys())  # Liste des clés de bad_tuples_dict
+    keys_list = list(bad_tuples_dict.keys())
 
-    # Tester toutes les tailles de combinaison de clés (de 1 à tout)
+    # Tester les combinaisons de clés par ordre croissant de taille
     for n in range(1, len(keys_list) + 1):
         for keys_subset in combinations(keys_list, n):
-            # Construire un dictionnaire des positions interdites par clé
-            positions_to_exclude = defaultdict(lambda: defaultdict(set))
+            # Construire le dictionnaire des positions interdites pour le sous-ensemble courant
+            # positions_to_exclude aura la forme : { key: { pos: set(de joueurs) } }
+            positions_to_exclude = {}
             for key in keys_subset:
+                # On copie le dictionnaire pour éviter les appels multiples à defaultdict
+                # (il s'agit d'une copie simple car les valeurs sont des ensembles)
+                positions_to_exclude[key] = {}
                 for pos, players in bad_tuples_dict[key].items():
-                    positions_to_exclude[key][pos].update(players)
-
-            # Appliquer le filtre
+                    positions_to_exclude[key][pos] = set(players)
+            
+            # Filtrer les combinaisons restantes : on ne garde que celles qui ne satisfont pas 
+            # la contrainte (c'est-à-dire celles qui ont au moins un joueur différent)
             filtered_combinations = [
                 combination
                 for combination in remaining_combinations
-                if all(
-                    not any(
-                        key in positions_to_exclude and pos in positions_to_exclude[key] and player in positions_to_exclude[key][pos]
-                        for pos, player in enumerate(players)
-                    )
-                    for key, players in combination.items()
-                )
+                if not combination_has_forbidden(combination, positions_to_exclude)
             ]
 
-            # Si remaining_combinations est vide, on garde cette combinaison
+            # Si plus aucune combinaison ne reste, le sous-ensemble courant est minimal
             if not filtered_combinations:
-                minimal_combinations.append(set(keys_subset))
+                # Pour chaque clé du sous-ensemble, rassembler l'ensemble des joueurs interdits
+                players_for_keys = {}
+                for key in keys_subset:
+                    union_players = set()
+                    for players in bad_tuples_dict[key].values():
+                        union_players.update(players)
+                    players_for_keys[key] = union_players
 
-        # Dès qu'on trouve des solutions pour une taille `n`, on arrête
+                minimal_combinations.append(players_for_keys)
+
+        # Dès qu'on trouve une solution minimale (pour une taille donnée), on arrête la recherche
         if minimal_combinations:
             break
 
     return minimal_combinations
 
 def backward_remove_matching_combinations(remaining_combinations, dead_combination_backward):
+    """
+    Filtre les combinaisons de remaining_combinations.
+    
+    Pour chaque combinaison, on vérifie pour chacune des entrées de dead_combination_backward
+    (c'est-à-dire pour chaque (clé, joueur, position)) que, si la clé est présente dans la combinaison,
+    alors le tuple associé à cette clé possède bien le joueur à la position indiquée.
+    
+    Si pour toutes les entrées la condition est remplie, la combinaison est considérée comme "à filtrer"
+    et n'est pas ajoutée à la liste finale.
+    """
     filtered_combinations = []
-
+    
     for combination in remaining_combinations:
-        combination_values = set(combination.values())  # Ensemble des tuples de la combinaison
+        # On part de l'hypothèse que la combinaison correspond à toutes les contraintes
+        remove_this = True  
+        for key, player, pos in dead_combination_backward:
+            # Si la clé n'est pas dans la combinaison, ou si le tuple associé ne contient pas
+            # le joueur à la position indiquée, alors la combinaison ne doit pas être filtrée.
+            if key not in combination:
+                remove_this = False
+                break
+            # Récupérer le tuple associé à la clé
+            players_tuple = combination[key]
+            # Vérifier que la position existe et que le joueur à cette position correspond
+            if pos >= len(players_tuple) or players_tuple[pos] != player:
+                remove_this = False
+                break
         
-        # Vérifier si combination contient tous les tuples d'un élément de dead_combination_backward
-        to_remove = any(set(dead_tuple) <= combination_values for dead_tuple in dead_combination_backward)
-
-        if not to_remove:
+        # On conserve la combinaison uniquement si remove_this est False
+        if not remove_this:
             filtered_combinations.append(combination)
-
+            
     return filtered_combinations
 
 def build_tree_init_history(player_indices, base_result_from_know_player, history=None):
@@ -290,7 +336,7 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
     return history
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list),dead_combination_backward = set(), history=None, iteration=0):
+                standings_ogwp, base_result_from_know_player,standings,Global_bad_tupple_history = defaultdict(list),dead_combination_backward = [], history=None, iteration=0,max_ite_reach = 0):
     if history is None:
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
 
@@ -316,7 +362,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
-
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
             if history["matchups"][player] == bad_data["history"]:
@@ -343,16 +388,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         # # Trouver les combinaisons qui vident `remaining_combinations`
         test_reaming_combination = current_round[:] 
         dead_key_list = find_minimal_combinations(bad_tuples_dict, test_reaming_combination)
-        if len(dead_key_list) > 1:
-            print("debug3")
-        for keys in dead_key_list:
-            temp_combination_set = set()
-            for key in keys:
-                bad_tuples_dict[key]
-                temp_combination_set.add(node.combination[key])
-            if iteration == 1:
-                print("debug")
-            dead_combination_backward.add(frozenset(temp_combination_set))
+        for dead_key_dict in dead_key_list:
+            for key, dead_players in dead_key_dict.items():
+                # Vérifier que la clé existe bien dans parent_combination
+                if key in node.combination:
+                    parent_tuple = node.combination[key]
+                    # parent_tuple = parent_combination[key]
+                    for player in dead_players:
+                        # On cherche la position du joueur dans le tuple
+                        position = parent_tuple.index(player)
+                        dead_combination_backward.append((key, player, position))
 
     while remaining_combinations:
         match_combination = remaining_combinations.pop(0)  #
@@ -396,16 +441,13 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             'history' : history["matchups"][suspect_player].copy()
                         })
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
-            if iteration == 0:
-                for suspect_player in problematic_player:
-                    for masked_name, player_tuple in match_combination.items():
-                        print(f"iteration : {iteration} test on ite 0 remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
-                        sys.stdout.flush()
             continue  # Ignorez cette combinaison invalide
         
         if valid:
-            if iteration > 4:
-                print(iteration)
+            # if iteration > max_ite_reach:
+            #     max_ite_reach = copy.deepcopy(iteration)
+            #     print(max_ite_reach)
+            #     sys.stdout.flush()
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
@@ -429,21 +471,17 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 Global_bad_tupple_history,
                 dead_combination_backward,
                 new_history,
-                iteration + 1
+                iteration + 1,
+                max_ite_reach
             )
             if result is None and dead_combination_backward != previous_dead_combination_backward: 
                 len_before_filter =  len(remaining_combinations)  
-                if iteration == 0:
-                    print("degug")      
-                    remaining_combinations2 = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
-                    print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations2)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations2)}")          
-                
                 remaining_combinations = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
-                print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations)}") 
-                sys.stdout.flush()
+                # print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations)}") 
+                # sys.stdout.flush()
                 # needed to reset after clearing this level 
-                dead_combination_backward = set()
-                previous_dead_combination_backward = set()
+                dead_combination_backward = []
+                previous_dead_combination_backward = []
             if len(remaining_combinations) == 0 and iteration == 0:
                 print("problem")
 
@@ -997,56 +1035,54 @@ class Manatrader_fix_hidden_duplicate_name:
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
-        # first_round_xs = assignments_per_masked[0]  # Objets X du premier round
-        # remaining_rounds = assignments_per_masked[1:]  # Rounds restants
-        # chunk_size = 100  # Ajuste selon la taille souhaitée
-        # first_round_chunks = list(chunked(first_round_xs, chunk_size))
-        # tasks = [
-        #     (
-        #         chunk,
-        #         remaining_rounds,
-        #         masked_name_matches,
-        #         validate_permutation,
-        #         self.calculate_stats_for_matches,
-        #         self.compare_standings,
-        #         player_indices,
-        #         standings_wins, 
-        #         standings_losses, 
-        #         standings_gwp,
-        #         standings_omwp,
-        #         standings_ogwp, 
-        #         base_result_of_named_player,
-        #         standings
-        #     )
-        #     for chunk in first_round_chunks
-        # ]
-        # # Diviser les tâches pour chaque round dans valid_combinations
-        # with Pool(cpu_count()) as pool:
-        #     results = pool.map(process_combination, tasks)
-
+        first_round_xs = assignments_per_masked[0]  # Objets X du premier round
+        remaining_rounds = assignments_per_masked[1:]  # Rounds restants
+        chunk_size =  int(len(first_round_xs)/50)#1000  # Ajuste selon la taille souhaitée
+        first_round_chunks = list(chunked(first_round_xs, chunk_size))
+        tasks = [
+            (
+                chunk,
+                remaining_rounds,
+                masked_name_matches,
+                validate_permutation,
+                self.calculate_stats_for_matches,
+                self.compare_standings,
+                player_indices,
+                standings_wins, 
+                standings_losses, 
+                standings_gwp,
+                standings_omwp,
+                standings_ogwp, 
+                base_result_of_named_player,
+                standings
+            )
+            for chunk in first_round_chunks
+        ]
+        # Diviser les tâches pour chaque round dans valid_combinations
+        with Pool(cpu_count()) as pool:
+            results = pool.map(process_combination, tasks)
         # Fusionner les résultats valides
-        # valid_permutations = [perm for result in results if result for perm in result]
-        # Préparer les arguments pour la parallélisation
-        root = TreeNode()  # Nœud racine de l'arbre
-        build_tree(
-            root,
-            assignments_per_masked, 
-            masked_name_matches,
-            validate_permutation,
-            self.calculate_stats_for_matches,
-            self.compare_standings,
-            player_indices,
-            standings_wins, 
-            standings_losses, 
-            standings_gwp,
-            standings_omwp,
-            standings_ogwp, 
-            base_result_of_named_player,
-            standings
-        )
+        valid_permutations = [perm for result in results if result for perm in result]
 
-        # Fusionner les résultats valides
-        # valid_permutations = [perm for result in results if result for perm in result]
+
+        # root = TreeNode()  # Nœud racine de l'arbre
+        # build_tree(
+        #     root,
+        #     assignments_per_masked, 
+        #     masked_name_matches,
+        #     validate_permutation,
+        #     self.calculate_stats_for_matches,
+        #     self.compare_standings,
+        #     player_indices,
+        #     standings_wins, 
+        #     standings_losses, 
+        #     standings_gwp,
+        #     standings_omwp,
+        #     standings_ogwp, 
+        #     base_result_of_named_player,
+        #     standings
+        # )
+
 
         end_time = time.time()
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
@@ -1120,7 +1156,231 @@ class Manatrader_fix_hidden_duplicate_name:
 
 
         return modified_rounds
+###############################################################################################
+    def generate_tournaments_with_unique_permutations(self,rounds, matching_permutation):
+        """
+        Génère une liste de tournois en remplaçant les noms masqués par des permutations uniques.
 
+        Args:
+            rounds (List[Round]): Liste des rounds originaux avec des noms masqués.
+            matching_permutation (dict): Dictionnaire contenant les masques et leurs permutations uniques.
+
+        Returns:
+            List[List[Round]]: Liste de tournois (chaque tournoi est une liste de rounds avec des noms non masqués).
+        """
+        # Liste des tournois générés
+        modified_rounds = [
+            Round(
+                rnd.round_name,
+                [RoundItem(match.player1, match.player2, match.result,match.id) for match in rnd.matches]
+            )
+            for rnd in rounds
+        ]
+
+        initial_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in rounds]
+        # Copie des permutations restantes
+        remaining_permutations = matching_permutation.copy()
+        # Parcours des masques et application des permutations uniques
+        for masked_name, permutations in matching_permutation.items():
+            if len(permutations) == 1:
+                print(f"Permutation unique attribué : {masked_name}")
+                for round_combinations in permutations:
+                    for round_dict in round_combinations:  # Itère sur chaque defaultdict
+                        for real_name, updated_matches in round_dict.items():  # Itère sur les paires clé-valeur
+                            for updated_match in updated_matches:  # Itère sur les RoundItem associés
+                                # Appliquer les modifications si le masque et l'autre joueur correspondent
+                                for modified_round in modified_rounds:
+                                    for match in modified_round.matches:
+                                        if match.player1 == masked_name and match.id == updated_match.id:
+                                            match.player1 = real_name
+                                        elif match.player2 == masked_name and match.id == updated_match.id:
+                                            match.player2 = real_name
+                # Supprimer le masque traité des permutations restantes
+                del remaining_permutations[masked_name]
+
+
+        # Après les modifications, vérifier qu'aucun nouveau match n'a été ajouté
+        final_lengths = [(rnd.round_name, len(rnd.matches)) for rnd in modified_rounds]
+        # Vérification que les longueurs des rounds sont restées identiques
+        for initial, final in zip(initial_lengths, final_lengths):
+            if initial != final:
+                raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
+
+        return modified_rounds, remaining_permutations
+    
+    def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
+        """Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués."""
+        masked_matches = defaultdict(list)
+        for masked in duplicated_masked_names:
+            for rnd in rounds:
+                for match in rnd.matches:
+                    if match.player1 == masked:
+                        masked_matches[masked].append(('player1', rnd.round_name, match))
+                    if match.player2 == masked:
+                        masked_matches[masked].append(('player2', rnd.round_name, match))
+        return masked_matches   
+    
+    def assign_determinist_permutation_player_to_match(self,rounds,masked_to_actual,standings):
+        matching_permutation = {}
+        for masked_name in masked_to_actual:
+            masked_matches = self.collect_matches_for_duplicated_masked_names(
+                {masked_name}, rounds
+            )
+            assignments_per_masked = self.No_tree_determinist_generate_assignments(
+                    masked_matches, masked_to_actual, standings
+                )
+            if assignments_per_masked:
+                for key, value in assignments_per_masked.items():
+                        matching_permutation[key] = value  # Créer une nouvelle clé si elle n'existe pas
+
+        Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
+        return matching_permutation.keys(),Determinist_permutation
+    
+    def No_tree_determinist_generate_assignments(self, masked_matches, masked_to_actual, standings):
+        """Optimiser la génération des assignments avec multiprocessing."""
+        def No_tree_determinist_generate_round_combinations(matches, actual_players, standings,round_name):
+            """Générer les permutations pour chaque round en tenant compte du nombre de matchs du joueur."""
+            round_combinations = []
+            # Calculer le nombre total de matchs pour chaque joueur
+            # Convertir standings en un dictionnaire, où la clé est le nom du joueur
+            standings_dict = {standing.player: standing for standing in standings}
+            # Calculer le nombre total de matchs pour chaque joueur
+            player_match_count = {player: standings_dict[player].wins + standings_dict[player].losses for player in actual_players}
+            # Analyser les résultats des matchs pour mettre à jour les victoires et défaites des joueurs
+                # Étendre les joueurs pour correspondre au nombre de matchs
+            match_round = int(round_name.replace('Round ', ''))
+            valid_player = [player for player in actual_players if player_match_count[player] >= match_round]
+            for perm in permutations(valid_player, len(matches)):
+                replaced_matches = defaultdict(list)
+                for (role, match), player in zip(matches, perm):
+                # Si un joueur a plus de matchs que le round actuel lui permet, la permutation est invalide
+                    # print(f"Permutation invalide pour {player} au round {match_round}. Nombre de matchs restants: {player_match_count[player]}")
+                    p1_wins, p2_wins, _ = map(int, match.result.split('-'))
+                    if (role == 'player1'  and (
+                        (p1_wins > p2_wins and standings_dict[player].wins == 0) or 
+                        (p1_wins < p2_wins and standings_dict[player].losses == 0) or 
+                        (p1_wins > 0 and standings_dict[player].gwp == 0) or
+                        (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and custom_round(standings_dict[player].gwp, 2) == 0.33 and p1_wins != 1) 
+                        )):
+                        break
+                    elif (role == 'player2' and (
+                        (p1_wins < p2_wins and standings_dict[player].wins == 0) or 
+                        (p1_wins > p2_wins and standings_dict[player].losses == 0) or 
+                        (p2_wins > 0 and standings_dict[player].gwp == 0) or 
+                        (standings_dict[player].losses > 0 and standings_dict[player].wins == 0 and custom_round(standings_dict[player].gwp, 2) == 0.33 and p2_wins != 1)
+                        )):
+                        break      
+                    else:
+                        new_match = RoundItem(
+                            player1=match.player1 if role != 'player1' else player,
+                            player2=match.player2 if role != 'player2' else player,
+                            result=match.result,
+                            id=match.id
+                        )
+                        replaced_matches[player].append(new_match)
+                if len(replaced_matches) == len(valid_player):
+                    round_combinations.append(replaced_matches)
+            return round_combinations
+
+        def No_tree_determinist_clean_round_combinations(round_combinations):
+            seen = set()  # Pour garder trace des dictionnaires déjà vus
+            cleaned_round_data = []
+            for round_item in round_combinations:
+                # Convertir le defaultdict en un tuple des éléments
+                item_tuple = tuple((key, tuple(value)) for key, value in round_item.items())
+                if item_tuple not in seen:
+                    seen.add(item_tuple)  # Marquer ce dict comme vu
+                    cleaned_round_data.append(round_item)  # Ajouter le dict à la liste nettoyée
+            return cleaned_round_data
+        def No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players):
+            """Valider une permutation donnée."""
+            wins = np.zeros(n_players, dtype=int)
+            losses = np.zeros(n_players, dtype=int)
+            gwp_calculated = np.zeros(n_players, dtype=float)
+            # rounds_played = np.zeros(n_players, dtype=int)
+            for round_data in perm:
+                for player, round_items in round_data.items():
+                    player_idx = player_indices[player]
+                    for round_item in round_items:
+                        if round_item.player1 == player:
+                            win, loss = round_item.scores[0]  # Scores de player1
+                        elif round_item.player2 == player:
+                            win, loss = round_item.scores[1]  # Scores de player2  
+                        # Mettre à jour les statistiques du joueur
+                        wins[player_idx] += win
+                        losses[player_idx] += loss
+
+                        # Vérifier si les limites de wins/losses sont dépassées
+                        if wins[player_idx] > standings_wins[player_idx] or losses[player_idx] > standings_losses[player_idx]:
+                            return False
+            if not np.array_equal(wins, standings_wins) or not np.array_equal(losses, standings_losses):
+                return False
+                # rounds_played = np.zeros(n_players, dtype=int)
+            Match_win = np.zeros(n_players, dtype=int)
+            Match_losses = np.zeros(n_players, dtype=int)
+            Match_draw = np.zeros(n_players, dtype=int)
+            for round_data in perm:
+                for player, round_items in round_data.items():
+                    player_idx = player_indices[player]
+                    for round_item in round_items:
+                        if round_item.player1 == player:
+                            win, loss,draw  = map(int, round_item.result.split('-'))  # Scores de player1
+                        elif round_item.player2 == player:
+                            loss ,win, draw  = map(int, round_item.result.split('-'))  # Scores de player2  
+                        Match_win[player_idx] += win + (draw/3)
+                        Match_losses[player_idx] += loss
+                        Match_draw[player_idx] += draw
+                # Calcul du GWP et comparaison avec standings_gwp
+            for i in range(n_players):
+                total_games = Match_win[i] + Match_losses[i] + Match_draw[i]
+                if total_games > 0:
+                    gwp_calculated[i] = Match_win[i] / total_games
+                else:
+                    gwp_calculated[i] = 0.0
+                # Comparaison avec tolérance
+                if not np.isclose(gwp_calculated[i], standings_gwp[i], atol=0.001):
+                    return False
+            return True
+        dict_standings = self.standings_to_dict(standings)
+        assignments_per_masked = {}
+        for masked, matches_info in masked_matches.items():
+            actual_players = masked_to_actual[masked]
+            matches_by_round = self.organize_matches_by_round(matches_info)
+            # Préparer les données
+            player_indices = {player: idx for idx, player in enumerate(actual_players)}
+            n_players = len(actual_players)
+            standings_wins = np.array([dict_standings[player]["wins"] for player in actual_players])
+            standings_losses = np.array([dict_standings[player]["losses"] for player in actual_players])
+            standings_gwp = np.array([dict_standings[player]['gwp'] for player in actual_players]) 
+            # Fonction génératrice pour les combinaisons de rounds
+            def generate_valid_combinations():
+                for round_name, matches in matches_by_round.items():
+                    round_combinations = No_tree_determinist_generate_round_combinations(matches, actual_players, standings, round_name)
+                    if round_combinations:  # Vérifie si des combinaisons existent pour ce round
+                        yield round_combinations
+
+            # Générer le générateur de combinaisons valides pour chaque round
+            valid_combinations = generate_valid_combinations()
+            # Nettoyage des données des combinaisons générées
+            cleaned_combinations = []
+            for round_combinations in valid_combinations:
+                cleaned_round_data = No_tree_determinist_clean_round_combinations(round_combinations)
+                cleaned_combinations.append(cleaned_round_data)
+
+            permutations_lazy_permutations = product(*cleaned_combinations)                          
+            valid_perms = []  # Liste des permutations validées
+            # Itérer sur le générateur et valider chaque permutation
+            for perm in permutations_lazy_permutations:
+                if No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players):
+                    valid_perms.append(perm)
+                    # Dès qu'on trouve plus d'un élément, on arrête et renvoie None
+                    if len(valid_perms) > 1:
+                        return None
+            # Affecter la (unique) permutation trouvée pour ce masked
+            assignments_per_masked[masked] = valid_perms
+        return assignments_per_masked
+
+###################################################################################################################    
     # Fonction ou méthode principale
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
@@ -1129,15 +1389,27 @@ class Manatrader_fix_hidden_duplicate_name:
         duplicated_masked_names = {
             masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
         }
+
+        mask_to_remove,round_with_deterministic_round = self.assign_determinist_permutation_player_to_match(rounds, masked_to_actual,standings)
+
+        for determinist_mask in mask_to_remove:
+            del masked_to_actual[determinist_mask]
+        # 2 chose a faire ici faire une methode qui vire les permut deterministe 
+        # et peut etre auto assigner les permutations quand un joueur devient seul dans sa perm
         # on repete tout ici pour tout faire en une fois 
         matching_permutation = {}
         assignments_per_masked = self.generate_assignments(
-            rounds, masked_to_actual, standings
+            round_with_deterministic_round, masked_to_actual, standings
         )
         
+        round_number = 0
+        for permutation_per_round in assignments_per_masked:
+            round_number += 1
+            print(f"Round : {round_number} number of perm :{len(permutation_per_round)}")
+
         print("ok")
         resulting_tree =  self.find_real_tournament_from_permutation(
-            assignments_per_masked,masked_to_actual, rounds, standings
+            assignments_per_masked,masked_to_actual, round_with_deterministic_round, standings
         )
 
         print(f"Traitement pour le nom masqué :")
