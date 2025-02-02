@@ -752,7 +752,7 @@ class Manatrader_fix_hidden_duplicate_name:
 
 
             
-    def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing]):
+    def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing],masked_player_tolerate = False):
         # Initialiser les stats
         points = 0
         wins = 0
@@ -769,12 +769,15 @@ class Manatrader_fix_hidden_duplicate_name:
         for round in rounds:
             for match in round.matches:
                 p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+                opponent = None
                 # Identifier l'adversaire
                 if match.player1 == player:
-                    opponent = match.player2
+                    if match.player2 and not re.fullmatch(r'.\*{10}.', match.player2) and masked_player_tolerate:
+                        opponent = match.player2
                     player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
                 elif match.player2 == player:
-                    opponent = match.player1
+                    if match.player1 and not re.fullmatch(r'.\*{10}.', match.player1) and masked_player_tolerate:
+                        opponent = match.player1
                     player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
                 else:
                     continue  # Ignorer les matchs où le joueur n'est pas impliqué
@@ -794,7 +797,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 total_games_won += player_wins + (player_draw/3)
 
                 # Ajouter l'adversaire à la liste
-                opponents.add(opponent)
+                if opponent:
+                    opponents.add(opponent)
         # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
         points += 3 * wins + draws
 
@@ -802,48 +806,49 @@ class Manatrader_fix_hidden_duplicate_name:
         total_opponents = 0
 
         total_omp = 0
-        for opponent in opponents:
-        # Ignorer les adversaires qui correspondent à la regexp
-            if opponent is None:
-                continue
-            elif re.fullmatch(r'.\*{10}.', opponent):
-                continue
-            # Récupérer les matchs de l'adversaire
-            opponent_matches = [
-                match for rnd in rounds
-                for match in rnd.matches
-                if match.player1 == opponent or match.player2 == opponent
-            ]
+        if opponents:
+            for opponent in opponents:
+            # Ignorer les adversaires qui correspondent à la regexp
+                if opponent is None:
+                    continue
+                elif re.fullmatch(r'.\*{10}.', opponent):
+                    continue
+                # Récupérer les matchs de l'adversaire
+                opponent_matches = [
+                    match for rnd in rounds
+                    for match in rnd.matches
+                    if match.player1 == opponent or match.player2 == opponent
+                ]
 
-            opponent_match_won = 0
-            opponent_match_total_number = 0
+                opponent_match_won = 0
+                opponent_match_total_number = 0
 
-            opponent_games_won = 0
-            opponent_games_played = 0
+                opponent_games_won = 0
+                opponent_games_played = 0
 
-            for match in opponent_matches:
-                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
-                # verifier les bye
-                if match.player1 == opponent:
-                    opponent_games_won += (p1_wins + (draws/3))
-                    opponent_games_played += p1_wins + p2_wins 
-                    opponent_match_won += 1 if p1_wins > p2_wins else 0
-                    opponent_match_total_number += 1
-                elif match.player2 == opponent:
-                    opponent_games_won += (p2_wins + (draws/3))
-                    opponent_games_played += p1_wins + p2_wins 
-                    opponent_match_won += 1 if p1_wins < p2_wins else 0
-                    opponent_match_total_number += 1
-                 
-            # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
-            if opponent_games_played > 0:
-                # OGWP
-                opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
-                total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
-                total_opponents += 1
-                # OMWP 
-                opponent_match_winrate = opponent_match_won/opponent_match_total_number 
-                total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
+                for match in opponent_matches:
+                    p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+                    # verifier les bye
+                    if match.player1 == opponent:
+                        opponent_games_won += (p1_wins + (draws/3))
+                        opponent_games_played += p1_wins + p2_wins 
+                        opponent_match_won += 1 if p1_wins > p2_wins else 0
+                        opponent_match_total_number += 1
+                    elif match.player2 == opponent:
+                        opponent_games_won += (p2_wins + (draws/3))
+                        opponent_games_played += p1_wins + p2_wins 
+                        opponent_match_won += 1 if p1_wins < p2_wins else 0
+                        opponent_match_total_number += 1
+                    
+                # Calculer le pourcentage de victoires de l'adversaire (GWP pour l'adversaire)
+                if opponent_games_played > 0:
+                    # OGWP
+                    opponent_gwp = opponent_games_won / opponent_games_played  # GWP pour l'adversaire
+                    total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
+                    total_opponents += 1
+                    # OMWP 
+                    opponent_match_winrate = opponent_match_won/opponent_match_total_number 
+                    total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
 
         return {
         'wins' : wins,
@@ -1222,7 +1227,12 @@ class Manatrader_fix_hidden_duplicate_name:
     
     def assign_determinist_permutation_player_to_match(self,rounds,masked_to_actual,standings):
         matching_permutation = {}
+        # ICI  RESTE A MODIFIER LE COMPORTEMENT DE DETERMINISTE PERMUTATION POUR UPDATE LES MATCHES A CHAQUE TOUR DE BOUCLE OU BOUCLE WHILE
+        # ET RE PARALELISER CAR LONG
+        temp_rounds = copy.deepcopy(rounds)
+        # Identifier l'adversaire
         for masked_name in masked_to_actual:
+
             masked_matches = self.collect_matches_for_duplicated_masked_names(
                 {masked_name}, rounds
             )
@@ -1292,11 +1302,13 @@ class Manatrader_fix_hidden_duplicate_name:
                     seen.add(item_tuple)  # Marquer ce dict comme vu
                     cleaned_round_data.append(round_item)  # Ajouter le dict à la liste nettoyée
             return cleaned_round_data
-        def No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players):
+        
+        def No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses,standings_gwp, n_players,dict_standings):
             """Valider une permutation donnée."""
             wins = np.zeros(n_players, dtype=int)
             losses = np.zeros(n_players, dtype=int)
             gwp_calculated = np.zeros(n_players, dtype=float)
+            matchups = {player: [] for player in player_indices.keys()}
             # rounds_played = np.zeros(n_players, dtype=int)
             for round_data in perm:
                 for player, round_items in round_data.items():
@@ -1304,8 +1316,16 @@ class Manatrader_fix_hidden_duplicate_name:
                     for round_item in round_items:
                         if round_item.player1 == player:
                             win, loss = round_item.scores[0]  # Scores de player1
+                            if re.fullmatch(r'.\*{10}.', round_item.player2):
+                                if round_item.player2 in matchups[player]:
+                                    return False
+                            matchups[player].append(round_item.player2)
                         elif round_item.player2 == player:
                             win, loss = round_item.scores[1]  # Scores de player2  
+                            if re.fullmatch(r'.\*{10}.', round_item.player1):
+                                if round_item.player1 in matchups[player]:
+                                    return False
+                            matchups[player].append(round_item.player1)
                         # Mettre à jour les statistiques du joueur
                         wins[player_idx] += win
                         losses[player_idx] += loss
@@ -1319,6 +1339,7 @@ class Manatrader_fix_hidden_duplicate_name:
             Match_win = np.zeros(n_players, dtype=int)
             Match_losses = np.zeros(n_players, dtype=int)
             Match_draw = np.zeros(n_players, dtype=int)
+
             for round_data in perm:
                 for player, round_items in round_data.items():
                     player_idx = player_indices[player]
@@ -1340,7 +1361,28 @@ class Manatrader_fix_hidden_duplicate_name:
                 # Comparaison avec tolérance
                 if not np.isclose(gwp_calculated[i], standings_gwp[i], atol=0.001):
                     return False
+            for player , oponents in matchups.items():
+                if all(not re.fullmatch(r'.\*{10}.',element) for element in oponents):   
+                    gwp_opo = 0
+                    mwp_opo = 0
+                    total_opo_opo = 0
+                    for oponent in oponents:
+                        total_opo_opo += 1
+                        gwp_opo_en_cours = dict_standings[oponent]["gwp"] 
+                        gwp_opo += gwp_opo_en_cours if gwp_opo_en_cours >= 0.33333 else 0.33
+                        match_win_rate_opo = dict_standings[oponent]["wins"] /(dict_standings[oponent]["wins"]  + dict_standings[oponent]["losses"])
+                        mwp_opo += match_win_rate_opo if match_win_rate_opo >= 0.33333 else 0.33
+                     
+                    if not np.isclose(dict_standings[player]["ogwp"], gwp_opo/total_opo_opo, atol=0.001):
+                        return False 
+                    if not np.isclose(dict_standings[player]["omwp"], mwp_opo/total_opo_opo, atol=0.001):
+                        return False 
+
+
+                    
             return True
+        
+
         dict_standings = self.standings_to_dict(standings)
         assignments_per_masked = {}
         for masked, matches_info in masked_matches.items():
@@ -1371,7 +1413,7 @@ class Manatrader_fix_hidden_duplicate_name:
             valid_perms = []  # Liste des permutations validées
             # Itérer sur le générateur et valider chaque permutation
             for perm in permutations_lazy_permutations:
-                if No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players):
+                if No_tree_determinist_validate_permutation(perm, player_indices, standings_wins, standings_losses, standings_gwp, n_players,dict_standings):
                     valid_perms.append(perm)
                     # Dès qu'on trouve plus d'un élément, on arrête et renvoie None
                     if len(valid_perms) > 1:
@@ -1394,6 +1436,8 @@ class Manatrader_fix_hidden_duplicate_name:
 
         for determinist_mask in mask_to_remove:
             del masked_to_actual[determinist_mask]
+
+        
         # 2 chose a faire ici faire une methode qui vire les permut deterministe 
         # et peut etre auto assigner les permutations quand un joueur devient seul dans sa perm
         # on repete tout ici pour tout faire en une fois 
