@@ -1211,7 +1211,7 @@ class Manatrader_fix_hidden_duplicate_name:
             if initial != final:
                 raise ValueError(f"Round {initial[0]} a changé de nombre de matchs : {initial[1]} -> {final[1]}")
 
-        return modified_rounds, remaining_permutations
+        return modified_rounds,remaining_permutations
     
     def collect_matches_for_duplicated_masked_names(self, duplicated_masked_names,rounds):
         """Étape 4 : Collecter les matchs impliquant des noms masqués dupliqués."""
@@ -1231,10 +1231,15 @@ class Manatrader_fix_hidden_duplicate_name:
         # ET RE PARALELISER CAR LONG
         temp_rounds = copy.deepcopy(rounds)
         # Identifier l'adversaire
-        for masked_name in masked_to_actual:
-
+        start_time = time.time()
+        i = 0
+        init_number_of_masked_mathc = len(masked_to_actual)
+        while i <= init_number_of_masked_mathc:
+            masked_name = list(masked_to_actual.keys())[i]
+            print(i)
+            print(masked_name)
             masked_matches = self.collect_matches_for_duplicated_masked_names(
-                {masked_name}, rounds
+                {masked_name}, temp_rounds
             )
             assignments_per_masked = self.No_tree_determinist_generate_assignments(
                     masked_matches, masked_to_actual, standings
@@ -1242,8 +1247,11 @@ class Manatrader_fix_hidden_duplicate_name:
             if assignments_per_masked:
                 for key, value in assignments_per_masked.items():
                         matching_permutation[key] = value  # Créer une nouvelle clé si elle n'existe pas
+                        temp_rounds,matching_permutation = self.generate_tournaments_with_unique_permutations(temp_rounds, matching_permutation)
+            i += 1
 
-        Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
+        end_time = time.time()
+        print(f"Temps total d'exécution pour determinist les perm: {end_time - start_time:.2f} secondes")
         return matching_permutation.keys(),Determinist_permutation
     
     def No_tree_determinist_generate_assignments(self, masked_matches, masked_to_actual, standings):
