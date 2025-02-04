@@ -139,7 +139,7 @@ def apply_tree_permutations(node, modified_rounds, masked_name):
         for child in node.children:
             apply_tree_permutations(child, modified_rounds, masked_name)
         return
-
+    
     # Appliquer les modifications du nœud courant
     for real_name, updated_matches in node.combination.items():  # Itère sur les paires clé-valeur
         for updated_match in updated_matches:  # Parcourt les RoundItem associés
@@ -295,8 +295,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     if not node.valid:
         return
-    # print(iteration)
-    # print(remaining_rounds)
     # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
 
     if not remaining_rounds:
@@ -322,48 +320,28 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     remaining_combinations = current_round[:] 
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
-    # bad_tuples_dict = defaultdict(lambda: defaultdict(set))
-    # for player, bad_tuples in Global_bad_tupple_history.items():
-    #     for bad_data in bad_tuples:
-    #         if history["matchups"][player] == bad_data["history"]:
-    #             for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
-    #                 if bad_player == player:  # Vérifier si c'est bien le joueur concerné
-    #                     player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
-    #                     bad_tuples_dict[player_mask][pos].add(player)
+    bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+    for player, bad_tuples in Global_bad_tupple_history.items():
+        for bad_data in bad_tuples:
+            if history["matchups"][player] == bad_data["history"]:
+                for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
+                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+                        bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    # remaining_combinations = [
-    #     combination
-    #     for combination in remaining_combinations
-    #     if all(
-    #         not any(
-    #             key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
-    #             for pos, player in enumerate(players)
-    #         )
-    #         for key, players in combination.items()
-    #     )
-    # ]
+    remaining_combinations = [
+        combination
+        for combination in remaining_combinations
+        if all(
+            not any(
+                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+                for pos, player in enumerate(players)
+            )
+            for key, players in combination.items()
+        )
+    ]
     # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
-
-    # if len(remaining_combinations) == 0:
-    #     # # Trouver les combinaisons qui vident `remaining_combinations`
-    #     test_reaming_combination = current_round[:] 
-    #     dead_key_list = find_minimal_combinations(bad_tuples_dict, test_reaming_combination)
-    #     for dead_key_dict in dead_key_list:
-    #         for key, dead_players in dead_key_dict.items():
-    #             # Vérifier que la clé existe bien dans parent_combination
-    #             if key in node.combination:
-    #                 parent_tuple = node.combination[key]
-    #                 # parent_tuple = parent_combination[key]
-    #                 for player in dead_players:
-    #                     # On cherche la position du joueur dans le tuple
-    #                     try:
-    #                         position = parent_tuple.index(player)
-    #                     except ValueError:
-    #                         # probleme ici 
-    #                         print(f"Erreur : {player} n'est pas dans parent_tuple")
-    #                     # position = parent_tuple.index(player)
-    #                     dead_combination_backward.append((key, player, position))
 
     while remaining_combinations:
         match_combination = remaining_combinations.pop(0)  #
@@ -396,16 +374,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         if not valid:
             # Ajouter la permutation problématique pour la transmission horizontale
-            # for suspect_player in problematic_player:
-            #     for masked_name, player_tuple in match_combination.items():
-            #         if suspect_player in player_tuple: 
-            #             remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-            #             # Trouver la position exacte de suspect_player
-            #             player_position = player_tuple.index(suspect_player)
-            #             Global_bad_tupple_history[suspect_player].append({
-            #                 'tuple' : {suspect_player : player_position},
-            #                 'history' : history["matchups"][suspect_player].copy()
-            #             })
+            for suspect_player in problematic_player:
+                for masked_name, player_tuple in match_combination.items():
+                    if suspect_player in player_tuple: 
+                        remaining_combinations2 =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                        # Trouver la position exacte de suspect_player
+                        player_position = player_tuple.index(suspect_player)
+                        Global_bad_tupple_history[suspect_player].append({
+                            'tuple' : {suspect_player : player_position},
+                            'history' : history["matchups"][suspect_player].copy()
+                        })
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             continue  # Ignorez cette combinaison invalide
         
@@ -441,27 +419,13 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 iteration + 1,
                 max_ite_reach
             )
-            if result is None and dead_combination_backward != previous_dead_combination_backward: 
-                len_before_filter =  len(remaining_combinations)  
-                # remaining_combinations = backward_remove_matching_combinations(remaining_combinations, dead_combination_backward) 
-                # # print(f"iteration : {iteration} Backward remove {dead_combination_backward} Remaining perm : {len(remaining_combinations)}/{len(current_round)} : remove : {len_before_filter - len(remaining_combinations)}") 
-                # # sys.stdout.flush()
-                # # needed to reset after clearing this level 
-                # dead_combination_backward = []
-                # previous_dead_combination_backward = []
-            if len(remaining_combinations) == 0 and iteration == 0:
-                print("problem")
 
             if result is not None:
                 valid_children.append(child_node)
     # Met à jour les enfants du nœud actuel avec les enfants valides
     node.children = valid_children
     return valid_children if valid_children else []
-    # Si le nœud a au moins un enfant valide, retourne-le ; sinon, retourne None
-    # if valid_children and valid:
-    #     return node
-    # else:
-    #     return None
+
 
 def filter_other_node_combinations(remaining_combinations, masked_name, player_tuple):
     """
@@ -1016,12 +980,43 @@ class Manatrader_fix_hidden_duplicate_name:
 
     def handle_mask_by_mask(self,rounds, masked_to_actual,standings):
         Assignement_per_mask_result = {}
+        tree_result = {}
         for mask ,actual_player in masked_to_actual.items():
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
-            a = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
+            tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
+
+        modified_rounds = copy.deepcopy(rounds)
+        for mask,tree in tree_result.items():
+            if isinstance(tree, list) and len(tree) == 1:
+                tree = tree[0]  # Extraire l'élément unique de la liste
+            if isinstance(tree, TreeNode) and is_single_line_tree(tree):
+                apply_tree_permutations(tree, modified_rounds, mask)
+                # debug_test temp 
+                masked_name_matches = [Round(
+                round_obj.round_name,
+                [
+                    match for match in round_obj.matches
+                        if (
+                            (isinstance(match.player1, str) and mask == match.player1) or
+                            (isinstance(match.player2, str) and mask ==  match.player2)
+                        )
+                ]
+            )
+            for round_obj in modified_rounds]
+        
+
+            
+
+                
 
 
-        print
+        # is_single_line_tree
+
+        # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
+        # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
+        # répété 1 et 2 jusqu'a absence de changement
+
+        print("a")
         return resulting_rounds ,remaining_mask
     
     def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing],masked_player_tolerate = False):
