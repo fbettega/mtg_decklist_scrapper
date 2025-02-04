@@ -96,9 +96,10 @@ def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_
     return valid_combinations
 ###########
 
+
+
 #######################################################################################################################
 # stat tree 
-
 class TreeNode:
     def __init__(self, combination=None):
         self.combination = combination  # La configuration actuelle du round
@@ -127,7 +128,7 @@ def is_single_line_tree(node):
         current = current.children[0]  # Passer au seul enfant
     return True
     
-def apply_tree_permutations(node, modified_rounds, masked_name):
+def apply_tree_permutations(node, modified_rounds, masked_name,iteration = 0):
     """
     Applique les permutations contenues dans un nœud de l'arbre sur les rounds modifiés.
     """
@@ -140,19 +141,22 @@ def apply_tree_permutations(node, modified_rounds, masked_name):
             apply_tree_permutations(child, modified_rounds, masked_name)
         return
     
-    # Appliquer les modifications du nœud courant
-    for real_name, updated_matches in node.combination.items():  # Itère sur les paires clé-valeur
-        for updated_match in updated_matches:  # Parcourt les RoundItem associés
-            for modified_round in modified_rounds:
-                for match in modified_round.matches:
-                    if match.id == updated_match.id:  # Vérifier si l'ID correspond
-                        # Appliquer les modifications au joueur correspondant
-                        if match.player1 == masked_name:
-                            match.player1 = real_name
-                        elif match.player2 == masked_name:
-                            match.player2 = real_name
+    used_players = defaultdict(int)
+    # match_combination = node.combination[masked_name]
+    for match in modified_rounds[iteration].matches:
+        # Remplacer player1 si c'est un nom masqué
+        if match.player1 in node.combination:
+            used_players[match.player1] += 1
+            player1_real_names = node.combination[match.player1]
+            match.player1 = player1_real_names[used_players[match.player1] -1]
+        # Remplacer player2 si c'est un nom masqué
+        if match.player2 in node.combination:
+            used_players[match.player2] += 1
+            player2_real_names = node.combination[match.player2]  # Correction ici
+            match.player2 = player2_real_names[used_players[match.player2] -1]  # Utiliser player2_real_names
+
     for child in node.children:
-        apply_tree_permutations(child, modified_rounds, masked_name)
+        apply_tree_permutations(child, modified_rounds, masked_name, iteration + 1)
                     # Appliquer les permutations à partir de l'arbre racine
 
 def all_subsets(bad_tuples_dict):
@@ -584,6 +588,75 @@ def process_combination(task):
 
     return root
 #######################################################################################################################
+# update stat tree
+def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun, compare_standings_fun, 
+                            player_indices, standings_wins, standings_losses, standings_gwp, standings_omwp, 
+                            standings_ogwp, base_result_from_know_player, standings, full_list_of_masked_player, history = None,
+                            iteration=0):
+    """
+    Met à jour l'arbre avec les nouvelles données de rounds et vérifie sa validité.
+    Supprime les branches invalides et tente de reconstruire si nécessaire.
+    """
+    if history is None:
+        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
+    if not node:
+        return None  # Si le nœud est vide, on l’ignore
+    # Si le nœud est le premier et n'a pas de combinaison, on met à jour ses enfants directement
+    if node.combination is None:
+        new_children = []
+        for child in node.children:
+            updated_child = update_and_validate_tree(child,
+                updated_rounds, validate_fn, compute_stat_fun,
+                compare_standings_fun, player_indices, standings_wins,
+                standings_losses, standings_gwp, standings_omwp, standings_ogwp,
+                base_result_from_know_player, standings, full_list_of_masked_player, history,iteration)
+            if updated_child:
+                new_children.append(updated_child)
+
+        node.children = new_children  # Mise à jour des enfants
+        return node if new_children else None  # Supprime l’arbre s'il devient vide
+    # Mise à jour des informations de l'arbre avec les nouveaux rounds
+    new_masked_name_matches = copy.deepcopy(updated_rounds)
+
+    # Appliquer les nouvelles permutations sur ce nœud
+    used_players = defaultdict(int)
+    for match in new_masked_name_matches[iteration].matches:
+        if match.player1 in node.combination:
+            used_players[match.player1] += 1
+            player1_real_names = node.combination[match.player1]
+            match.player1 = player1_real_names[used_players[match.player1] - 1]
+        
+        if match.player2 in node.combination:
+            used_players[match.player2] += 1
+            player2_real_names = node.combination[match.player2]
+            match.player2 = player2_real_names[used_players[match.player2] - 1]
+
+    # Valider la mise à jour
+    valid, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, history, 
+                                             player_indices, standings_wins, standings_losses, standings_gwp, 
+                                             full_list_of_masked_player)
+    
+    if not valid:
+        print(f"Nœud invalide après mise à jour, suppression de {node.combination}")
+        return None  # Ce nœud est devenu invalide, on le supprime
+
+    # Mettre à jour récursivement les enfants du nœud
+    new_children = []
+    for child in node.children:
+        updated_child = update_and_validate_tree(
+            child, updated_rounds, validate_fn, compute_stat_fun,
+            compare_standings_fun, player_indices, standings_wins,
+            standings_losses, standings_gwp, standings_omwp, standings_ogwp,
+            base_result_from_know_player, standings, full_list_of_masked_player,history,
+            iteration + 1)
+        if updated_child:
+            new_children.append(updated_child)
+
+    node.children = new_children  # Mettre à jour les enfants du nœud
+
+    return node if new_children else None  # Si un nœud n'a plus d'enfants, il est supprimé
+
+
 
 ###########
 # generate combination of player per_round 
@@ -986,39 +1059,120 @@ class Manatrader_fix_hidden_duplicate_name:
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
         modified_rounds = copy.deepcopy(rounds)
+        # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
+        keys_to_delete = []
         for mask,tree in tree_result.items():
             if isinstance(tree, list) and len(tree) == 1:
                 tree = tree[0]  # Extraire l'élément unique de la liste
             if isinstance(tree, TreeNode) and is_single_line_tree(tree):
                 apply_tree_permutations(tree, modified_rounds, mask)
                 # debug_test temp 
-                masked_name_matches = [Round(
+                debug_masked_name_matches = [
+                    match for round_obj in modified_rounds for match in round_obj.matches
+                    if (isinstance(match.player1, str) and mask == match.player1) or
+                    (isinstance(match.player2, str) and mask == match.player2)
+                ]
+                if debug_masked_name_matches:
+                    print("Il reste des noms masqués :", debug_masked_name_matches)
+                else:
+                    print("Unique perm : ", mask)
+                    keys_to_delete.append(mask)
+
+        for key in keys_to_delete:
+            del tree_result[key]
+            del masked_to_actual[key]
+
+        
+        # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
+        for mask, tree in tree_result.items():
+            tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, rounds, standings)
+            print("a")
+        # is_single_line_tree
+
+
+
+        # répété 1 et 2 jusqu'a absence de changement
+
+ 
+        return resulting_rounds ,remaining_mask
+    
+    def update_tree_after_round_assignation(self,tree, masked_to_actual,rounds, standings):
+        print("a")
+
+        masked_name_matches = [
+            Round(
                 round_obj.round_name,
                 [
                     match for match in round_obj.matches
                         if (
-                            (isinstance(match.player1, str) and mask == match.player1) or
-                            (isinstance(match.player2, str) and mask ==  match.player2)
+                            (isinstance(match.player1, str) and re.fullmatch(r'.\*{10}.', match.player1)) or
+                            (isinstance(match.player2, str) and re.fullmatch(r'.\*{10}.', match.player2))
                         )
                 ]
             )
-            for round_obj in modified_rounds]
-        
+            for round_obj in rounds
+        ]
 
+        player_with_real_name = set()
+            # Identifier l'adversaire
+        for round in rounds:
+            for match in round.matches:
+                if match.player1 and not re.fullmatch(r'.\*{10}.', match.player1):
+                        player_with_real_name.add(match.player1)
+                if match.player2 and not re.fullmatch(r'.\*{10}.', match.player2):
+                        player_with_real_name.add(match.player2)
+
+        base_result_of_named_player = {}
+        for ite_player in player_with_real_name:
+           base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, rounds ,standings,True)
+
+        full_list_of_masked_player = set()
+        for mask,player_list in masked_to_actual.items():
+            for player in player_list:
+                full_list_of_masked_player.add(player)
             
+        player_indices = {standing.player: idx for idx, standing in enumerate(standings)}
+        n_players = len(standings)
+        # Créer les numpy arrays en extrayant les attributs des instances Standing
+        # Créer les numpy arrays en extrayant les attributs des instances Standing
+        standings_wins = np.array([standing.wins for standing in standings])
+        standings_losses = np.array([standing.losses for standing in standings])
+        standings_gwp = np.array([standing.gwp for standing in standings])
+        standings_omwp = np.array([standing.omwp for standing in standings])
+        standings_ogwp = np.array([standing.ogwp for standing in standings])
 
-                
+        dict_standings = self.standings_to_dict(standings)
 
+        tree_result = {}
+        if isinstance(tree, list):
+            tree = [update_and_validate_tree(t,
+                                            masked_name_matches,
+                                            validate_permutation,
+                                            self.calculate_stats_for_matches,
+                                            self.compare_standings,
+                                            player_indices, standings_wins, standings_losses, standings_gwp, 
+                                            standings_omwp, standings_ogwp, base_result_of_named_player, dict_standings, 
+                                            masked_to_actual) 
+                    for t in tree]
+            tree_result[mask] = [t for t in tree if t is not None]  # Supprime les arbres invalides
+        else:
+            tree_result[mask] = update_and_validate_tree(tree,
+                                                        masked_name_matches,
+                                                        validate_permutation,
+                                                        self.calculate_stats_for_matches,
+                                                        self.compare_standings,
+                                                        player_indices, standings_wins, 
+                                                        standings_losses, standings_gwp, standings_omwp, standings_ogwp, 
+                                                        base_result_of_named_player, dict_standings,
+                                                        masked_to_actual
+                                                        )
 
-        # is_single_line_tree
-
-        # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
-        # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
-        # répété 1 et 2 jusqu'a absence de changement
-
-        print("a")
-        return resulting_rounds ,remaining_mask
+        # Supprime les entrées vides
+        tree_result = {mask: tree for mask, tree in tree_result.items() if tree}
+        return tree_result
     
+
+
     def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing],masked_player_tolerate = False):
         # Initialiser les stats
         points = 0
