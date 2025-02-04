@@ -813,7 +813,7 @@ class Manatrader_fix_hidden_duplicate_name:
         assignments_per_round = []
         start_time = time.time()
         for round_obj in rounds:
-            print(round_obj.round_name)
+            # print(round_obj.round_name)
             # if round_obj.round_name == "Round 5":
             valid_combinations = self.generate_round_combinations(round_obj, masked_to_actual, standings)
             assignments_per_round.append( valid_combinations)
@@ -948,7 +948,10 @@ class Manatrader_fix_hidden_duplicate_name:
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
         print(mask)
-        print(len(assignments_per_masked[0]))
+        total_perm_count = 1
+        for round_perm in assignments_per_masked:
+            total_perm_count *= len(round_perm)
+        print(total_perm_count)
         if len(assignments_per_masked[0]) < 5:
             root = TreeNode()  # Nœud racine de l'arbre
             build_tree(
@@ -1017,6 +1020,8 @@ class Manatrader_fix_hidden_duplicate_name:
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             a = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
+
+        print
         return resulting_rounds ,remaining_mask
     
     def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing],masked_player_tolerate = False):
@@ -1078,9 +1083,7 @@ class Manatrader_fix_hidden_duplicate_name:
         }      
 
 
-    def calculate_stats_for_matches(self, base_table_res,permutation_res_table,full_list_of_masked_player,player_indices):
-
-        
+    def calculate_stats_for_matches(self, base_table_res,permutation_res_table,full_list_of_masked_player,player_indices):  
         Match_wins = copy.deepcopy(permutation_res_table["Match_wins"])
         Match_losses = copy.deepcopy(permutation_res_table["Match_losses"])
         Game_wins = copy.deepcopy(permutation_res_table["Game_wins"])
