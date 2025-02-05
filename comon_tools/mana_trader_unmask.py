@@ -619,7 +619,8 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
     # Mise à jour des informations de l'arbre avec les nouveaux rounds
     new_masked_name_matches = copy.deepcopy(updated_rounds)
-
+    if iteration >= len(new_masked_name_matches):
+        print(f"Attention : iteration {iteration} dépasse la taille de new_masked_name_matches ({len(new_masked_name_matches)})")
     # Appliquer les nouvelles permutations sur ce nœud
     new_history = {
         "Match_wins": history["Match_wins"].copy(),
@@ -659,12 +660,26 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             standings_losses, standings_gwp, standings_omwp, standings_ogwp,
             base_result_from_know_player, standings, full_list_of_masked_player,new_history,
             iteration + 1)
+        
         if updated_child:
             new_children.append(updated_child)
 
     node.children = new_children  # Mettre à jour les enfants du nœud
+    if not new_children:
+    # Vérification de la feuille avec les standings        
+        computed_standings = compute_stat_fun(base_result_from_know_player, history,full_list_of_masked_player,player_indices)
+        standings_comparator_res = []
+        for unsure_standings in computed_standings:
+            standings_ite_current = standings[unsure_standings.player ]
+            res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
+            standings_comparator_res.append(res_comparator)
+        if all(standings_comparator_res):
+            return [node]  # Retourne le nœud valide
+        else:
+            return None  # Feuille invalide
+    # print(f"🌿 Feuille valide : {node.combination}")
 
-    return node if new_children else None  # Si un nœud n'a plus d'enfants, il est supprimé
+    # return node 
 
 
 
@@ -1070,45 +1085,48 @@ class Manatrader_fix_hidden_duplicate_name:
 
         modified_rounds = copy.deepcopy(rounds)
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
-        keys_to_delete = []
-        for mask,tree in tree_result.items():
-            if isinstance(tree, list) and len(tree) == 1:
-                tree = tree[0]  # Extraire l'élément unique de la liste
-            if isinstance(tree, TreeNode) and is_single_line_tree(tree):
-                apply_tree_permutations(tree, modified_rounds, mask)
-                # debug_test temp 
-                debug_masked_name_matches = [
-                    match for round_obj in modified_rounds for match in round_obj.matches
-                    if (isinstance(match.player1, str) and mask == match.player1) or
-                    (isinstance(match.player2, str) and mask == match.player2)
-                ]
-                if debug_masked_name_matches:
-                    print("Il reste des noms masqués :", debug_masked_name_matches)
-                else:
-                    print("Unique perm : ", mask)
-                    keys_to_delete.append(mask)
+        it = 0
+        while True:
+            print(it)
+            keys_to_delete = []
+            for mask,tree in tree_result.items():
+                if isinstance(tree, list) and len(tree) == 1:
+                    tree = tree[0]  # Extraire l'élément unique de la liste
+                if isinstance(tree, TreeNode) and is_single_line_tree(tree):
+                    apply_tree_permutations(tree, modified_rounds, mask)
+                    # debug_test temp 
+                    debug_masked_name_matches = [
+                        match for round_obj in modified_rounds for match in round_obj.matches
+                        if (isinstance(match.player1, str) and mask == match.player1) or
+                        (isinstance(match.player2, str) and mask == match.player2)
+                    ]
+                    if debug_masked_name_matches:
+                        print("Il reste des noms masqués :", debug_masked_name_matches)
+                    else:
+                        print("Unique perm : ", mask)
+                        keys_to_delete.append(mask)
+                # Si plus rien à supprimer, on sort de la boucle
+            if not keys_to_delete:
+                break
+            for key in keys_to_delete:
+                del tree_result[key]
+                del masked_to_actual[key]
 
-        for key in keys_to_delete:
-            del tree_result[key]
-            del masked_to_actual[key]
+            
+            # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
+            for mask, tree in tree_result.items():
+                # bug 's**********o' vide 
+                if mask == 's**********o':
+                    print("debug")
+                start_time = time.time()
+                tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, rounds, standings)
+                end_time = time.time()
+                print(f"Update round {mask}: {end_time - start_time:.2f} secondes")
+            it += 1
 
-        
-        # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
-        for mask, tree in tree_result.items():
-            tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, rounds, standings)
-            print("a")
-        # is_single_line_tree
-
-
-
-        # répété 1 et 2 jusqu'a absence de changement
-
- 
         return resulting_rounds ,remaining_mask
     
     def update_tree_after_round_assignation(self,tree, masked_to_actual,rounds, standings):
-        print("a")
-
         masked_name_matches = [
             Round(
                 round_obj.round_name,
@@ -1152,19 +1170,24 @@ class Manatrader_fix_hidden_duplicate_name:
         standings_ogwp = np.array([standing.ogwp for standing in standings])
 
         dict_standings = self.standings_to_dict(standings)
-
+        full_list_of_masked_player = set()
+        for mask,player_list in masked_to_actual.items():
+            for player in player_list:
+                full_list_of_masked_player.add(player)
         tree_result = {}
         if isinstance(tree, list):
-            tree = [update_and_validate_tree(t,
-                                            masked_name_matches,
-                                            validate_permutation,
-                                            self.calculate_stats_for_matches,
-                                            self.compare_standings,
-                                            player_indices, standings_wins, standings_losses, standings_gwp, 
-                                            standings_omwp, standings_ogwp, base_result_of_named_player, dict_standings, 
-                                            masked_to_actual) 
-                    for t in tree]
-            tree_result[mask] = [t for t in tree if t is not None]  # Supprime les arbres invalides
+            with Pool(processes=cpu_count()) as pool:
+                tree = pool.starmap(
+                    update_and_validate_tree, 
+                    [(t, masked_name_matches, validate_permutation, 
+                    self.calculate_stats_for_matches, self.compare_standings,
+                    player_indices, standings_wins, standings_losses, standings_gwp, 
+                    standings_omwp, standings_ogwp, base_result_of_named_player, 
+                    dict_standings, full_list_of_masked_player) for t in tree]
+                )
+            
+            # Filtrer les arbres invalides
+            tree_result[mask] = [t for t in tree if t is not None]
         else:
             tree_result[mask] = update_and_validate_tree(tree,
                                                         masked_name_matches,
@@ -1174,7 +1197,7 @@ class Manatrader_fix_hidden_duplicate_name:
                                                         player_indices, standings_wins, 
                                                         standings_losses, standings_gwp, standings_omwp, standings_ogwp, 
                                                         base_result_of_named_player, dict_standings,
-                                                        masked_to_actual
+                                                        full_list_of_masked_player
                                                         )
 
         # Supprime les entrées vides
