@@ -619,8 +619,6 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
     # Mise à jour des informations de l'arbre avec les nouveaux rounds
     new_masked_name_matches = copy.deepcopy(updated_rounds)
-    if iteration >= len(new_masked_name_matches):
-        print(f"Attention : iteration {iteration} dépasse la taille de new_masked_name_matches ({len(new_masked_name_matches)})")
     # Appliquer les nouvelles permutations sur ce nœud
     new_history = {
         "Match_wins": history["Match_wins"].copy(),
