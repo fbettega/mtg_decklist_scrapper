@@ -597,8 +597,7 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
     Met à jour l'arbre avec les nouvelles données de rounds et vérifie sa validité.
     Supprime les branches invalides et tente de reconstruire si nécessaire.
     """
-    if history is None:
-        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
+
     if not node:
         return None  # Si le nœud est vide, on l’ignore
     # Si le nœud est le premier et n'a pas de combinaison, on met à jour ses enfants directement
@@ -615,10 +614,21 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 
         node.children = new_children  # Mise à jour des enfants
         return node if new_children else None  # Supprime l’arbre s'il devient vide
+
+    if history is None:
+        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
     # Mise à jour des informations de l'arbre avec les nouveaux rounds
     new_masked_name_matches = copy.deepcopy(updated_rounds)
 
     # Appliquer les nouvelles permutations sur ce nœud
+    new_history = {
+        "Match_wins": history["Match_wins"].copy(),
+        "Match_losses": history["Match_losses"].copy(),
+        "Game_wins": history["Game_wins"].copy(),
+        "Game_losses": history["Game_losses"].copy(),
+        "Game_draws": history["Game_draws"].copy(),
+        "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
+    }
     used_players = defaultdict(int)
     for match in new_masked_name_matches[iteration].matches:
         if match.player1 in node.combination:
@@ -632,7 +642,7 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             match.player2 = player2_real_names[used_players[match.player2] - 1]
 
     # Valider la mise à jour
-    valid, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, history, 
+    valid, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, new_history, 
                                              player_indices, standings_wins, standings_losses, standings_gwp, 
                                              full_list_of_masked_player)
     
@@ -647,7 +657,7 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             child, updated_rounds, validate_fn, compute_stat_fun,
             compare_standings_fun, player_indices, standings_wins,
             standings_losses, standings_gwp, standings_omwp, standings_ogwp,
-            base_result_from_know_player, standings, full_list_of_masked_player,history,
+            base_result_from_know_player, standings, full_list_of_masked_player,new_history,
             iteration + 1)
         if updated_child:
             new_children.append(updated_child)
