@@ -654,7 +654,8 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         "Game_wins": history["Game_wins"].copy(),
         "Game_losses": history["Game_losses"].copy(),
         "Game_draws": history["Game_draws"].copy(),
-        "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
+        "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()},
+        "number_of_none_opo": history["number_of_none_opo"].copy()
     }
     used_players = defaultdict(int)
     for match in new_masked_name_matches[iteration].matches:
@@ -1129,10 +1130,12 @@ class Manatrader_fix_hidden_duplicate_name:
             with Pool(cpu_count()) as pool:
                 results = pool.map(process_combination, tasks)
             # Fusionner les résultats valides
-            valid_permutations = results
+            valid_permutations = [node for node in results if node.children]               
+            # valid_permutations = results
             if len(valid_permutations) > 1:
                 print("tree ok")
             elif len(results) == 1 and len(valid_permutations[0].children) > 0:
+                valid_permutations=valid_permutations[0]
                 print("tree ok")
         end_time = time.time()
         print(f"Temps total traitement des arbres: {end_time - start_time:.2f} secondes")
@@ -1146,6 +1149,7 @@ class Manatrader_fix_hidden_duplicate_name:
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
+        debug_tree_deep_copy = copy.deepcopy(tree_result)
         modified_rounds = copy.deepcopy(rounds)
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
         it = 0
@@ -1174,7 +1178,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for key in keys_to_delete:
                 del tree_result[key]
                 del masked_to_actual[key]
-
+            print("temp")
             # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
