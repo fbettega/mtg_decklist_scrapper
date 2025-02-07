@@ -1149,13 +1149,18 @@ class Manatrader_fix_hidden_duplicate_name:
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
-        debug_tree_deep_copy = copy.deepcopy(tree_result)
+
         modified_rounds = copy.deepcopy(rounds)
+            
+        debug_tree_deep_copy = copy.deepcopy(tree_result)
+        debug_masked_to_actual = copy.deepcopy(masked_to_actual)
+        tree_result= copy.deepcopy(debug_tree_deep_copy)
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
         it = 0
         while True:
             print(it)
             keys_to_delete = []
+            
             for mask,tree in tree_result.items():
                 if isinstance(tree, list) and len(tree) == 1:
                     tree = tree[0]  # Extraire l'élément unique de la liste
@@ -1178,19 +1183,21 @@ class Manatrader_fix_hidden_duplicate_name:
             for key in keys_to_delete:
                 del tree_result[key]
                 del masked_to_actual[key]
+            if len(tree_result) == 0:
+                break
             print("temp")
             # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 # bug 's**********o' vide 
                 start_time = time.time()
-                tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, rounds, standings)
+                tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")
             
             it += 1
             print("a")
-        tree_result['k**********a']
+
         print("whyyyyy")
 
         return resulting_rounds ,remaining_mask
