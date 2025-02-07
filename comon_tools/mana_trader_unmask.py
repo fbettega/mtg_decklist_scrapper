@@ -341,10 +341,25 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
             if not res_comparator:
-                print(f"real standings {standings_ite_current}")
-                print(f"Calculate standings {unsure_standings}")
-                plalyer_to_check = unsure_standings.player
-                player_idx = player_indices[plalyer_to_check]
+                # print(unsure_standings.player)
+                # if standings_ite_current['wins'] != unsure_standings.wins:
+                #     print(f"Real : {standings_ite_current['wins']} / {unsure_standings.wins}")
+                #     print("wins")
+                # if standings_ite_current['losses'] != unsure_standings.losses:
+                #     print(f"Real : {standings_ite_current['losses']} / {unsure_standings.losses}")
+                #     print("losses")
+                # if not np.isclose(standings_ite_current['gwp'],unsure_standings.gwp,atol=0.01):
+                #     print(f"gwp : Real : {standings_ite_current['gwp']} / {unsure_standings.gwp}")
+                #     print("gwp")
+                # if not np.isclose(standings_ite_current['omwp'],unsure_standings.omwp,atol=0.01):
+                #     print(f"omwp : Real : {standings_ite_current['omwp']} / {unsure_standings.omwp}")
+                # if not np.isclose(standings_ite_current['ogwp'],unsure_standings.ogwp,atol=0.01):
+                #     print(f"ogwp : Real : {standings_ite_current['ogwp']} / {unsure_standings.ogwp}")
+                if unsure_standings.player =="Cinciu":
+                    print(f"real standings {standings_ite_current}")
+                    print(f"Calculate standings {unsure_standings}")
+                    plalyer_to_check = unsure_standings.player
+                    player_idx = player_indices[plalyer_to_check]
                 print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
                 # for m in history["matchups"]["Cinciu"]:
                 #     print(m)
@@ -520,6 +535,11 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
     for round_item in match_combination:
         # Traiter à la fois player1 et player2 sans conditions if/elif
+        bug_match = False
+        if round_item.player1 == "Cinciu" or round_item.player2 == "Cinciu" and round_item.player1 == "Daking3603" or round_item.player2 == "Daking3603":
+            bug_match = True
+            print("debu here")
+
         results_match = list(map(int, round_item.result.split('-')))
         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
                     (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
@@ -553,14 +573,16 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
                     # Valider les limites de wins et losses
                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                        # print(base_result_from_know_player[player])
+                        if bug_match:
+                            pirnt("wins/loss")
                         return False,(player,opponent)
             else :
                 continue
     # Validation finale du GWP uniquement pour les joueurs modifiés
     for player in modified_players:
         player_idx = player_indices[player]
-        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx] and ((standings_wins[player_idx] + standings_losses[player_idx]) == (len(matchups[player]) + number_of_none_opo[player_idx])):
+        # if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx] and ((standings_wins[player_idx] + standings_losses[player_idx]) == (len(matchups[player]) + number_of_none_opo[player_idx])):
+        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
             if player in full_list_of_masked_player:
                 # player = 'Daking3603'
@@ -571,6 +593,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
                     # if ite > 0:
                     #     print("debug")
+                    print((player,list(matchups[player])[-1]))
                     return False,(player,list(matchups[player])[-1])
                 
     return True, "ok"
@@ -1061,6 +1084,8 @@ class Manatrader_fix_hidden_duplicate_name:
         for ite_player in player_with_real_name:
            base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, rounds ,standings,True)
 
+
+
         full_list_of_masked_player = set()
         for mask,player_list in masked_to_actual.items():
             for player in player_list:
@@ -1079,6 +1104,22 @@ class Manatrader_fix_hidden_duplicate_name:
         standings_ogwp = np.array([standing.ogwp for standing in standings])
 
         dict_standings = self.standings_to_dict(standings)
+
+        ##################################################################
+        # for named_player in base_result_of_named_player:
+        #     compute_res = base_result_of_named_player[named_player]
+        #     real_stand_res = dict_standings[named_player]
+        #     match = False
+        #     match = real_stand_res['wins'] != compute_res['wins']
+        #     match = real_stand_res['losses'] != compute_res['losses']
+        #     compute_gwp = ((compute_res['total_games_won'] + (compute_res['total_game_draw']/3))/compute_res['total_games_played'])
+        #     match = not np.isclose(real_stand_res['gwp'],compute_gwp,atol=0.01)
+        #     if match:
+        #         print(base_result_of_named_player[named_player])
+        #         print(f"gwp : {compute_gwp}")
+        #         print(f"Real : {dict_standings[named_player]} ")
+        #         print('#######################################')
+        ##################################################################
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
@@ -1374,6 +1415,7 @@ class Manatrader_fix_hidden_duplicate_name:
         Game_draws = copy.deepcopy(permutation_res_table["Game_draws"])
         matchups = copy.deepcopy(permutation_res_table["matchups"])
         update_player_standings = []
+        number_of_none_opo = copy.deepcopy(permutation_res_table["number_of_none_opo"])
 
         for player in player_indices:
             if len(matchups[player]) > 0:
@@ -1384,9 +1426,7 @@ class Manatrader_fix_hidden_duplicate_name:
                 total_ogp = 0
                 if len(matchups[player]) > (Match_wins[player_idx] + Match_losses[player_idx]):
                     print("plus d'opo que de partie ...")
-                elif len(matchups[player]) != (Match_wins[player_idx] + Match_losses[player_idx]):
-                    computable_ogp_omwp = False
-                else:
+                elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
                     if player in full_list_of_masked_player:
                         player 
                     for opo in matchups[player]:
@@ -1395,12 +1435,16 @@ class Manatrader_fix_hidden_duplicate_name:
                             break
                         if opo :
                             opo_idx = player_indices[opo]
+                            number_of_opponent += 1
+
                             opponent_gwp = (Game_wins[opo_idx] +(Game_draws[opo_idx]/3)) / (Game_wins[opo_idx] +Game_draws[opo_idx] + Game_losses[opo_idx])  # GWP pour l'adversaire
                             total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
-                            number_of_opponent += 1
+                            
                             # OMWP 
                             opponent_match_winrate = Match_wins[opo_idx] / (Match_wins[opo_idx] + Match_losses[opo_idx])
                             total_omp += opponent_match_winrate if opponent_match_winrate >= 0.3333 else 0.33
+                else:
+                    computable_ogp_omwp = False
                 update_player_standings.append(
                         Standing(
                         rank=None,
