@@ -303,7 +303,8 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
         "Game_wins": np.zeros(n_players, dtype=int),
         "Game_losses": np.zeros(n_players, dtype=int),
         "Game_draws": np.zeros(n_players, dtype=int),
-        "matchups": {player: [] for player in player_indices.keys()}
+        "matchups": {player: [] for player in player_indices.keys()},
+        'number_of_none_opo' :np.zeros(n_players, dtype=int)
     }
 
     # Mise à jour de l'historique avec les informations de base_result_from_know_player
@@ -316,6 +317,7 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
             history["Game_losses"][idx] = player_data['total_games_played'] - (player_data['total_games_won'] + player_data['total_game_draw'])
             history["Game_draws"][idx] = player_data['total_game_draw']
             history["matchups"][player].extend(player_data['opponents'])
+            history["number_of_none_opo"][idx] = player_data['number_of_none_opo']
 
     return history
 
@@ -341,9 +343,9 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             if not res_comparator:
                 print(f"real standings {standings_ite_current}")
                 print(f"Calculate standings {unsure_standings}")
-                # plalyer_to_check = unsure_standings.player
-                # player_idx = player_indices[plalyer_to_check]
-                # # print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
+                plalyer_to_check = unsure_standings.player
+                player_idx = player_indices[plalyer_to_check]
+                print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
                 # for m in history["matchups"]["Cinciu"]:
                 #     print(m)
                 #     print(standings[m ])
@@ -390,7 +392,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "Game_wins": history["Game_wins"].copy(),
             "Game_losses": history["Game_losses"].copy(),
             "Game_draws": history["Game_draws"].copy(),
-            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
+            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()},
+            "number_of_none_opo": history["number_of_none_opo"].copy()
         }
 
         new_masked_name_matches = copy.deepcopy(masked_name_matches)
@@ -512,6 +515,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     Game_losses = history["Game_losses"]
     Game_draws = history["Game_draws"]
     matchups = history["matchups"]
+    number_of_none_opo = history["number_of_none_opo"]
     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
 
     for round_item in match_combination:
@@ -534,7 +538,9 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if player is not None :
                     if opponent in matchups[player]:
                         return False,(player,opponent)
-                    if not re.fullmatch(r'.\*{10}.', opponent):
+                    if opponent is None:
+                       number_of_none_opo[player_indices[player]] +=1    
+                    elif not re.fullmatch(r'.\*{10}.', opponent):
                         matchups[player].extend([opponent])
                         matchups[opponent].extend([player])
                     # Mettre à jour les statistiques
@@ -551,12 +557,10 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                         return False,(player,opponent)
             else :
                 continue
-    if iteration == 7:            
-        iteration
     # Validation finale du GWP uniquement pour les joueurs modifiés
     for player in modified_players:
         player_idx = player_indices[player]
-        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx] and ((standings_wins[player_idx] + standings_losses[player_idx]) ==  len(matchups[player])):
+        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx] and ((standings_wins[player_idx] + standings_losses[player_idx]) == (len(matchups[player]) + number_of_none_opo[player_idx])):
             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
             if player in full_list_of_masked_player:
                 # player = 'Daking3603'
@@ -1307,6 +1311,7 @@ class Manatrader_fix_hidden_duplicate_name:
         total_games_won = 0
         total_game_draw = 0
         opponents = set()
+        number_of_none_opo = 0
 
         # Parcourir les matchs
         for round in rounds:
@@ -1315,11 +1320,15 @@ class Manatrader_fix_hidden_duplicate_name:
                 opponent = None
                 # Identifier l'adversaire
                 if match.player1 == player:
-                    if match.player2 and not re.fullmatch(r'.\*{10}.', match.player2) and masked_player_tolerate:
+                    if not match.player2:
+                        number_of_none_opo += 1
+                    elif not re.fullmatch(r'.\*{10}.', match.player2) and masked_player_tolerate:
                         opponent = match.player2
                     player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
                 elif match.player2 == player:
-                    if match.player1 and not re.fullmatch(r'.\*{10}.', match.player1) and masked_player_tolerate:
+                    if not match.player1:
+                        number_of_none_opo += 1
+                    elif not re.fullmatch(r'.\*{10}.', match.player1) and masked_player_tolerate:
                         opponent = match.player1
                     player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
                 else:
@@ -1352,7 +1361,8 @@ class Manatrader_fix_hidden_duplicate_name:
         'total_games_played' : total_games_played,
         'total_games_won' : total_games_won,
         'total_game_draw' : total_game_draw,
-        'opponents' : opponents
+        'opponents' : opponents,
+        'number_of_none_opo' : number_of_none_opo
         }      
 
 
