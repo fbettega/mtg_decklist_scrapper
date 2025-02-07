@@ -340,31 +340,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-            # if not res_comparator:
-                # print(unsure_standings.player)
-                # if standings_ite_current['wins'] != unsure_standings.wins:
-                #     print(f"Real : {standings_ite_current['wins']} / {unsure_standings.wins}")
-                #     print("wins")
-                # if standings_ite_current['losses'] != unsure_standings.losses:
-                #     print(f"Real : {standings_ite_current['losses']} / {unsure_standings.losses}")
-                #     print("losses")
-                # if not np.isclose(standings_ite_current['gwp'],unsure_standings.gwp,atol=0.01):
-                #     print(f"gwp : Real : {standings_ite_current['gwp']} / {unsure_standings.gwp}")
-                #     print("gwp")
-                # if not np.isclose(standings_ite_current['omwp'],unsure_standings.omwp,atol=0.01):
-                #     print(f"omwp : Real : {standings_ite_current['omwp']} / {unsure_standings.omwp}")
-                # if not np.isclose(standings_ite_current['ogwp'],unsure_standings.ogwp,atol=0.01):
-                #     print(f"ogwp : Real : {standings_ite_current['ogwp']} / {unsure_standings.ogwp}")
-                # if unsure_standings.player =="Cinciu":
-                #     print(f"real standings {standings_ite_current}")
-                #     print(f"Calculate standings {unsure_standings}")
-                #     plalyer_to_check = unsure_standings.player
-                #     player_idx = player_indices[plalyer_to_check]
-                # print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
-                # for m in history["matchups"]["Cinciu"]:
-                #     print(m)
-                #     print(standings[m ])
-        print("###########################################################################################")
         if all(standings_comparator_res):
             return [node]  # Retourne le nœud valide
         else:
@@ -378,24 +353,24 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
-            if history["matchups"][player] == bad_data["history"]:
+            if history["matchups"][player] == bad_data["history"] and iteration == bad_data["bad_comb_iteration"]:
                 for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
                     if bad_player == player:  # Vérifier si c'est bien le joueur concerné
                         player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
                         bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    # remaining_combinations = [
-    #     combination
-    #     for combination in remaining_combinations
-    #     if all(
-    #         not any(
-    #             key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
-    #             for pos, player in enumerate(players)
-    #         )
-    #         for key, players in combination.items()
-    #     )
-    # ]
+    remaining_combinations = [
+        combination
+        for combination in remaining_combinations
+        if all(
+            not any(
+                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+                for pos, player in enumerate(players)
+            )
+            for key, players in combination.items()
+        )
+    ]
     # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
     while remaining_combinations:
@@ -428,8 +403,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         # Mettre à jour les statistiques pour la combinaison actuelle
         valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,iteration)
-        if not valid and "Daking3603" in new_history['matchups']['Cinciu']:
-            print("block potential valid perm")
 
         if not valid:
             # Ajouter la permutation problématique pour la transmission horizontale
@@ -441,16 +414,13 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         player_position = player_tuple.index(suspect_player)
                         Global_bad_tupple_history[suspect_player].append({
                             'tuple' : {suspect_player : player_position},
-                            'history' : history["matchups"][suspect_player].copy()
+                            'history' : history["matchups"][suspect_player].copy(),
+                            "bad_comb_iteration" : copy.copy(iteration)
                         })
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             continue  # Ignorez cette combinaison invalide
         
         if valid:
-            # if iteration > max_ite_reach:
-            #     max_ite_reach = copy.deepcopy(iteration)
-            #     print(max_ite_reach)
-            #     sys.stdout.flush()
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
@@ -537,13 +507,6 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
 
     for round_item in match_combination:
-        # Traiter à la fois player1 et player2 sans conditions if/elif
-        # bug_match = False
-        # # if round_item.player1 == "Cinciu" or round_item.player2 == "Cinciu" and round_item.player1 == "Daking3603" or round_item.player2 == "Daking3603":
-        # if round_item.player1 == "AndyAWKWARD" or round_item.player2 == "AndyAWKWARD" and round_item.player1 == "Drizzt253" or round_item.player2 == "Drizzt253" and "Daking3603" in matchups['Cinciu']:
-        #     bug_match = True
-        #     print("debu here")
-
         results_match = list(map(int, round_item.result.split('-')))
         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
                     (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
@@ -560,13 +523,14 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             # Vérifier que le joueur n'est pas None et valider les résultats
             if player in full_list_of_masked_player:
                 if player is not None :
-                    if opponent in matchups[player]:
+                    if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.', opponent):
                         return False,(player,opponent)
                     if opponent is None:
                        number_of_none_opo[player_indices[player]] +=1    
-                    elif not re.fullmatch(r'.\*{10}.', opponent):
+                    else:
                         matchups[player].extend([opponent])
-                        matchups[opponent].extend([player])
+                        if not re.fullmatch(r'.\*{10}.', opponent):
+                            matchups[opponent].extend([player])
                     # Mettre à jour les statistiques
                     player_idx = player_indices[player]
                     Match_wins[player_idx] += win
@@ -577,8 +541,6 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
                     # Valider les limites de wins et losses
                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                        # if bug_match:
-                        #     print("wins/loss")
                         return False,(player,opponent)
             else :
                 continue
@@ -595,9 +557,6 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             if total_games > 0:
                 gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-                    # if ite > 0:
-                    #     print("debug")
-                    print((player,list(matchups[player])[-1]))
                     return False,(player,list(matchups[player])[-1])
                 
     return True, "ok"
@@ -1109,21 +1068,6 @@ class Manatrader_fix_hidden_duplicate_name:
 
         dict_standings = self.standings_to_dict(standings)
 
-        ##################################################################
-        # for named_player in base_result_of_named_player:
-        #     compute_res = base_result_of_named_player[named_player]
-        #     real_stand_res = dict_standings[named_player]
-        #     match = False
-        #     match = real_stand_res['wins'] != compute_res['wins']
-        #     match = real_stand_res['losses'] != compute_res['losses']
-        #     compute_gwp = ((compute_res['total_games_won'] + (compute_res['total_game_draw']/3))/compute_res['total_games_played'])
-        #     match = not np.isclose(real_stand_res['gwp'],compute_gwp,atol=0.01)
-        #     if match:
-        #         print(base_result_of_named_player[named_player])
-        #         print(f"gwp : {compute_gwp}")
-        #         print(f"Real : {dict_standings[named_player]} ")
-        #         print('#######################################')
-        ##################################################################
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
@@ -1198,11 +1142,9 @@ class Manatrader_fix_hidden_duplicate_name:
     def handle_mask_by_mask(self,rounds, masked_to_actual,standings):
         Assignement_per_mask_result = {}
         tree_result = {}
-        # D**********3 est vide 
         for mask ,actual_player in masked_to_actual.items():
-            if mask == "D**********3":
-                Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
-                tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
+            Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
+            tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
         modified_rounds = copy.deepcopy(rounds)
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
@@ -1237,8 +1179,6 @@ class Manatrader_fix_hidden_duplicate_name:
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 # bug 's**********o' vide 
-                if mask == 's**********o':
-                    print("debug")
                 start_time = time.time()
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, rounds, standings)
                 end_time = time.time()
