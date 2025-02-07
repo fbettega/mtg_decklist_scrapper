@@ -340,7 +340,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-            if not res_comparator:
+            # if not res_comparator:
                 # print(unsure_standings.player)
                 # if standings_ite_current['wins'] != unsure_standings.wins:
                 #     print(f"Real : {standings_ite_current['wins']} / {unsure_standings.wins}")
@@ -355,12 +355,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 #     print(f"omwp : Real : {standings_ite_current['omwp']} / {unsure_standings.omwp}")
                 # if not np.isclose(standings_ite_current['ogwp'],unsure_standings.ogwp,atol=0.01):
                 #     print(f"ogwp : Real : {standings_ite_current['ogwp']} / {unsure_standings.ogwp}")
-                if unsure_standings.player =="Cinciu":
-                    print(f"real standings {standings_ite_current}")
-                    print(f"Calculate standings {unsure_standings}")
-                    plalyer_to_check = unsure_standings.player
-                    player_idx = player_indices[plalyer_to_check]
-                print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
+                # if unsure_standings.player =="Cinciu":
+                #     print(f"real standings {standings_ite_current}")
+                #     print(f"Calculate standings {unsure_standings}")
+                #     plalyer_to_check = unsure_standings.player
+                #     player_idx = player_indices[plalyer_to_check]
+                # print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
                 # for m in history["matchups"]["Cinciu"]:
                 #     print(m)
                 #     print(standings[m ])
@@ -385,17 +385,17 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations = [
-        combination
-        for combination in remaining_combinations
-        if all(
-            not any(
-                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
-                for pos, player in enumerate(players)
-            )
-            for key, players in combination.items()
-        )
-    ]
+    # remaining_combinations = [
+    #     combination
+    #     for combination in remaining_combinations
+    #     if all(
+    #         not any(
+    #             key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+    #             for pos, player in enumerate(players)
+    #         )
+    #         for key, players in combination.items()
+    #     )
+    # ]
     # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
     while remaining_combinations:
@@ -425,8 +425,11 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 player2_real_names = match_combination[match.player2]  # Correction ici
                 match.player2 = player2_real_names[used_players[match.player2] -1]  # Utiliser player2_real_names
 
+
         # Mettre à jour les statistiques pour la combinaison actuelle
         valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,iteration)
+        if not valid and "Daking3603" in new_history['matchups']['Cinciu']:
+            print("block potential valid perm")
 
         if not valid:
             # Ajouter la permutation problématique pour la transmission horizontale
@@ -535,10 +538,11 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
     for round_item in match_combination:
         # Traiter à la fois player1 et player2 sans conditions if/elif
-        bug_match = False
-        if round_item.player1 == "Cinciu" or round_item.player2 == "Cinciu" and round_item.player1 == "Daking3603" or round_item.player2 == "Daking3603":
-            bug_match = True
-            print("debu here")
+        # bug_match = False
+        # # if round_item.player1 == "Cinciu" or round_item.player2 == "Cinciu" and round_item.player1 == "Daking3603" or round_item.player2 == "Daking3603":
+        # if round_item.player1 == "AndyAWKWARD" or round_item.player2 == "AndyAWKWARD" and round_item.player1 == "Drizzt253" or round_item.player2 == "Drizzt253" and "Daking3603" in matchups['Cinciu']:
+        #     bug_match = True
+        #     print("debu here")
 
         results_match = list(map(int, round_item.result.split('-')))
         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
@@ -554,7 +558,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
         # Itérer sur les deux joueurs de chaque match
         for player, opponent, win, loss, M_win, M_loss, M_draw in players:
             # Vérifier que le joueur n'est pas None et valider les résultats
-            if  player in full_list_of_masked_player:
+            if player in full_list_of_masked_player:
                 if player is not None :
                     if opponent in matchups[player]:
                         return False,(player,opponent)
@@ -573,8 +577,8 @@ def validate_permutation(match_combination, history, player_indices, standings_w
 
                     # Valider les limites de wins et losses
                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                        if bug_match:
-                            pirnt("wins/loss")
+                        # if bug_match:
+                        #     print("wins/loss")
                         return False,(player,opponent)
             else :
                 continue
