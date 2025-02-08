@@ -66,7 +66,8 @@ class Assignation_TreeNode:
 
 def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
     """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
-    if not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+
+    if player1 and not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
         if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
         (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
         (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
@@ -74,7 +75,7 @@ def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
          # modif a verif
             np.isclose((standings_dict[player1].gwp),0.33,atol=0.01) and p1_wins != 1):
             return False
-    if not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+    if player2 and not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
         if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
         (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
         (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
@@ -505,7 +506,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     matchups = history["matchups"]
     number_of_none_opo = history["number_of_none_opo"]
     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
-
+    
     for round_item in match_combination:
         results_match = list(map(int, round_item.result.split('-')))
         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
@@ -700,22 +701,19 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 
     node.children = new_children  # Mettre à jour les enfants du nœud 
     if not node.children:     
-
-        valid_leaf, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, new_history, 
-                                            player_indices, standings_wins, standings_losses, standings_gwp, 
-                                            full_list_of_masked_player)
-        
+        # valid_leaf, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, new_history, 
+        #                                     player_indices, standings_wins, standings_losses, standings_gwp, 
+        #                                     full_list_of_masked_player)
         ##############################
         # ontest ici 
         # print(f"{iteration}  history")
         # check_history(history,full_list_of_masked_player,player_indices)
         # print("New history")
         # check_history(new_history,full_list_of_masked_player,player_indices)
-        ###############################
-        if not valid_leaf:
-            # print(f"Feuille invalide après validation : {node.combination}")
-            return None  # Supprime directement la feuille si elle est invalide
-
+        # ###############################
+        # if not valid_leaf:
+        #     print(f"Feuille invalide après validation : {node.combination}")
+        #     return None  # Supprime directement la feuille si elle est invalide
         computed_standings = compute_stat_fun(base_result_from_know_player, new_history,full_list_of_masked_player,player_indices)
         standings_comparator_res = []
         for unsure_standings in computed_standings:
@@ -725,15 +723,15 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:  
-            # for unsure_standings in computed_standings:
-            #     standings_ite_current = standings[unsure_standings.player ]
-            #     res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
-            #     if not res_comparator:
-            #         print(f"real standings {standings_ite_current}")
-            #         print(f"Calculate standings {unsure_standings}")
-            # print("########################################################")
+            for unsure_standings in computed_standings:
+                standings_ite_current = standings[unsure_standings.player ]
+                res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
+                if not res_comparator:
+                    print(f"real standings {standings_ite_current}")
+                    print(f"Calculate standings {unsure_standings}")
+            print("########################################################")
             return None  # Feuille invalide
-
+    return node if node.children else None 
 
 def check_history(history,full_list_of_masked_player,player_indices):
     for plalyer_to_check in full_list_of_masked_player:
@@ -788,9 +786,9 @@ def is_valid_partial_combination(current_mapping, masked_matches, standings_dict
             p1_wins, p2_wins, _ = map(int, match.result.split('-'))
             if not is_valid_combination(player1, player2, p1_wins, p2_wins, standings_dict):
                 return False
-            if  not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+            if player1 and not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
                 seen_players.add(player1)
-            if  not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+            if player2 and not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
                 seen_players.add(player2)
     return True
 ################################################
@@ -809,74 +807,34 @@ class Manatrader_fix_hidden_duplicate_name:
         unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
 
         print("stop here ")
+
         # étape 2.1 créer un arbre par masked name ne conserver que les branches valides basé sur les stats du joueurs 
         # on utilise c'est arbres pour :
         #   validation des ogwp omwp ainsi que pour les adversaire concerné
         # on boucle jusqu'a ce que ça ne boude plus
 
+        # pour le moment commenter mais devra etre remis 
+
         # étape 3 on crée les permutations globale et on fini le boulot.
-
-
-
-        mask_to_remove,round_with_deterministic_round = self.assign_determinist_permutation_player_to_match(rounds, masked_to_actual,standings)
-
-        for determinist_mask in mask_to_remove:
-            del masked_to_actual[determinist_mask]
-
-        
         # 2 chose a faire ici faire une methode qui vire les permut deterministe 
         # et peut etre auto assigner les permutations quand un joueur devient seul dans sa perm
         # on repete tout ici pour tout faire en une fois 
-        matching_permutation = {}
-        assignments_per_masked = self.generate_assignments(
-            round_with_deterministic_round, masked_to_actual, standings
-        )
+        # matching_permutation = {}
+        # assignments_per_masked = self.generate_assignments(
+        #     round_with_deterministic_round, masked_to_actual, standings
+        # )
         
-        round_number = 0
-        for permutation_per_round in assignments_per_masked:
-            round_number += 1
-            print(f"Round : {round_number} number of perm :{len(permutation_per_round)}")
+        # round_number = 0
+        # for permutation_per_round in assignments_per_masked:
+        #     round_number += 1
+        #     print(f"Round : {round_number} number of perm :{len(permutation_per_round)}")
 
-        print("ok")
-        resulting_tree =  self.find_real_tournament_from_permutation(
-            assignments_per_masked,masked_to_actual, round_with_deterministic_round, standings
-        )
+        # print("ok")
+        # resulting_tree =  self.find_real_tournament_from_permutation(
+        #     assignments_per_masked,masked_to_actual, round_with_deterministic_round, standings
+        # )
 
-        print(f"Traitement pour le nom masqué :")
-
-
-
-        Determinist_permutation,remaining_matching_perm = self.generate_tournaments_with_unique_permutations(rounds, matching_permutation)
-        previous_output = None
-        current_output = (None, None)
-        # Utilisation des valeurs actuelles pour la première itération
-        local_deterministic_permutations = copy.deepcopy(Determinist_permutation)
-        local_remaining_permutations = copy.deepcopy(remaining_matching_perm)
-        while current_output != previous_output and local_remaining_permutations:
-            # Mettre à jour l'entrée précédente avec la sortie actuelle
-            previous_output = current_output
-            
-            # Appeler la méthode avec les entrées
-            not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
-                local_deterministic_permutations, 
-                local_remaining_permutations, 
-                standings #, True        
-            )
-            # Mettre à jour les entrées pour la prochaine itération
-            local_deterministic_permutations =  copy.deepcopy(not_determinist_permutations)
-            local_remaining_permutations = copy.deepcopy(remaining_perm_not_determinist)
-            # Mettre à jour la sortie actuelle
-            current_output = (not_determinist_permutations, remaining_perm_not_determinist)
-
-
-        not_determinist_permutations, remaining_perm_not_determinist = self.process_permutations_with_recalculation(
-            local_deterministic_permutations, 
-            local_remaining_permutations, 
-            standings , 
-            True        
-        )
-
-        for rounds  in not_determinist_permutations :
+        for rounds  in unmasked_rounds :
             for match in rounds.matches: 
                 if (match.player1 is not None and re.fullmatch(r'.\*{10}.', match.player1)) or (match.player2 is not None and re.fullmatch(r'.\*{10}.', match.player2)):
                     print(rounds)
@@ -884,7 +842,7 @@ class Manatrader_fix_hidden_duplicate_name:
                     print(f"Masked Name present : {rounds}")
                     return None
     # Retourner les rounds mis à jour
-        return not_determinist_permutations
+        return unmasked_rounds
 
     def map_masked_to_actual(self, standings: List[Standing], rounds: List[Round]):
         """Étape 1 : Mapper les noms masqués aux joueurs réels, en considérant uniquement les joueurs des rounds au format spécifique."""
@@ -1007,14 +965,15 @@ class Manatrader_fix_hidden_duplicate_name:
     def find_real_tournament_from_permutation(self,assignments_per_masked,masked_to_actual, rounds, standings,partial_assignment = False):
         # Préparer les données
         # Identifier les matchs avec des noms masqués
+        print("a")
         full_name_matches = [
             Round(
                 round_obj.round_name,
                 [
                     match for match in round_obj.matches
                         if not (
-                            (isinstance(match.player1, str) and re.fullmatch(r'.\*{10}.', match.player1)) or
-                            (isinstance(match.player2, str) and re.fullmatch(r'.\*{10}.', match.player2))
+                            ((not match.player1 is None ) and re.fullmatch(r'.\*{10}.', match.player1)) or
+                            ((not match.player2 is None )   and re.fullmatch(r'.\*{10}.', match.player2))
                         )
                 ]
             )
@@ -1027,8 +986,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 [
                     match for match in round_obj.matches
                         if (
-                            (isinstance(match.player1, str) and re.fullmatch(r'.\*{10}.', match.player1)) or
-                            (isinstance(match.player2, str) and re.fullmatch(r'.\*{10}.', match.player2))
+                            ((not match.player1 is None ) and re.fullmatch(r'.\*{10}.', match.player1)) or
+                            ((not match.player2 is None )  and re.fullmatch(r'.\*{10}.', match.player2))
                         )
                 ]
             )
@@ -1143,18 +1102,17 @@ class Manatrader_fix_hidden_duplicate_name:
     
 
     def handle_mask_by_mask(self,rounds, masked_to_actual,standings):
+        masked_to_actual_en_cours = copy.deepcopy(masked_to_actual)
+
         Assignement_per_mask_result = {}
         tree_result = {}
-        for mask ,actual_player in masked_to_actual.items():
+        for mask ,actual_player in masked_to_actual_en_cours.items():
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
 
         modified_rounds = copy.deepcopy(rounds)
             
-        debug_tree_deep_copy = copy.deepcopy(tree_result)
-        debug_masked_to_actual = copy.deepcopy(masked_to_actual)
-        tree_result= copy.deepcopy(debug_tree_deep_copy)
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
         it = 0
         while True:
@@ -1169,8 +1127,8 @@ class Manatrader_fix_hidden_duplicate_name:
                     # debug_test temp 
                     debug_masked_name_matches = [
                         match for round_obj in modified_rounds for match in round_obj.matches
-                        if (isinstance(match.player1, str) and mask == match.player1) or
-                        (isinstance(match.player2, str) and mask == match.player2)
+                        if ((not match.player1 is None )  and mask == match.player1) or
+                        ((not match.player2 is None )  and mask == match.player2)
                     ]
                     if debug_masked_name_matches:
                         print("Il reste des noms masqués :", mask)
@@ -1182,25 +1140,21 @@ class Manatrader_fix_hidden_duplicate_name:
                 break
             for key in keys_to_delete:
                 del tree_result[key]
-                del masked_to_actual[key]
+                del masked_to_actual_en_cours[key]
             if len(tree_result) == 0:
                 break
-            print("temp")
+
             # 2 Une fois les rounds update il faut une fonction qui update les arbres avec les nouveau rounds et coupes les arbres invalides
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
-                # bug 's**********o' vide 
                 start_time = time.time()
-                tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual[mask]}, modified_rounds, standings)
+                tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")
             
             it += 1
-            print("a")
 
-        print("whyyyyy")
-
-        return resulting_rounds ,remaining_mask
+        return modified_rounds ,masked_to_actual_en_cours
     
     def update_tree_after_round_assignation(self,tree, masked_to_actual,rounds, standings):
         masked_name_matches = [
