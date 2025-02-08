@@ -67,7 +67,7 @@ class Assignation_TreeNode:
 def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
     """Vérifie si une combinaison de joueurs est valide selon leurs standings."""
 
-    if player1 and not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+    if not ((not player1 is None )  and re.fullmatch(r'.\*{10}.', player1)):
         if (p1_wins > p2_wins and standings_dict[player1].wins == 0) or \
         (p1_wins < p2_wins and standings_dict[player1].losses == 0) or \
         (p1_wins > 0 and standings_dict[player1].gwp == 0) or \
@@ -75,7 +75,7 @@ def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
          # modif a verif
             np.isclose((standings_dict[player1].gwp),0.33,atol=0.01) and p1_wins != 1):
             return False
-    if player2 and not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+    if not ((not player2 is None ) and re.fullmatch(r'.\*{10}.', player2)):
         if (p2_wins > p1_wins and standings_dict[player2].wins == 0) or \
         (p2_wins < p1_wins and standings_dict[player2].losses == 0) or \
         (p2_wins > 0 and standings_dict[player2].gwp == 0) or \
@@ -786,9 +786,9 @@ def is_valid_partial_combination(current_mapping, masked_matches, standings_dict
             p1_wins, p2_wins, _ = map(int, match.result.split('-'))
             if not is_valid_combination(player1, player2, p1_wins, p2_wins, standings_dict):
                 return False
-            if player1 and not (isinstance(player1, str) and re.fullmatch(r'.\*{10}.', player1)):
+            if not ((not match.player1 is None )  and re.fullmatch(r'.\*{10}.', player1)):
                 seen_players.add(player1)
-            if player2 and not (isinstance(player2, str) and re.fullmatch(r'.\*{10}.', player2)):
+            if not ((not match.player2 is None ) and re.fullmatch(r'.\*{10}.', player2)):
                 seen_players.add(player2)
     return True
 ################################################
