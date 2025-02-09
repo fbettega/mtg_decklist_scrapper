@@ -50,7 +50,7 @@ import Client.ManatraderClient as ManatraderClient
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-12 topdeck keepleague
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 manatrader keepleague
-
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2022-01-01 2022-12-31 manatrader keepleague
 # Configure logging to file and console
 def configure_logging(log_file_path):
     class Logger:

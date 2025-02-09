@@ -13,7 +13,7 @@ from comon_tools.tools import *
 from models.Topdeck_model import *
 from Client.ManatraderClient import *
 
-
+# manatraders-series-pioneer-april-2023-2023-04-30.json
 # tournament manatraders-series-duel commander-august-2024-2024-08-31.json
 # tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
@@ -21,12 +21,19 @@ def main():
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
-        tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
-        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
+        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
+        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/55", date=datetime(2024, 10, 31))
+        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+        
+        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/51/", date=datetime(2024, 6, 30))
+        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
+        tournament = TournamentList.DL_tournaments(datetime(2023,4, 20, tzinfo=timezone.utc),datetime(2023, 5, 5, tzinfo=timezone.utc))
+        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
-        # tournament = TournamentList.DL_tournaments(datetime(2024, 8, 20, tzinfo=timezone.utc),datetime(2024, 9, 5, tzinfo=timezone.utc))
+        # tournament = TournamentList.DL_tournaments(datetime(2024, 10, 20, tzinfo=timezone.utc),datetime(2024, 11, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
         # vraiment pas sur
     except Exception as e:

@@ -348,13 +348,14 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-            if res_comparator == False:
-                res_comparator_count += 1
-        
+            # if res_comparator == False:
+            #     res_comparator_count += 1
+            # if res_comparator is None :
+            #     print(res_comparator)
         if all(standings_comparator_res):
             return [node]  # Retourne le nœud valide
         else:
-            # if res_comparator_count <2:
+            # if res_comparator_count < 2:
             #     res_comparator_count
             #     for unsure_standings in tree_standings_res:
             #         standings_ite_current = standings[unsure_standings.player ]
@@ -374,8 +375,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             #     print(standings['hermanomlg'])
             #     print(standings['UnknownWMD'])
             #     print(standings['MCScards'])
-
-            #     print("#####################################################")
+                # print("#####################################################")
             return None  # Feuille invalide
 
     current_round = remaining_rounds[0]
@@ -578,8 +578,8 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                 if player is not None :
                     # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.', opponent):
                     if opponent in matchups[player] and is_unmasked_valid(opponent):
-                        # if iteration == 6:
-                        #     print(f"opo {player}")
+                    #     # if iteration == 6:
+                    #     #     print(f"opo {player}")
                         return False,(player,opponent)
                     if opponent is None:
                        number_of_none_opo[player_indices[player]] +=1    
@@ -794,7 +794,7 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 def check_history(history,full_list_of_masked_player,player_indices):
     for plalyer_to_check in full_list_of_masked_player:
         player_idx = player_indices[plalyer_to_check]
-        print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]}")
+        print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]}")
 
 
 ###########
@@ -1044,9 +1044,13 @@ class Manatrader_fix_hidden_duplicate_name:
                 [
                     match for match in round_obj.matches
                         if (
-                            ((not match.player1 is None ) and re.fullmatch(r'.\*{10}.', match.player1)) or
-                            ((not match.player2 is None )  and re.fullmatch(r'.\*{10}.', match.player2))
+                            ((not match.player1 is None ) and  match.player1 in masked_to_actual) or
+                            ((not match.player2 is None ) and match.player2 in masked_to_actual)
                         )
+                        # if (
+                        #     ((not match.player1 is None ) and re.fullmatch(r'.\*{10}.', match.player1)) or
+                        #     ((not match.player2 is None )  and re.fullmatch(r'.\*{10}.', match.player2))
+                        # )
                 ]
             )
             for round_obj in rounds
@@ -1085,7 +1089,6 @@ class Manatrader_fix_hidden_duplicate_name:
         standings_ogwp = np.array([standing.ogwp for standing in standings])
 
         dict_standings = self.standings_to_dict(standings)
-
         # Parallélisation
         start_time = time.time()
         # Préparer les arguments pour la parallélisation
