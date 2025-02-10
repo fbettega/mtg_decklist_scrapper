@@ -355,21 +355,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         if all(standings_comparator_res):
             return [node]  # Retourne le nœud valide
         else:
-            # if res_comparator_count < 2:
-            #     print(res_comparator_count)
-            #     if res_comparator_count == 0:
-            #         print("no res comparator")
-            #     for unsure_standings in tree_standings_res:
-            #         standings_ite_current = standings[unsure_standings.player ]
-            #         res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
-            #         if not res_comparator:
-            #             print(f"real standings {standings_ite_current}")
-            #             print(f"Calculate standings {unsure_standings}")
-            #             plalyer_to_check = unsure_standings.player
-            #             player_idx = player_indices[plalyer_to_check]
-            #             print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
-            #             print(check_history(history,full_list_of_masked_player,player_indices))
-            #    print("#####################################################")
             return None  # Feuille invalide
 
     current_round = remaining_rounds[0]
@@ -386,7 +371,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
                             bad_tuples_dict[player_mask][pos].add(player)
     # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations2 = [
+    remaining_combinations = [
         combination
         for combination in remaining_combinations
         if all(
@@ -443,26 +428,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
                         # Trouver la position exacte de suspect_player
                         player_position = player_tuple.index(suspect_player)
-                        # Construire le nouvel élément à ajouter
-                        ## commenté car non nécessaire normalement les permutations invalide sont deja filtré donc il ne devrait pas y avoir trop de doublon
-                        # new_entry = { 
-                        #     'tuple': {suspect_player: player_position}, 
-                        #     'history': copy.deepcopy(history["matchups"][suspect_player]), 
-                        #     'resul_history' : copy.deepcopy(Result_history[suspect_player]),
-                        #     "bad_comb_iteration": copy.copy(iteration) 
-                        # }
-                        # already_exists = any(
-                        #     existing_entry["tuple"] == new_entry["tuple"] and
-                        #     existing_entry["history"] == new_entry["history"] and
-                        #     existing_entry["resul_history"] == new_entry["resul_history"] and
-                        #     existing_entry["bad_comb_iteration"] == new_entry["bad_comb_iteration"]
-                        #     for existing_entry in Global_bad_tupple_history[suspect_player]
-                        # )
-
-                        # # Ajouter uniquement si ce n'est pas un doublon
-                        # if not already_exists:
-                        #     Global_bad_tupple_history[suspect_player].append(new_entry)
-
                         Global_bad_tupple_history[suspect_player].append({
                             'tuple' : {suspect_player : player_position},
                             'history' : history["matchups"][suspect_player].copy(),
@@ -863,41 +828,62 @@ class Manatrader_fix_hidden_duplicate_name:
     # Fonction ou méthode principale
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
-        masked_to_actual = self.map_masked_to_actual(standings,rounds)
-        # Étape 1 : Identifier les noms masqués dupliqués
-        duplicated_masked_names = {
-            masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
-        }
-        # étape 2 on crée des arbres par masked name et on tente de les assigner cette fonction doit etre récursive jusqu'a pas de changement ou tout les masked name attribué
-        unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
+
+        if False:
+            masked_to_actual = self.map_masked_to_actual(standings,rounds)
+
+            # on boucle jusqu'a ce que ça ne boude plus
+            # Étape 1 : Identifier les noms masqués dupliqués
+            duplicated_masked_names = {
+                masked for masked, actuals in masked_to_actual.items() if len(actuals) > 1
+            }
+            # étape 2 on crée des arbres par masked name et on tente de les assigner cette fonction doit etre récursive jusqu'a pas de changement ou tout les masked name attribué
+            # étape 2.1 créer un arbre par masked name ne conserver que les branches valides basé sur les stats du joueurs 
+            # on utilise c'est arbres pour :
+            #   validation des ogwp omwp ainsi que pour les adversaire concerné
+            unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
 
         print("stop here ")
+        with open('debug_data1.json', 'r') as file:
+            data = json.load(file)
 
-        # étape 2.1 créer un arbre par masked name ne conserver que les branches valides basé sur les stats du joueurs 
-        # on utilise c'est arbres pour :
-        #   validation des ogwp omwp ainsi que pour les adversaire concerné
-        # on boucle jusqu'a ce que ça ne boude plus
+        unmasked_rounds = []
+        for round_data in data:
+            matches = [RoundItem(m["Player1"], m["Player2"], m["Result"]) for m in round_data["Matches"]]
+            unmasked_rounds.append(Round(round_data["RoundName"], matches))
 
+        Post_single_masked_to_actual = self.map_masked_to_actual(standings,unmasked_rounds)
+        matching_permutation = {}
+        Post_single_assignments_per_masked = self.generate_assignments(
+            unmasked_rounds, Post_single_masked_to_actual, standings
+        )
+        
+        round_number = 0
+        for permutation_per_round in Post_single_assignments_per_masked:
+            round_number += 1
+            print(f"Round : {round_number} number of perm :{len(permutation_per_round)}")
+
+
+        print(f"Start last tree validation")
+        start_time = time.time()
+        resulting_tree =  self.find_real_tournament_from_permutation(
+            Post_single_assignments_per_masked,Post_single_masked_to_actual, unmasked_rounds, standings
+        )
+        end_time = time.time()
+        print(f"Last tree validation : {end_time - start_time:.2f} secondes")
+        print("ok")
         # pour le moment commenter mais devra etre remis 
-
+        # doit etre modifié pour accepter les mask multiples 
+        # if isinstance(resulting_tree, list) and len(resulting_tree) == 1:
+        #     resulting_tree = resulting_tree[0]  # Extraire l'élément unique de la liste
+        #     if isinstance(resulting_tree, TreeNode) and is_single_line_tree(resulting_tree):
+        #         apply_tree_permutations(resulting_tree, unmasked_rounds, mask)
         # étape 3 on crée les permutations globale et on fini le boulot.
         # 2 chose a faire ici faire une methode qui vire les permut deterministe 
         # et peut etre auto assigner les permutations quand un joueur devient seul dans sa perm
         # on repete tout ici pour tout faire en une fois 
-        # matching_permutation = {}
-        # assignments_per_masked = self.generate_assignments(
-        #     round_with_deterministic_round, masked_to_actual, standings
-        # )
-        
-        # round_number = 0
-        # for permutation_per_round in assignments_per_masked:
-        #     round_number += 1
-        #     print(f"Round : {round_number} number of perm :{len(permutation_per_round)}")
 
-        # print("ok")
-        # resulting_tree =  self.find_real_tournament_from_permutation(
-        #     assignments_per_masked,masked_to_actual, round_with_deterministic_round, standings
-        # )
+
 
         for rounds  in unmasked_rounds :
             for match in rounds.matches: 
@@ -907,21 +893,20 @@ class Manatrader_fix_hidden_duplicate_name:
                     print(f"Masked Name present : {rounds}")
                     # Vérifier si le fichier existe déjà
                     # Définir le nom du fichier
-                    base_filename = "debug_data"
-                    extension = ".json"
-                    filename = base_filename + extension
-                    # Trouver un nom de fichier disponible
-                    counter = 1
-                    while os.path.exists(filename):
-                        filename = f"{base_filename}{counter}{extension}"
-                        counter += 1
-                    # Sauvegarde des données
-                    rounds_dict_list = [round_obj.to_dict() for round_obj in unmasked_rounds]
-                    with open(filename, "w", encoding="utf-8") as f:
-                        json.dump(rounds_dict_list, f, indent=3)
+                    # base_filename = "debug_data"
+                    # extension = ".json"
+                    # filename = base_filename + extension
+                    # # Trouver un nom de fichier disponible
+                    # counter = 1
+                    # while os.path.exists(filename):
+                    #     filename = f"{base_filename}{counter}{extension}"
+                    #     counter += 1
+                    # # Sauvegarde des données
+                    # rounds_dict_list = [round_obj.to_dict() for round_obj in unmasked_rounds]
+                    # with open(filename, "w", encoding="utf-8") as f:
+                    #     json.dump(rounds_dict_list, f, indent=3)
                     return None
-        # with open('manatraders-series-pioneer-august-2022-2022-08-31.json', 'r') as file:
-        # data = json.load(file)
+
     # Retourner les rounds mis à jour
         return unmasked_rounds
 
@@ -1008,13 +993,12 @@ class Manatrader_fix_hidden_duplicate_name:
         ]
         masked_keys = list(valid_player.keys())
         # Générer les combinaisons
-
-        if len(masked_keys) > 1:
-            largest_mask = max(
-                [key for key, value in valid_player.items() if len(value) > 5],
-                key=lambda key: len(valid_player[key]),
-                default=None
-                )
+        largest_mask = max(
+            [key for key, value in valid_player.items() if len(value) > 5],
+            key=lambda key: len(valid_player[key]),
+            default=None
+            )
+        if len(masked_keys) > 1 and largest_mask:
             # first_round_xs = list(permutations(valid_player.get(largest_mask, [])))  # Objets X du premier round
             valid_permutations = []
             for perm in permutations(valid_player.get(largest_mask, [])):
@@ -1216,8 +1200,6 @@ class Manatrader_fix_hidden_duplicate_name:
             keys_to_delete = []
             
             for mask,tree in tree_result.items():
-                if mask == "k**********a":
-                    mask
                 if isinstance(tree, list) and len(tree) == 1:
                     tree = tree[0]  # Extraire l'élément unique de la liste
                 if isinstance(tree, TreeNode) and is_single_line_tree(tree):
