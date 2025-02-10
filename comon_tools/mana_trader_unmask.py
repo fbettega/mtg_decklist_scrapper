@@ -348,25 +348,27 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-            # if res_comparator == False:
-            #     res_comparator_count += 1
-            # if res_comparator is None :
-            #     print(res_comparator)
+            if res_comparator == False:
+                res_comparator_count += 1
+            if res_comparator is None :
+                print("res_comparator is None")
         if all(standings_comparator_res):
             return [node]  # Retourne le nœud valide
         else:
-            # if res_comparator_count < 2:
-            #     res_comparator_count
-            #     for unsure_standings in tree_standings_res:
-            #         standings_ite_current = standings[unsure_standings.player ]
-            #         res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
-            #         if not res_comparator:
-            #             print(f"real standings {standings_ite_current}")
-            #             print(f"Calculate standings {unsure_standings}")
-            #             plalyer_to_check = unsure_standings.player
-            #             player_idx = player_indices[plalyer_to_check]
-            #             print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
-            #             print(check_history(history,full_list_of_masked_player,player_indices))
+            if res_comparator_count < 2:
+                print(res_comparator_count)
+                if res_comparator_count == 0:
+                    print("no res comparator")
+                for unsure_standings in tree_standings_res:
+                    standings_ite_current = standings[unsure_standings.player ]
+                    res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
+                    if not res_comparator:
+                        print(f"real standings {standings_ite_current}")
+                        print(f"Calculate standings {unsure_standings}")
+                        plalyer_to_check = unsure_standings.player
+                        player_idx = player_indices[plalyer_to_check]
+                        print(f"Player : {plalyer_to_check} W :{history['Match_wins'][player_idx]} L :{history['Match_losses'][player_idx]} Matchup : {history['matchups'][plalyer_to_check]} unknown opo : {history['number_of_none_opo'][player_idx]} Game W :{history['Game_wins'][player_idx]} L :{history['Game_losses'][player_idx]} D {history['Game_draws'][player_idx]}")
+                        print(check_history(history,full_list_of_masked_player,player_indices))
             #     print(standings['GYrabbit47'])
             #     print(standings['billsive'])
             #     print(standings['Seibo'])
@@ -375,7 +377,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             #     print(standings['hermanomlg'])
             #     print(standings['UnknownWMD'])
             #     print(standings['MCScards'])
-                # print("#####################################################")
+                print("#####################################################")
             return None  # Feuille invalide
 
     current_round = remaining_rounds[0]
@@ -383,27 +385,27 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     remaining_combinations = current_round[:] 
     ###########################################################################################################################
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
-    bad_tuples_dict = defaultdict(lambda: defaultdict(set))
-    for player, bad_tuples in Global_bad_tupple_history.items():
-        for bad_data in bad_tuples:
-                if history["matchups"].get(player) == bad_data["history"] and iteration == bad_data["bad_comb_iteration"]:
-                    for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
-                        if bad_player == player:  # Vérifier si c'est bien le joueur concerné
-                            player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
-                            bad_tuples_dict[player_mask][pos].add(player)
+    # bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+    # for player, bad_tuples in Global_bad_tupple_history.items():
+    #     for bad_data in bad_tuples:
+    #             if history["matchups"].get(player) == bad_data["history"] and iteration == bad_data["bad_comb_iteration"]:
+    #                 for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
+    #                     if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+    #                         player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+    #                         bad_tuples_dict[player_mask][pos].add(player)
 
-    # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations = [
-        combination
-        for combination in remaining_combinations
-        if all(
-            not any(
-                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
-                for pos, player in enumerate(players)
-            )
-            for key, players in combination.items()
-        )
-    ]
+    # # Filtrer les combinaisons où un joueur est à une position interdite
+    # remaining_combinations = [
+    #     combination
+    #     for combination in remaining_combinations
+    #     if all(
+    #         not any(
+    #             key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+    #             for pos, player in enumerate(players)
+    #         )
+    #         for key, players in combination.items()
+    #     )
+    # ]
     ###########################################################################################################################
     # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
@@ -442,30 +444,18 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         if not valid:
             ###########################################################################################################################
-            # if iteration ==6:
-            #     iteration
-
-            #     check_history(history,full_list_of_masked_player,player_indices)
-            #     print("New histo : ")
-            #     check_history(new_history,full_list_of_masked_player,player_indices)
-            #     print("Standings : ")
-            #     for player_temp_test in full_list_of_masked_player:
-            #         print(f"{player_temp_test} : {standings[player_temp_test]}")
-            #     print("############################################")
-            # Ajouter la permutation problématique pour la transmission horizontale
-            ###########################################################################################################################
-            for suspect_player in problematic_player:
-                for masked_name, player_tuple in match_combination.items():
-                    if suspect_player in player_tuple: 
-                        # je ne filtré plus ici
-                        remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-                        # Trouver la position exacte de suspect_player
-                        player_position = player_tuple.index(suspect_player)
-                        Global_bad_tupple_history[suspect_player].append({
-                            'tuple' : {suspect_player : player_position},
-                            'history' : history["matchups"][suspect_player].copy(),
-                            "bad_comb_iteration" : copy.copy(iteration)
-                        })
+            # for suspect_player in problematic_player:
+            #     for masked_name, player_tuple in match_combination.items():
+            #         if suspect_player in player_tuple: 
+            #             # je ne filtré plus ici
+            #             remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+            #             # Trouver la position exacte de suspect_player
+            #             player_position = player_tuple.index(suspect_player)
+            #             Global_bad_tupple_history[suspect_player].append({
+            #                 'tuple' : {suspect_player : player_position},
+            #                 'history' : history["matchups"][suspect_player].copy(),
+            #                 "bad_comb_iteration" : copy.copy(iteration)
+            #             })
                         # sys.stdout.flush()
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
