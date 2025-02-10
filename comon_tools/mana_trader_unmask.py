@@ -911,8 +911,9 @@ class Manatrader_fix_hidden_duplicate_name:
                         filename = f"{base_filename}{counter}{extension}"
                         counter += 1
                     # Sauvegarde des données
+                    rounds_dict_list = [round_obj.to_dict() for round_obj in unmasked_rounds]
                     with open(filename, "w", encoding="utf-8") as f:
-                        json.dump(unmasked_rounds, f, indent=3)
+                        json.dump(rounds_dict_list, f, indent=3)
                     return None
         # with open('manatraders-series-pioneer-august-2022-2022-08-31.json', 'r') as file:
         # data = json.load(file)
