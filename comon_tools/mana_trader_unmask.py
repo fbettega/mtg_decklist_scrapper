@@ -444,30 +444,31 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         # Trouver la position exacte de suspect_player
                         player_position = player_tuple.index(suspect_player)
                         # Construire le nouvel élément à ajouter
-                        
-                        new_entry = { 
-                            'tuple': {suspect_player: player_position}, 
-                            'history': copy.deepcopy(history["matchups"][suspect_player]), 
+                        ## commenté car non nécessaire normalement les permutations invalide sont deja filtré donc il ne devrait pas y avoir trop de doublon
+                        # new_entry = { 
+                        #     'tuple': {suspect_player: player_position}, 
+                        #     'history': copy.deepcopy(history["matchups"][suspect_player]), 
+                        #     'resul_history' : copy.deepcopy(Result_history[suspect_player]),
+                        #     "bad_comb_iteration": copy.copy(iteration) 
+                        # }
+                        # already_exists = any(
+                        #     existing_entry["tuple"] == new_entry["tuple"] and
+                        #     existing_entry["history"] == new_entry["history"] and
+                        #     existing_entry["resul_history"] == new_entry["resul_history"] and
+                        #     existing_entry["bad_comb_iteration"] == new_entry["bad_comb_iteration"]
+                        #     for existing_entry in Global_bad_tupple_history[suspect_player]
+                        # )
+
+                        # # Ajouter uniquement si ce n'est pas un doublon
+                        # if not already_exists:
+                        #     Global_bad_tupple_history[suspect_player].append(new_entry)
+
+                        Global_bad_tupple_history[suspect_player].append({
+                            'tuple' : {suspect_player : player_position},
+                            'history' : history["matchups"][suspect_player].copy(),
                             'resul_history' : copy.deepcopy(Result_history[suspect_player]),
-                            "bad_comb_iteration": copy.copy(iteration) 
-                        }
-                        already_exists = any(
-                            existing_entry["tuple"] == new_entry["tuple"] and
-                            existing_entry["history"] == new_entry["history"] and
-                            existing_entry["resul_history"] == new_entry["resul_history"] and
-                            existing_entry["bad_comb_iteration"] == new_entry["bad_comb_iteration"]
-                            for existing_entry in Global_bad_tupple_history[suspect_player]
-                        )
-
-                        # Ajouter uniquement si ce n'est pas un doublon
-                        if not already_exists:
-                            Global_bad_tupple_history[suspect_player].append(new_entry)
-
-                        # Global_bad_tupple_history[suspect_player].append({
-                        #     'tuple' : {suspect_player : player_position},
-                        #     'history' : history["matchups"][suspect_player].copy(),
-                        #     "bad_comb_iteration" : copy.copy(iteration)
-                        # })
+                            "bad_comb_iteration" : copy.copy(iteration)
+                        })
                         # sys.stdout.flush()
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
@@ -787,13 +788,13 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:  
-            for unsure_standings in computed_standings:
-                standings_ite_current = standings[unsure_standings.player ]
-                res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
-                if not res_comparator:
-                    print(f"real standings {standings_ite_current}")
-                    print(f"Calculate standings {unsure_standings}")
-            print("########################################################")
+            # for unsure_standings in computed_standings:
+            #     standings_ite_current = standings[unsure_standings.player ]
+            #     res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
+            #     if not res_comparator:
+            #         print(f"real standings {standings_ite_current}")
+            #         print(f"Calculate standings {unsure_standings}")
+            # print("########################################################")
             return None  # Feuille invalide
     return node if node.children else None 
 
