@@ -27,11 +27,14 @@ def main():
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/55", date=datetime(2024, 10, 31))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
         
+        tournament = TournamentList.DL_tournaments(datetime(2024,9, 20, tzinfo=timezone.utc),datetime(2024, 10, 5, tzinfo=timezone.utc))
+        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
+
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/51/", date=datetime(2024, 6, 30))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
-        tournament = TournamentList.DL_tournaments(datetime(2023,4, 20, tzinfo=timezone.utc),datetime(2023, 5, 5, tzinfo=timezone.utc))
-        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
+        # tournament = TournamentList.DL_tournaments(datetime(2023,4, 20, tzinfo=timezone.utc),datetime(2023, 5, 5, tzinfo=timezone.utc))
+        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
         # tournament = TournamentList.DL_tournaments(datetime(2024, 10, 20, tzinfo=timezone.utc),datetime(2024, 11, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])

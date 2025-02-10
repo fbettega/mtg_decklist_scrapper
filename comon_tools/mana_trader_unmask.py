@@ -1,6 +1,6 @@
 import json
 import re
-# import os
+import os
 import sys
 import math
 from typing import List,Tuple,Dict, DefaultDict,Optional
@@ -386,11 +386,11 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:
-            if history["matchups"][player] == bad_data["history"] and iteration == bad_data["bad_comb_iteration"]:
-                for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
-                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
-                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
-                        bad_tuples_dict[player_mask][pos].add(player)
+                if history["matchups"].get(player) == bad_data["history"] and iteration == bad_data["bad_comb_iteration"]:
+                    for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
+                        if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+                            player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+                            bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
     remaining_combinations = [
@@ -565,10 +565,12 @@ def validate_permutation(match_combination, history, player_indices, standings_w
         if round_item.player1 in modified_players or round_item.player2 in modified_players:
             print("problem") 
         # if not re.fullmatch(r'.\*{10}.', round_item.player1) :
-        if is_unmasked_valid(round_item.player1):
+        # if is_unmasked_valid(round_item.player1):
+        if round_item.player1 in full_list_of_masked_player:
             modified_players.add(round_item.player1)
         # if not re.fullmatch(r'.\*{10}.', round_item.player2) :
-        if is_unmasked_valid(round_item.player2):
+        # if is_unmasked_valid(round_item.player2):
+        if round_item.player2 in full_list_of_masked_player:
             modified_players.add(round_item.player2)
 
         # Itérer sur les deux joueurs de chaque match
@@ -898,7 +900,22 @@ class Manatrader_fix_hidden_duplicate_name:
                     print(rounds)
                     print(match)
                     print(f"Masked Name present : {rounds}")
+                    # Vérifier si le fichier existe déjà
+                    # Définir le nom du fichier
+                    base_filename = "debug_data"
+                    extension = ".json"
+                    filename = base_filename + extension
+                    # Trouver un nom de fichier disponible
+                    counter = 1
+                    while os.path.exists(filename):
+                        filename = f"{base_filename}{counter}{extension}"
+                        counter += 1
+                    # Sauvegarde des données
+                    with open(filename, "w", encoding="utf-8") as f:
+                        json.dump(unmasked_rounds, f, indent=3)
                     return None
+        # with open('manatraders-series-pioneer-august-2022-2022-08-31.json', 'r') as file:
+        # data = json.load(file)
     # Retourner les rounds mis à jour
         return unmasked_rounds
 
@@ -985,12 +1002,25 @@ class Manatrader_fix_hidden_duplicate_name:
         ]
         masked_keys = list(valid_player.keys())
         # Générer les combinaisons
-        largest_mask = max(
-            [key for key, value in valid_player.items() if len(value) > 5],
-            key=lambda key: len(valid_player[key]),
-            default=None
-            )
-        first_round_xs = list(permutations(valid_player.get(largest_mask, [])))  # Objets X du premier round
+
+        if len(masked_keys) > 1:
+            largest_mask = max(
+                [key for key, value in valid_player.items() if len(value) > 5],
+                key=lambda key: len(valid_player[key]),
+                default=None
+                )
+            # first_round_xs = list(permutations(valid_player.get(largest_mask, [])))  # Objets X du premier round
+            valid_permutations = []
+            for perm in permutations(valid_player.get(largest_mask, [])):
+                current_mapping = {largest_mask: perm}
+                if is_valid_partial_combination(current_mapping, masked_matches, standings_dict):
+                    valid_permutations.append(perm)
+
+            first_round_xs = valid_permutations
+
+        else :
+            first_round_xs = []
+            largest_mask = None
         remaining_mask = [mask for mask in valid_player.keys() if mask != largest_mask]  # Rounds restants
         if len(first_round_xs) > 1:
             tasks = [
@@ -1168,6 +1198,7 @@ class Manatrader_fix_hidden_duplicate_name:
         Assignement_per_mask_result = {}
         tree_result = {}
         for mask ,actual_player in masked_to_actual_en_cours.items():
+
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
@@ -1181,6 +1212,8 @@ class Manatrader_fix_hidden_duplicate_name:
             keys_to_delete = []
             
             for mask,tree in tree_result.items():
+                if mask == "k**********a":
+                    mask
                 if isinstance(tree, list) and len(tree) == 1:
                     tree = tree[0]  # Extraire l'élément unique de la liste
                 if isinstance(tree, TreeNode) and is_single_line_tree(tree):
@@ -1402,11 +1435,11 @@ class Manatrader_fix_hidden_duplicate_name:
                     print("plus d'opo que de partie ...")
                 elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
                     #######################################################
-                    if number_of_none_opo[player_idx] >0:
-                        number_of_none_opo[player_idx]
-                    #######################################################
-                    if player in full_list_of_masked_player:
-                        player 
+                    # if number_of_none_opo[player_idx] >0:
+                    #     number_of_none_opo[player_idx]
+                    # #######################################################
+                    # if player in full_list_of_masked_player:
+                    #     player 
                     for opo in matchups[player]:
                         if re.fullmatch(r'.\*{10}.', opo):  
                             computable_ogp_omwp = False
