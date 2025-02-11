@@ -400,7 +400,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         
         new_Result_history = copy.deepcopy(Result_history)
         new_masked_name_matches = copy.deepcopy(masked_name_matches)
-
+        # new_Result_history = copy.copy(Result_history)
+        # new_masked_name_matches = copy.copy(masked_name_matches)
         used_players = defaultdict(int)
         for match in new_masked_name_matches[iteration].matches:
             # Remplacer player1 si c'est un nom masqué
@@ -428,13 +429,20 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         # je ne filtré plus ici
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
                         # Trouver la position exacte de suspect_player
-                        player_position = player_tuple.index(suspect_player)
-                        Global_bad_tupple_history[suspect_player].append({
-                            'tuple' : {suspect_player : player_position},
-                            'history' : history["matchups"][suspect_player].copy(),
-                            'resul_history' : copy.deepcopy(Result_history[suspect_player]),
-                            "bad_comb_iteration" : copy.copy(iteration)
-                        })
+                        Global_bad_tupple_history[suspect_player].append(frozenset({
+                            'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
+                            'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
+                            'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
+                            "bad_comb_iteration": iteration  # Immuable
+                        }.items()))
+                        # player_position = player_tuple.index(suspect_player)
+                        # Global_bad_tupple_history[suspect_player].append({
+                        #     'tuple' : {suspect_player : player_position},
+                        #     'history' : history["matchups"][suspect_player].copy(),
+                        #     'resul_history' : copy.copy(Result_history[suspect_player]),
+                        #     # 'resul_history' : copy.deepcopy(Result_history[suspect_player]),
+                        #     "bad_comb_iteration" : copy.copy(iteration)
+                        # })
                         # sys.stdout.flush()
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
@@ -525,7 +533,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
     matchups = history["matchups"]
     number_of_none_opo = history["number_of_none_opo"]
     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
-    if Result_history:
+    if Result_history is not None:
         Match_reusult = Result_history
     for round_item in match_combination:
         results_match = list(map(int, round_item.result.split('-')))
@@ -646,8 +654,9 @@ def process_combination(task):
 
     # Extraire les permutations valides à partir de l'arbre
     # modifié pour imap imap_unordered 
-    # return root
-    return root if root.children else []
+    # return root if root.children else []
+    return root
+    
 #######################################################################################################################
 # update stat tree
 def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun, compare_standings_fun, 
@@ -733,19 +742,6 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 
     node.children = new_children  # Mettre à jour les enfants du nœud 
     if not node.children:     
-        # valid_leaf, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, new_history, 
-        #                                     player_indices, standings_wins, standings_losses, standings_gwp, 
-        #                                     full_list_of_masked_player)
-        ##############################
-        # ontest ici 
-        # print(f"{iteration}  history")
-        # check_history(history,full_list_of_masked_player,player_indices)
-        # print("New history")
-        # check_history(new_history,full_list_of_masked_player,player_indices)
-        # ###############################
-        # if not valid_leaf:
-        #     print(f"Feuille invalide après validation : {node.combination}")
-        #     return None  # Supprime directement la feuille si elle est invalide
         computed_standings = compute_stat_fun(base_result_from_know_player, new_history,full_list_of_masked_player,player_indices)
         standings_comparator_res = []
         for unsure_standings in computed_standings:
@@ -755,13 +751,6 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:  
-            # for unsure_standings in computed_standings:
-            #     standings_ite_current = standings[unsure_standings.player ]
-            #     res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
-            #     if not res_comparator:
-            #         print(f"real standings {standings_ite_current}")
-            #         print(f"Calculate standings {unsure_standings}")
-            # print("########################################################")
             return None  # Feuille invalide
     return node if node.children else None 
 
@@ -1406,15 +1395,14 @@ class Manatrader_fix_hidden_duplicate_name:
 
 
     def calculate_stats_for_matches(self, base_table_res,permutation_res_table,full_list_of_masked_player,player_indices):  
-
-        Match_wins = copy.deepcopy(permutation_res_table["Match_wins"])
-        Match_losses = copy.deepcopy(permutation_res_table["Match_losses"])
-        Game_wins = copy.deepcopy(permutation_res_table["Game_wins"])
-        Game_losses = copy.deepcopy(permutation_res_table["Game_losses"])
-        Game_draws = copy.deepcopy(permutation_res_table["Game_draws"])
-        matchups = copy.deepcopy(permutation_res_table["matchups"])
+        Match_wins = permutation_res_table["Match_wins"]
+        Match_losses =permutation_res_table["Match_losses"]
+        Game_wins = permutation_res_table["Game_wins"]
+        Game_losses = permutation_res_table["Game_losses"]
+        Game_draws = permutation_res_table["Game_draws"]
+        matchups = permutation_res_table["matchups"]
         update_player_standings = []
-        number_of_none_opo = copy.deepcopy(permutation_res_table["number_of_none_opo"])
+        number_of_none_opo = permutation_res_table["number_of_none_opo"]
 
         for player in player_indices:
             if len(matchups[player]) > 0:
@@ -1426,12 +1414,6 @@ class Manatrader_fix_hidden_duplicate_name:
                 if len(matchups[player]) > (Match_wins[player_idx] + Match_losses[player_idx]):
                     print("plus d'opo que de partie ...")
                 elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
-                    #######################################################
-                    # if number_of_none_opo[player_idx] >0:
-                    #     number_of_none_opo[player_idx]
-                    # #######################################################
-                    # if player in full_list_of_masked_player:
-                    #     player 
                     for opo in matchups[player]:
                         if re.fullmatch(r'.\*{10}.', opo):  
                             computable_ogp_omwp = False
