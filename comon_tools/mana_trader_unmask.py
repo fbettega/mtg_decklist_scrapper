@@ -397,9 +397,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()},
             "number_of_none_opo": history["number_of_none_opo"].copy()
         }
+        
         new_Result_history = copy.deepcopy(Result_history)
-
         new_masked_name_matches = copy.deepcopy(masked_name_matches)
+
         used_players = defaultdict(int)
         for match in new_masked_name_matches[iteration].matches:
             # Remplacer player1 si c'est un nom masqué
