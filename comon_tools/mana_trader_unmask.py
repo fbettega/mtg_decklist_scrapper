@@ -363,13 +363,19 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     ###########################################################################################################################
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+
     for player, bad_tuples in Global_bad_tupple_history.items():
-        for bad_data in bad_tuples:
-                if history["matchups"].get(player) == bad_data["history"] and iteration == bad_data["bad_comb_iteration"] and Result_history.get(player) == bad_data['resul_history']:
-                    for bad_player,pos in bad_data["tuple"].items():  # Lire la position et le joueur
-                        if bad_player == player:  # Vérifier si c'est bien le joueur concerné
-                            player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
-                            bad_tuples_dict[player_mask][pos].add(player)
+        for bad_data_set in bad_tuples:  # `bad_data_set` est un `frozenset`
+            bad_data = dict(bad_data_set)  # Convertir en dictionnaire
+            
+            if (history["matchups"].get(player) == bad_data["history"] and 
+                iteration == bad_data["bad_comb_iteration"] and 
+                Result_history.get(player) == bad_data["resul_history"]):
+
+                for bad_player, pos in dict(bad_data["tuple"]).items():  # `tuple` est aussi un `frozenset`
+                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+                        bad_tuples_dict[player_mask][pos].add(player)
     # Filtrer les combinaisons où un joueur est à une position interdite
     remaining_combinations = [
         combination
@@ -399,7 +405,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         }
         
         new_Result_history = copy.deepcopy(Result_history)
-        new_masked_name_matches = copy.deepcopy(masked_name_matches)
+        # new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
+        
+        new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
+        new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
         # new_Result_history = copy.copy(Result_history)
         # new_masked_name_matches = copy.copy(masked_name_matches)
         used_players = defaultdict(int)
@@ -429,13 +438,14 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         # je ne filtré plus ici
                         remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
                         # Trouver la position exacte de suspect_player
+                        player_position = player_tuple.index(suspect_player)
                         Global_bad_tupple_history[suspect_player].append(frozenset({
                             'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
                             'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
                             'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
                             "bad_comb_iteration": iteration  # Immuable
                         }.items()))
-                        # player_position = player_tuple.index(suspect_player)
+                        # 
                         # Global_bad_tupple_history[suspect_player].append({
                         #     'tuple' : {suspect_player : player_position},
                         #     'history' : history["matchups"][suspect_player].copy(),
@@ -575,7 +585,7 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                     Game_wins[player_idx] += M_win
                     Game_losses[player_idx] += M_loss
                     Game_draws[player_idx] += M_draw
-                    if Result_history:
+                    if Result_history is not None :
                         Match_reusult[player].extend([M_win> M_loss])
                     # Valider les limites de wins et losses
                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
@@ -1133,8 +1143,8 @@ class Manatrader_fix_hidden_duplicate_name:
         else:
             first_round_xs = filtered_assignments[0]  # Objets X du premier round
             remaining_rounds = filtered_assignments[1:]  # Rounds restants
-            chunk_size = 1
-            # chunk_size =  int(len(first_round_xs))
+            # chunk_size = 1
+            chunk_size =  int(len(first_round_xs)/5)
             # chunk_size =  int(len(first_round_xs)/50)#1000  # Ajuste selon la taille souhaitée
             first_round_chunks = list(chunked(first_round_xs, chunk_size))
             tasks = [
@@ -1158,10 +1168,10 @@ class Manatrader_fix_hidden_duplicate_name:
                 for chunk in first_round_chunks
             ]
             # Diviser les tâches pour chaque round dans valid_combinations
-            with Pool(cpu_count()) as pool:
-                results = list(pool.imap_unordered(process_combination, tasks))
             # with Pool(cpu_count()) as pool:
-            #     results = pool.map(process_combination, tasks)
+            #     results = list(pool.imap_unordered(process_combination, tasks))
+            with Pool(cpu_count()) as pool:
+                results = pool.map(process_combination, tasks)
             # Fusionner les résultats valides
             valid_permutations = [node for node in results if node.children]               
             # valid_permutations = results
