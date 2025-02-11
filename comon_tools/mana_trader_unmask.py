@@ -644,8 +644,9 @@ def process_combination(task):
     )
 
     # Extraire les permutations valides à partir de l'arbre
-
-    return root
+    # modifié pour imap imap_unordered 
+    # return root
+    return root if root.children else []
 #######################################################################################################################
 # update stat tree
 def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun, compare_standings_fun, 
@@ -829,7 +830,7 @@ class Manatrader_fix_hidden_duplicate_name:
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
 
-        if False:
+        if True:
             masked_to_actual = self.map_masked_to_actual(standings,rounds)
 
             # on boucle jusqu'a ce que ça ne boude plus
@@ -865,6 +866,7 @@ class Manatrader_fix_hidden_duplicate_name:
 
 
         print(f"Start last tree validation")
+        # pour le moment beaucoup trop lent plus de 7h
         start_time = time.time()
         resulting_tree =  self.find_real_tournament_from_permutation(
             Post_single_assignments_per_masked,Post_single_masked_to_actual, unmasked_rounds, standings
@@ -1141,11 +1143,12 @@ class Manatrader_fix_hidden_duplicate_name:
         else:
             first_round_xs = filtered_assignments[0]  # Objets X du premier round
             remaining_rounds = filtered_assignments[1:]  # Rounds restants
-            chunk_size =  int(len(first_round_xs)/5)
+            chunk_size = 1
+            # chunk_size =  int(len(first_round_xs))
             # chunk_size =  int(len(first_round_xs)/50)#1000  # Ajuste selon la taille souhaitée
             first_round_chunks = list(chunked(first_round_xs, chunk_size))
             tasks = [
-                (
+                (   
                     chunk,
                     remaining_rounds,
                     masked_name_matches,
@@ -1166,7 +1169,9 @@ class Manatrader_fix_hidden_duplicate_name:
             ]
             # Diviser les tâches pour chaque round dans valid_combinations
             with Pool(cpu_count()) as pool:
-                results = pool.map(process_combination, tasks)
+                results = list(pool.imap_unordered(process_combination, tasks))
+            # with Pool(cpu_count()) as pool:
+            #     results = pool.map(process_combination, tasks)
             # Fusionner les résultats valides
             valid_permutations = [node for node in results if node.children]               
             # valid_permutations = results
