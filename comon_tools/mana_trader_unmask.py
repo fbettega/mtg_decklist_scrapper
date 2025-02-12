@@ -286,32 +286,32 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     remaining_combinations = current_round[:] 
     ###########################################################################################################################
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
-    bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+    # bad_tuples_dict = defaultdict(lambda: defaultdict(set))
 
-    for player, bad_tuples in Global_bad_tupple_history.items():
-        for bad_data_set in bad_tuples:  # `bad_data_set` est un `frozenset`
-            bad_data = dict(bad_data_set)  # Convertir en dictionnaire
+    # for player, bad_tuples in Global_bad_tupple_history.items():
+    #     for bad_data_set in bad_tuples:  # `bad_data_set` est un `frozenset`
+    #         bad_data = dict(bad_data_set)  # Convertir en dictionnaire
             
-            if (tuple(history["matchups"].get(player)) == bad_data["history"] and 
-                iteration == bad_data["bad_comb_iteration"] and 
-                Result_history.get(player) == bad_data["resul_history"]):
+    #         if (tuple(history["matchups"].get(player)) == bad_data["history"] and 
+    #             iteration == bad_data["bad_comb_iteration"] and 
+    #             Result_history.get(player) == bad_data["resul_history"]):
 
-                for bad_player, pos in dict(bad_data["tuple"]).items():  # `tuple` est aussi un `frozenset`
-                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
-                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
-                        bad_tuples_dict[player_mask][pos].add(player)
+    #             for bad_player, pos in dict(bad_data["tuple"]).items():  # `tuple` est aussi un `frozenset`
+    #                 if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+    #                     player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+    #                     bad_tuples_dict[player_mask][pos].add(player)
     # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations = [
-        combination
-        for combination in remaining_combinations
-        if all(
-            not any(
-                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
-                for pos, player in enumerate(players)
-            )
-            for key, players in combination.items()
-        )
-    ]
+    # remaining_combinations = [
+    #     combination
+    #     for combination in remaining_combinations
+    #     if all(
+    #         not any(
+    #             key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+    #             for pos, player in enumerate(players)
+    #         )
+    #         for key, players in combination.items()
+    #     )
+    # ]
     ###########################################################################################################################
     # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
 
@@ -356,19 +356,19 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         if not valid:
             ###########################################################################################################################
-            for suspect_player in problematic_player:
-                for masked_name, player_tuple in match_combination.items():
-                    if suspect_player in player_tuple: 
-                        # je ne filtré plus ici
-                        remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-                        # Trouver la position exacte de suspect_player
-                        player_position = player_tuple.index(suspect_player)
-                        Global_bad_tupple_history[suspect_player].append(frozenset({
-                            'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
-                            'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
-                            'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
-                            "bad_comb_iteration": iteration  # Immuable
-                        }.items()))
+            # for suspect_player in problematic_player:
+            #     for masked_name, player_tuple in match_combination.items():
+            #         if suspect_player in player_tuple: 
+            #             # je ne filtré plus ici
+            #             remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+            #             # Trouver la position exacte de suspect_player
+            #             player_position = player_tuple.index(suspect_player)
+            #             Global_bad_tupple_history[suspect_player].append(frozenset({
+            #                 'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
+            #                 'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
+            #                 'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
+            #                 "bad_comb_iteration": iteration  # Immuable
+            #             }.items()))
                         # sys.stdout.flush()
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
