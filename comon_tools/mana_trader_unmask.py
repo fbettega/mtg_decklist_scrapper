@@ -404,13 +404,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "number_of_none_opo": history["number_of_none_opo"].copy()
         }
         
-        # new_Result_history = copy.deepcopy(Result_history)
+
         new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
         
         new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
         new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
-        # new_Result_history = copy.copy(Result_history)
-        # new_masked_name_matches = copy.copy(masked_name_matches)
+
         used_players = defaultdict(int)
         for match in new_masked_name_matches[iteration].matches:
             # Remplacer player1 si c'est un nom masqué
@@ -747,6 +746,14 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
+
+            if iteration == 8 and not res_comparator:
+                check_history(new_history,set([unsure_standings.player]),player_indices)
+                print(f"real standings : {standings_ite_current}")
+                print(f"Calc standings : {unsure_standings}")
+        if iteration == 8:        
+            check_history(new_history,full_list_of_masked_player,player_indices)
+            print("########################################")
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:  
@@ -1194,7 +1201,8 @@ class Manatrader_fix_hidden_duplicate_name:
         while True:
             print(it)
             keys_to_delete = []
-            
+            if it == 1:
+                it
             for mask,tree in tree_result.items():
                 if isinstance(tree, list) and len(tree) == 1:
                     tree = tree[0]  # Extraire l'élément unique de la liste
@@ -1227,7 +1235,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")
-            
+            if it == 1:
+                it            
             it += 1
 
         return modified_rounds ,masked_to_actual_en_cours
@@ -1414,7 +1423,8 @@ class Manatrader_fix_hidden_duplicate_name:
                 total_ogp = 0
                 if len(matchups[player]) > (Match_wins[player_idx] + Match_losses[player_idx]):
                     print("plus d'opo que de partie ...")
-                elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
+                # elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
+                elif len(matchups[player]) == (Match_wins[player_idx] + Match_losses[player_idx]):
                     for opo in matchups[player]:
                         if re.fullmatch(r'.\*{10}.', opo):  
                             computable_ogp_omwp = False
@@ -1422,7 +1432,6 @@ class Manatrader_fix_hidden_duplicate_name:
                         if opo :
                             opo_idx = player_indices[opo]
                             number_of_opponent += 1
-
                             opponent_gwp = (Game_wins[opo_idx] +(Game_draws[opo_idx]/3)) / (Game_wins[opo_idx] +Game_draws[opo_idx] + Game_losses[opo_idx])  # GWP pour l'adversaire
                             total_ogp += opponent_gwp if opponent_gwp >= 0.3333 else 0.33
                             
