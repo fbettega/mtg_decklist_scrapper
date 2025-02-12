@@ -225,81 +225,6 @@ def combination_has_forbidden(combination, positions_to_exclude):
                 return True
     return False
 
-def find_minimal_combinations(bad_tuples_dict, remaining_combinations):
-    minimal_combinations = []
-    keys_list = list(bad_tuples_dict.keys())
-
-    # Tester les combinaisons de clés par ordre croissant de taille
-    for n in range(1, len(keys_list) + 1):
-        for keys_subset in combinations(keys_list, n):
-            # Construire le dictionnaire des positions interdites pour le sous-ensemble courant
-            # positions_to_exclude aura la forme : { key: { pos: set(de joueurs) } }
-            positions_to_exclude = {}
-            for key in keys_subset:
-                # On copie le dictionnaire pour éviter les appels multiples à defaultdict
-                # (il s'agit d'une copie simple car les valeurs sont des ensembles)
-                positions_to_exclude[key] = {}
-                for pos, players in bad_tuples_dict[key].items():
-                    positions_to_exclude[key][pos] = set(players)
-            
-            # Filtrer les combinaisons restantes : on ne garde que celles qui ne satisfont pas 
-            # la contrainte (c'est-à-dire celles qui ont au moins un joueur différent)
-            filtered_combinations = [
-                combination
-                for combination in remaining_combinations
-                if not combination_has_forbidden(combination, positions_to_exclude)
-            ]
-
-            # Si plus aucune combinaison ne reste, le sous-ensemble courant est minimal
-            if not filtered_combinations:
-                # Pour chaque clé du sous-ensemble, rassembler l'ensemble des joueurs interdits
-                players_for_keys = {}
-                for key in keys_subset:
-                    union_players = set()
-                    for players in bad_tuples_dict[key].values():
-                        union_players.update(players)
-                    players_for_keys[key] = union_players
-
-                minimal_combinations.append(players_for_keys)
-
-        # Dès qu'on trouve une solution minimale (pour une taille donnée), on arrête la recherche
-        if minimal_combinations:
-            break
-
-    return minimal_combinations
-
-def backward_remove_matching_combinations(remaining_combinations, dead_combination_backward):
-    """
-    Filtre les combinaisons de remaining_combinations.
-    Pour chaque combinaison, on vérifie pour chacune des entrées de dead_combination_backward
-    (c'est-à-dire pour chaque (clé, joueur, position)) que, si la clé est présente dans la combinaison,
-    alors le tuple associé à cette clé possède bien le joueur à la position indiquée.
-    Si pour toutes les entrées la condition est remplie, la combinaison est considérée comme "à filtrer"
-    et n'est pas ajoutée à la liste finale.
-    """
-    filtered_combinations = []
-    
-    for combination in remaining_combinations:
-        # On part de l'hypothèse que la combinaison correspond à toutes les contraintes
-        remove_this = True  
-        for key, player, pos in dead_combination_backward:
-            # Si la clé n'est pas dans la combinaison, ou si le tuple associé ne contient pas
-            # le joueur à la position indiquée, alors la combinaison ne doit pas être filtrée.
-            if key not in combination:
-                remove_this = False
-                break
-            # Récupérer le tuple associé à la clé
-            players_tuple = combination[key]
-            # Vérifier que la position existe et que le joueur à cette position correspond
-            if pos >= len(players_tuple) or players_tuple[pos] != player:
-                remove_this = False
-                break
-        
-        # On conserve la combinaison uniquement si remove_this est False
-        if not remove_this:
-            filtered_combinations.append(combination)
-            
-    return filtered_combinations
 
 def build_tree_init_history(player_indices, base_result_from_know_player, history=None):
     n_players = len(player_indices)
@@ -343,7 +268,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         standings_comparator_res = []
         # ajouter ici un merge avec le base_result_from_know_player
 
-        res_comparator_count = 0
         for unsure_standings in tree_standings_res:
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
@@ -410,6 +334,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
         new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
 
+
         used_players = defaultdict(int)
         for match in new_masked_name_matches[iteration].matches:
             # Remplacer player1 si c'est un nom masqué
@@ -444,14 +369,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                             'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
                             "bad_comb_iteration": iteration  # Immuable
                         }.items()))
-                        # 
-                        # Global_bad_tupple_history[suspect_player].append({
-                        #     'tuple' : {suspect_player : player_position},
-                        #     'history' : history["matchups"][suspect_player].copy(),
-                        #     'resul_history' : copy.copy(Result_history[suspect_player]),
-                        #     # 'resul_history' : copy.deepcopy(Result_history[suspect_player]),
-                        #     "bad_comb_iteration" : copy.copy(iteration)
-                        # })
                         # sys.stdout.flush()
                         # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
@@ -1149,7 +1066,7 @@ class Manatrader_fix_hidden_duplicate_name:
         for round_perm in filtered_assignments:
             total_perm_count *= len(round_perm)
         print(total_perm_count)
-        if len(filtered_assignments[0]) < 5:
+        if total_perm_count < 100000:
             root = TreeNode()  # Nœud racine de l'arbre
             build_tree(
                 root,
@@ -1174,8 +1091,11 @@ class Manatrader_fix_hidden_duplicate_name:
         else:
             first_round_xs = filtered_assignments[0]  # Objets X du premier round
             remaining_rounds = filtered_assignments[1:]  # Rounds restants
-            # chunk_size = 1
-            chunk_size =  int(len(first_round_xs)/5)
+            
+            if len(first_round_xs) > 4:
+                chunk_size =  int(len(first_round_xs)/5)
+            else : 
+                chunk_size = 1
             # chunk_size =  int(len(first_round_xs)/50)#1000  # Ajuste selon la taille souhaitée
             first_round_chunks = list(chunked(first_round_xs, chunk_size))
             tasks = [
@@ -1222,7 +1142,6 @@ class Manatrader_fix_hidden_duplicate_name:
         Assignement_per_mask_result = {}
         tree_result = {}
         for mask ,actual_player in masked_to_actual_en_cours.items():
-
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
