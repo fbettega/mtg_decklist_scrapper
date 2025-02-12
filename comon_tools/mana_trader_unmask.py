@@ -330,7 +330,7 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
                 standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(list),
-                Result_history = defaultdict(list), history=None, iteration=0,max_ite_reach = 0):
+                Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):
     if history is None:
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
 
@@ -368,7 +368,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         for bad_data_set in bad_tuples:  # `bad_data_set` est un `frozenset`
             bad_data = dict(bad_data_set)  # Convertir en dictionnaire
             
-            if (history["matchups"].get(player) == bad_data["history"] and 
+            if (tuple(history["matchups"].get(player)) == bad_data["history"] and 
                 iteration == bad_data["bad_comb_iteration"] and 
                 Result_history.get(player) == bad_data["resul_history"]):
 
@@ -404,8 +404,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "number_of_none_opo": history["number_of_none_opo"].copy()
         }
         
-        new_Result_history = copy.deepcopy(Result_history)
-        # new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
+        # new_Result_history = copy.deepcopy(Result_history)
+        new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
         
         new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
         new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
@@ -586,7 +586,10 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                     Game_losses[player_idx] += M_loss
                     Game_draws[player_idx] += M_draw
                     if Result_history is not None :
-                        Match_reusult[player].extend([M_win> M_loss])
+                        if isinstance(Match_reusult[player],list):
+                            Match_reusult[player]
+                        Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
+                        # Match_reusult[player].extend([M_win> M_loss])
                     # Valider les limites de wins et losses
                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
                         return False,(player,opponent)
@@ -842,16 +845,20 @@ class Manatrader_fix_hidden_duplicate_name:
             # étape 2.1 créer un arbre par masked name ne conserver que les branches valides basé sur les stats du joueurs 
             # on utilise c'est arbres pour :
             #   validation des ogwp omwp ainsi que pour les adversaire concerné
+
+            # problem ici Start Update round M**********s
+            # Change in treee size :0/72 remove 72
+            # Update round : 4.26 secondes
             unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
 
         print("stop here ")
-        with open('debug_data1.json', 'r') as file:
-            data = json.load(file)
+        # with open('debug_data1.json', 'r') as file:
+        #     data = json.load(file)
 
-        unmasked_rounds = []
-        for round_data in data:
-            matches = [RoundItem(m["Player1"], m["Player2"], m["Result"]) for m in round_data["Matches"]]
-            unmasked_rounds.append(Round(round_data["RoundName"], matches))
+        # unmasked_rounds = []
+        # for round_data in data:
+        #     matches = [RoundItem(m["Player1"], m["Player2"], m["Result"]) for m in round_data["Matches"]]
+        #     unmasked_rounds.append(Round(round_data["RoundName"], matches))
 
         Post_single_masked_to_actual = self.map_masked_to_actual(standings,unmasked_rounds)
         matching_permutation = {}
