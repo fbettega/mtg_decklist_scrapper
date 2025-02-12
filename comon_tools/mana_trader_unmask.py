@@ -565,7 +565,8 @@ def validate_permutation(match_combination, history, player_indices, standings_w
                     if opponent in matchups[player] and is_valid_opp:
                         return False,(player,opponent)
                     else:
-                        matchups[player].extend([opponent])
+                        if opponent:
+                            matchups[player].extend([opponent])
                         # if not re.fullmatch(r'.\*{10}.', opponent):
                         if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
                             matchups[opponent].extend([player])
@@ -992,6 +993,10 @@ class Manatrader_fix_hidden_duplicate_name:
             if match.player1 in valid_player or match.player2 in valid_player
         ]
         masked_keys = list(valid_player.keys())
+        none_positions = {}
+        for mask in valid_player:
+            none_positions[mask] = {i for i, match in enumerate(masked_matches) if match.player1 == mask and match.player2 is None}
+
         # Générer les combinaisons
         largest_mask = max(
             [key for key, value in valid_player.items() if len(value) > 5],
@@ -1038,8 +1043,36 @@ class Manatrader_fix_hidden_duplicate_name:
             if perm_tuple in seen:
                 print("Il y a des doublons dans permutation_assignment.")
             seen.add(perm_tuple)
+        for mask , position in none_positions.items():
+            if len(position) > 1:
+                permutation_assignment = self.filter_equivalent_permutations(permutation_assignment, none_positions,mask)
         return permutation_assignment
     
+
+    def normalize_permutation(self,perm, none_positions):
+        """ Trie les éléments aux positions none_positions pour normaliser la permutation. """
+        perm = list(perm)  # Convertir en liste pour modification
+        sorted_values = sorted(perm[i] for i in none_positions)  # Trier les éléments affectés
+        for idx, val in zip(none_positions, sorted_values):  
+            perm[idx] = val  # Remettre les valeurs triées aux bonnes positions
+        return tuple(perm)
+
+    def filter_equivalent_permutations(self,permutation_assignment, none_positions,mask):
+        unique_permutations = set()
+        filtered_permutations = []
+
+        for perm_dict in permutation_assignment:
+            perm = perm_dict[mask]
+            position = none_positions[mask]
+            normalized_perm = self.normalize_permutation(perm,position )
+
+            if normalized_perm not in unique_permutations:
+                unique_permutations.add(normalized_perm)
+                filtered_permutations.append(perm_dict)
+
+        return filtered_permutations
+
+
     def find_real_tournament_from_permutation(self,assignments_per_masked,masked_to_actual, rounds, standings,partial_assignment = False):
         # Préparer les données
         # Identifier les matchs avec des noms masqués
@@ -1423,13 +1456,12 @@ class Manatrader_fix_hidden_duplicate_name:
                 total_ogp = 0
                 if len(matchups[player]) > (Match_wins[player_idx] + Match_losses[player_idx]):
                     print("plus d'opo que de partie ...")
-                # elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
-                elif len(matchups[player]) == (Match_wins[player_idx] + Match_losses[player_idx]):
+                elif (len(matchups[player]) + number_of_none_opo[player_idx]) == (Match_wins[player_idx] + Match_losses[player_idx]):
                     for opo in matchups[player]:
                         if re.fullmatch(r'.\*{10}.', opo):  
                             computable_ogp_omwp = False
                             break
-                        if opo :
+                        if opo:
                             opo_idx = player_indices[opo]
                             number_of_opponent += 1
                             opponent_gwp = (Game_wins[opo_idx] +(Game_draws[opo_idx]/3)) / (Game_wins[opo_idx] +Game_draws[opo_idx] + Game_losses[opo_idx])  # GWP pour l'adversaire
@@ -1449,8 +1481,10 @@ class Manatrader_fix_hidden_duplicate_name:
                         losses=Match_losses[player_idx],
                         draws=0,
                         omwp= total_omp/number_of_opponent if computable_ogp_omwp else None,
+                        # omwp= total_omp/(number_of_opponent + number_of_none_opo[player_idx]) if computable_ogp_omwp else None,
                         gwp=(Game_wins[player_idx] +(Game_draws[player_idx]/3)) / (Game_wins[player_idx] +Game_draws[player_idx] + Game_losses[player_idx]),
                         ogwp=total_ogp/number_of_opponent if computable_ogp_omwp else None
+                        # ogwp=total_ogp/(number_of_opponent + number_of_none_opo[player_idx]) if computable_ogp_omwp else None
                         )
                         )
         return update_player_standings
