@@ -671,6 +671,13 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
         if all(standings_comparator_res):
+            # for player in full_list_of_masked_player:
+            #     print(f"real standings_ite_current : {standings[player]}")
+            #     for unsure_standings in computed_standings:
+            #         if unsure_standings.player == player:
+            #             print(f"Calc standings_ite_current : {unsure_standings}")
+            #     print(new_history["matchups"][player])
+            # print("###############################################")
             return node  # Retourne le nœud valide
         else:  
             return None  # Feuille invalide
@@ -1135,7 +1142,8 @@ class Manatrader_fix_hidden_duplicate_name:
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
-       
+        # standings[55]
+        # standings[44]
         modified_rounds = copy.deepcopy(rounds)
             
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
@@ -1143,8 +1151,6 @@ class Manatrader_fix_hidden_duplicate_name:
         while True:
             print(it)
             keys_to_delete = []
-            if it == 1:
-                it
             for mask,tree in tree_result.items():
                 if isinstance(tree, list) and len(tree) == 1:
                     tree = tree[0]  # Extraire l'élément unique de la liste
@@ -1174,6 +1180,8 @@ class Manatrader_fix_hidden_duplicate_name:
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 start_time = time.time()
+                # if mask == "M**********r" and it == 2:
+                #     mask
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")
