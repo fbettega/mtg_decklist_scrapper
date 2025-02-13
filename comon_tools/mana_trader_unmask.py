@@ -14,7 +14,7 @@ import numpy as np
 import time
 import copy
 from collections import Counter
-
+from  comon_tools.cython_file_unmask_mana_trader.validate_permutation_cy import validate_permutation, is_unmasked_valid
 
 
 ################################################
@@ -87,9 +87,9 @@ def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
             return False
     return True
 
-def is_unmasked_valid(player):
-    """Vérifie si le joueur n'est ni None ni masqué."""
-    return player is not None and not re.fullmatch(r'.\*{10}.\d*', player)
+# def is_unmasked_valid(player):
+#     """Vérifie si le joueur n'est ni None ni masqué."""
+#     return player is not None and not re.fullmatch(r'.\*{10}.\d*', player)
 
 def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict):
     """Construit l'arbre des permutations."""
@@ -444,73 +444,76 @@ def update_encounters(encounters, player1, player2):
     return True
 
 
-def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None,iteration = 0):
-    """
-    Valider une permutation partielle dans le cadre de la construction de l'arbre.
-    """
-    Match_wins = history["Match_wins"]
-    Match_losses = history["Match_losses"]
-    Game_wins = history["Game_wins"]
-    Game_losses = history["Game_losses"]
-    Game_draws = history["Game_draws"]
-    matchups = history["matchups"]
-    modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
-    if Result_history is not None:
-        Match_reusult = Result_history
-    for round_item in match_combination:
-        results_match = list(map(int, round_item.result.split('-')))
-        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
-                    (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
+# def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None,iteration = 0):
+#     """
+#     Valider une permutation partielle dans le cadre de la construction de l'arbre.
+#     """
+#     Match_wins = history["Match_wins"]
+#     Match_losses = history["Match_losses"]
+#     Game_wins = history["Game_wins"]
+#     Game_losses = history["Game_losses"]
+#     Game_draws = history["Game_draws"]
+#     matchups = history["matchups"]
+#     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
+#     if Result_history is not None:
+#         Match_reusult = Result_history
+#     for round_item in match_combination:
+#         results_match = list(map(int, round_item.result.split('-')))
+#         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
+#                     (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
         
-        # if round_item.player1 in modified_players or round_item.player2 in modified_players:
-        #     print("problem")            
-        # Itérer sur les deux joueurs de chaque match
-        for player, opponent, win, loss, M_win, M_loss, M_draw in players:
-            # Vérifier que le joueur n'est pas None et valider les résultats
-            if player is None or player not in full_list_of_masked_player:
-                continue  # On ignore les joueurs non masqués ou None dès le début
-            else :
-                    modified_players.add(player)
-                    # if opponent is None:
-                    #     number_of_none_opo[player_indices[player]] +=1 
-                    # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.\d*', opponent):
-                    is_valid_opp = is_unmasked_valid(opponent)
-                    if opponent in matchups[player] and is_valid_opp:
-                        return False,(player,opponent)
-                    else:
-                        # if opponent:
-                        matchups[player].extend([opponent])
-                        # if not re.fullmatch(r'.\*{10}.\d*', opponent):
-                        if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
-                            matchups[opponent].extend([player])
-                    # Mettre à jour les statistiques
-                    player_idx = player_indices[player]
-                    Match_wins[player_idx] += win
-                    Match_losses[player_idx] += loss
-                    Game_wins[player_idx] += M_win
-                    Game_losses[player_idx] += M_loss
-                    Game_draws[player_idx] += M_draw
-                    if Result_history is not None :
-                        Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
-                        # Match_reusult[player].extend([M_win> M_loss])
-                    # Valider les limites de wins et losses
-                    if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                        return False,(player,opponent)
+#         # if round_item.player1 in modified_players or round_item.player2 in modified_players:
+#         #     print("problem")            
+#         # Itérer sur les deux joueurs de chaque match
+#         for player, opponent, win, loss, M_win, M_loss, M_draw in players:
+#             # Vérifier que le joueur n'est pas None et valider les résultats
+#             if player is None or player not in full_list_of_masked_player:
+#                 continue  # On ignore les joueurs non masqués ou None dès le début
+#             else :
+#                     modified_players.add(player)
+#                     # if opponent is None:
+#                     #     number_of_none_opo[player_indices[player]] +=1 
+#                     # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.\d*', opponent):
+#                     is_valid_opp = is_unmasked_valid(opponent)
+#                     if opponent in matchups[player] and is_valid_opp:
+#                         return False,(player,opponent)
+#                     else:
+#                         # if opponent:
+#                         matchups[player].extend([opponent])
+#                         # if not re.fullmatch(r'.\*{10}.\d*', opponent):
+#                         if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
+#                             matchups[opponent].extend([player])
+#                     # Mettre à jour les statistiques
+#                     player_idx = player_indices[player]
+#                     Match_wins[player_idx] += win
+#                     Match_losses[player_idx] += loss
+#                     Game_wins[player_idx] += M_win
+#                     Game_losses[player_idx] += M_loss
+#                     Game_draws[player_idx] += M_draw
+#                     if Result_history is not None :
+#                         Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
+#                         # Match_reusult[player].extend([M_win> M_loss])
+#                     # Valider les limites de wins et losses
+#                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+#                         return False,(player,opponent)
                     
-    # Validation finale du GWP uniquement pour les joueurs modifiés
-    for player in modified_players:
-        player_idx = player_indices[player]
-        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
-            # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
-            total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
-            if total_games > 0:
-                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
-                if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-                    # changé car dangereux si opop n'a rencontré que des mask ou non
-                    # return False,(player,list(matchups[player])[-1])
-                    return False,(player,"")
+#     # Validation finale du GWP uniquement pour les joueurs modifiés
+#     for player in modified_players:
+#         player_idx = player_indices[player]
+#         if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
+#             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
+#             total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
+#             if total_games > 0:
+#                 gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
+#                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
+#                     # changé car dangereux si opop n'a rencontré que des mask ou non
+#                     # return False,(player,list(matchups[player])[-1])
+#                     return False,(player,"")
                 
-    return True, "ok"
+#     return True, "ok"
+
+
+
 
 
 def process_combination(task):
