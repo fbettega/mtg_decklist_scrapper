@@ -14,7 +14,7 @@ import numpy as np
 import time
 import copy
 from collections import Counter
-from  comon_tools.cython_file_unmask_mana_trader.validate_permutation_cy import validate_permutation, is_unmasked_valid
+# from  comon_tools.cython_file_unmask_mana_trader.validate_permutation_cy import validate_permutation, is_unmasked_valid
 
 
 ################################################
@@ -87,9 +87,9 @@ def is_valid_combination(player1, player2, p1_wins, p2_wins,standings_dict):
             return False
     return True
 
-# def is_unmasked_valid(player):
-#     """Vérifie si le joueur n'est ni None ni masqué."""
-#     return player is not None and not re.fullmatch(r'.\*{10}.\d*', player)
+def is_unmasked_valid(player):
+    """Vérifie si le joueur n'est ni None ni masqué."""
+    return player is not None and not re.fullmatch(r'.\*{10}.\d*', player)
 
 def Assignation_build_tree(masked_keys, valid_player, masked_matches, standings_dict):
     """Construit l'arbre des permutations."""
@@ -252,7 +252,7 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
     return history
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(list),
+                standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
                 Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):
     if history is None:
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
@@ -287,17 +287,18 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
 
     for player, bad_tuples in Global_bad_tupple_history.items():
-        for bad_data_set in bad_tuples:  # `bad_data_set` est un `frozenset`
-            bad_data = dict(bad_data_set)  # Convertir en dictionnaire
-            
-            if (tuple(history["matchups"].get(player)) == bad_data["history"] and 
-                iteration == bad_data["bad_comb_iteration"] and 
-                Result_history.get(player) == bad_data["resul_history"]):
-
-                for bad_player, pos in dict(bad_data["tuple"]).items():  # `tuple` est aussi un `frozenset`
-                    if bad_player == player:  # Vérifier si c'est bien le joueur concerné
+        for bad_data in bad_tuples:  # `bad_data` est un tuple
+            bad_tuple, bad_history, bad_resul_history, bad_comb_iteration = bad_data
+            if (
+                tuple(history["matchups"].get(player)) == bad_history and 
+                iteration == bad_comb_iteration and 
+                Result_history.get(player) == bad_resul_history
+                ):
+                for bad_player, pos in dict(bad_tuple).items():
+                    if bad_player == player:
                         player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
                         bad_tuples_dict[player_mask][pos].add(player)
+
     # Filtrer les combinaisons où un joueur est à une position interdite
     remaining_combinations = [
         combination
@@ -353,21 +354,28 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         if not valid:
             ###########################################################################################################################
-            # for suspect_player in problematic_player:
-            #     for masked_name, player_tuple in match_combination.items():
-            #         if suspect_player in player_tuple: 
-            #             # je ne filtré plus ici
-            #             remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
-            #             # Trouver la position exacte de suspect_player
-            #             player_position = player_tuple.index(suspect_player)
-            #             Global_bad_tupple_history[suspect_player].append(frozenset({
-            #                 'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
-            #                 'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
-            #                 'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
-            #                 "bad_comb_iteration": iteration  # Immuable
-            #             }.items()))
-                        # sys.stdout.flush()
-                        # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
+            for masked_name, player_tuple in match_combination.items():
+                if problematic_player in player_tuple: 
+                    # je ne filtré plus ici
+                    remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                    # Trouver la position exacte de suspect_player
+                    player_position = player_tuple.index(problematic_player)
+                    bad_entry = (
+                        frozenset({problematic_player: player_position}.items()),  # Clé unique
+                        tuple(history["matchups"][problematic_player]),  # Conserve l'ordre
+                        tuple(Result_history[problematic_player]),  # Conserve l'ordre
+                        iteration  # Immuable
+                    )
+
+                    Global_bad_tupple_history[problematic_player].add(bad_entry) 
+                    # Global_bad_tupple_history[suspect_player].append(frozenset({
+                    #     'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
+                    #     'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
+                    #     'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
+                    #     "bad_comb_iteration": iteration  # Immuable
+                    # }.items()))
+                    # sys.stdout.flush()
+                    # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
             continue  # Ignorez cette combinaison invalide
         
@@ -444,73 +452,73 @@ def update_encounters(encounters, player1, player2):
     return True
 
 
-# def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None,iteration = 0):
-#     """
-#     Valider une permutation partielle dans le cadre de la construction de l'arbre.
-#     """
-#     Match_wins = history["Match_wins"]
-#     Match_losses = history["Match_losses"]
-#     Game_wins = history["Game_wins"]
-#     Game_losses = history["Game_losses"]
-#     Game_draws = history["Game_draws"]
-#     matchups = history["matchups"]
-#     modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
-#     if Result_history is not None:
-#         Match_reusult = Result_history
-#     for round_item in match_combination:
-#         results_match = list(map(int, round_item.result.split('-')))
-#         players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
-#                     (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
+def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None,iteration = 0):
+    """
+    Valider une permutation partielle dans le cadre de la construction de l'arbre.
+    """
+    Match_wins = history["Match_wins"]
+    Match_losses = history["Match_losses"]
+    Game_wins = history["Game_wins"]
+    Game_losses = history["Game_losses"]
+    Game_draws = history["Game_draws"]
+    matchups = history["matchups"]
+    # modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
+    if Result_history is not None:
+        Match_reusult = Result_history
+    for round_item in match_combination:
+        results_match = round_item.numeric_score 
+        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
+                    (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
         
-#         # if round_item.player1 in modified_players or round_item.player2 in modified_players:
-#         #     print("problem")            
-#         # Itérer sur les deux joueurs de chaque match
-#         for player, opponent, win, loss, M_win, M_loss, M_draw in players:
-#             # Vérifier que le joueur n'est pas None et valider les résultats
-#             if player is None or player not in full_list_of_masked_player:
-#                 continue  # On ignore les joueurs non masqués ou None dès le début
-#             else :
-#                     modified_players.add(player)
-#                     # if opponent is None:
-#                     #     number_of_none_opo[player_indices[player]] +=1 
-#                     # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.\d*', opponent):
-#                     is_valid_opp = is_unmasked_valid(opponent)
-#                     if opponent in matchups[player] and is_valid_opp:
-#                         return False,(player,opponent)
-#                     else:
-#                         # if opponent:
-#                         matchups[player].extend([opponent])
-#                         # if not re.fullmatch(r'.\*{10}.\d*', opponent):
-#                         if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
-#                             matchups[opponent].extend([player])
-#                     # Mettre à jour les statistiques
-#                     player_idx = player_indices[player]
-#                     Match_wins[player_idx] += win
-#                     Match_losses[player_idx] += loss
-#                     Game_wins[player_idx] += M_win
-#                     Game_losses[player_idx] += M_loss
-#                     Game_draws[player_idx] += M_draw
-#                     if Result_history is not None :
-#                         Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
-#                         # Match_reusult[player].extend([M_win> M_loss])
-#                     # Valider les limites de wins et losses
-#                     if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-#                         return False,(player,opponent)
+        # if round_item.player1 in modified_players or round_item.player2 in modified_players:
+        #     print("problem")            
+        # Itérer sur les deux joueurs de chaque match
+        for player, opponent, win, loss, M_win, M_loss, M_draw in players:
+            # Vérifier que le joueur n'est pas None et valider les résultats
+            if player is None or player not in full_list_of_masked_player:
+                continue  # On ignore les joueurs non masqués ou None dès le début
+            else :
+                    # modified_players.add(player)
+                    # if opponent is None:
+                    #     number_of_none_opo[player_indices[player]] +=1 
+                    # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.\d*', opponent):
+                    is_valid_opp = is_unmasked_valid(opponent)
+                    if opponent in matchups[player] and is_valid_opp:
+                        return False,player
+                    else:
+                        # if opponent:
+                        matchups[player].extend([opponent])
+                        # if not re.fullmatch(r'.\*{10}.\d*', opponent):
+                        if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
+                            matchups[opponent].extend([player])
+                    # Mettre à jour les statistiques
+                    player_idx = player_indices[player]
+                    Match_wins[player_idx] += win
+                    Match_losses[player_idx] += loss
+                    Game_wins[player_idx] += M_win
+                    Game_losses[player_idx] += M_loss
+                    Game_draws[player_idx] += M_draw
+                    if Result_history is not None :
+                        Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
+                        # Match_reusult[player].extend([M_win> M_loss])
+                    # Valider les limites de wins et losses
+                    if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+                        return False,player
                     
-#     # Validation finale du GWP uniquement pour les joueurs modifiés
-#     for player in modified_players:
-#         player_idx = player_indices[player]
-#         if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
-#             # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
-#             total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
-#             if total_games > 0:
-#                 gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
-#                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-#                     # changé car dangereux si opop n'a rencontré que des mask ou non
-#                     # return False,(player,list(matchups[player])[-1])
-#                     return False,(player,"")
+    # Validation finale du GWP uniquement pour les joueurs modifiés
+    for player in full_list_of_masked_player:
+        player_idx = player_indices[player]
+        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
+            # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
+            total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
+            if total_games > 0:
+                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
+                if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
+                    # changé car dangereux si opop n'a rencontré que des mask ou non
+                    # return False,(player,list(matchups[player])[-1])
+                    return False,player
                 
-#     return True, "ok"
+    return True, "ok"
 
 
 
@@ -530,7 +538,8 @@ def process_combination(task):
         list: Une liste de permutations valides, ou None si aucune permutation n'est valide.
     """
     (
-        first_round_combination,  # La configuration initiale du premier round
+        first_round_combination,          # Objets X du premier round
+        seconde_round_combination,  # La configuration initiale du premier round
         remaining_rounds,         # Les rounds restants à traiter
         masked_name_matches,
         validate_fn,
@@ -550,7 +559,7 @@ def process_combination(task):
     root = TreeNode()  # Nœud racine de l'arbre
     build_tree(
         root,
-        [first_round_combination] + remaining_rounds, 
+        [first_round_combination] +[seconde_round_combination]+ remaining_rounds, 
         masked_name_matches,
         validate_fn,
         compute_stat_fun,
@@ -661,14 +670,6 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-
-        #     if iteration == 8 and not res_comparator:
-        #         check_history(new_history,set([unsure_standings.player]),player_indices)
-        #         print(f"real standings : {standings_ite_current}")
-        #         print(f"Calc standings : {unsure_standings}")
-        # if iteration == 8:        
-        #     check_history(new_history,full_list_of_masked_player,player_indices)
-        #     print("########################################")
         if all(standings_comparator_res):
             return node  # Retourne le nœud valide
         else:  
@@ -725,7 +726,7 @@ def is_valid_partial_combination(current_mapping, masked_matches, standings_dict
 
             if player1 in seen_players or player2 in seen_players:
                 return False
-            p1_wins, p2_wins, _ = map(int, match.result.split('-'))
+            p1_wins, p2_wins, _ =  match.numeric_score 
             if not is_valid_combination(player1, player2, p1_wins, p2_wins, standings_dict):
                 return False
             if is_unmasked_valid(player1):
@@ -752,8 +753,6 @@ class Manatrader_fix_hidden_duplicate_name:
         # étape 2.1 créer un arbre par masked name ne conserver que les branches valides basé sur les stats du joueurs 
         # on utilise c'est arbres pour :
         #   validation des ogwp omwp ainsi que pour les adversaire concerné
-        # problem ici Start Update round M**********s
-        # Change in treee size :0/72 remove 72
         # Update round : 4.26 secondes
         unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
 
@@ -1080,16 +1079,17 @@ class Manatrader_fix_hidden_duplicate_name:
                 print("tree ok")
         else:
             first_round_xs = filtered_assignments[0]  # Objets X du premier round
-            remaining_rounds = filtered_assignments[1:]  # Rounds restants
+            seconde_round_xs = filtered_assignments[1]
+            remaining_rounds = filtered_assignments[2:]  # Rounds restants
             num_workers = cpu_count()
-            if len(first_round_xs) < num_workers:
+            if len(seconde_round_xs) < num_workers:
                 chunk_size = 1
             else:
-                chunk_size = max(1, len(first_round_xs) // num_workers)
+                chunk_size = max(1, len(seconde_round_xs) // num_workers)
             # chunk_size =  int(len(first_round_xs)/50)#1000  # Ajuste selon la taille souhaitée
-            first_round_chunks = list(chunked(first_round_xs, chunk_size))
+            first_round_chunks = list(chunked(seconde_round_xs, chunk_size))
             tasks = [
-                (   
+                (   first_round_xs,
                     chunk,
                     remaining_rounds,
                     masked_name_matches,
@@ -1109,10 +1109,10 @@ class Manatrader_fix_hidden_duplicate_name:
                 for chunk in first_round_chunks
             ]
             # Diviser les tâches pour chaque round dans valid_combinations
-            # with Pool(cpu_count()) as pool:
-            #     results = list(pool.imap_unordered(process_combination, tasks))
-            with Pool(num_workers) as pool:
-                results = pool.map(process_combination, tasks)
+            with Pool(cpu_count()) as pool:
+                results = list(pool.imap_unordered(process_combination, tasks))
+            # with Pool(num_workers) as pool:
+            #     results = pool.map(process_combination, tasks)
             # Fusionner les résultats valides
             valid_permutations = [node for node in results if node.children]               
             # valid_permutations = results
@@ -1318,7 +1318,7 @@ class Manatrader_fix_hidden_duplicate_name:
         # Parcourir les matchs
         for round in rounds:
             for match in round.matches:
-                p1_wins, p2_wins, draws = map(int, match.result.split('-'))
+                p1_wins, p2_wins, draws = match.numeric_score 
                 valid_opo = False
                 # Identifier l'adversaire
                 if match.player1 == player:

@@ -24,9 +24,10 @@ def main():
         tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
         mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
-
+        # july vintage enorme
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/52/", date=datetime(2024, 7, 30))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+
         # tournament = TournamentList.DL_tournaments(datetime(2024,9, 20, tzinfo=timezone.utc),datetime(2024, 10, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 

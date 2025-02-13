@@ -130,27 +130,33 @@ class Standing:
 
 
 class RoundItem:
-    def __init__(self, player1: str, player2: str, result: str):
+    def __init__(self, player1: str, player2: str, result: str,id:Optional[str]=None):
         self.player1 = player1
         self.player2 = player2
         self.result = result
+        p1_wins, p2_wins, draws = map(int, result.split('-'))  
+        self.id = id
+        # Pré-calculer les résultats sous forme de tuples (wins, losses)
+        self.scores = [
+            (int(p1_wins > p2_wins), int(p1_wins < p2_wins)),  # Résultat pour player1
+            (int(p2_wins > p1_wins), int(p2_wins < p1_wins))   # Résultat pour player2
+        ]
+        self.numeric_score = [p1_wins,p2_wins,draws]
 
-    def __str__(self):
-        return f"{self.player1} {self.result} {self.player2}"
     def __eq__(self, other):
-        if not isinstance(other, RoundItem):
-            return False
         return (self.player1 == other.player1 and
                 self.player2 == other.player2 and
                 self.result == other.result)
-    def __hash__(self):
-        return hash((self.player1, self.player2, self.result))
+    def __str__(self):
+        return f"player1 : {self.player1}, player2 : {self.player2}, result : {self.result}"
     def to_dict(self):
         return {
             "Player1": self.player1,
             "Player2": self.player2,
-            "Result": self.result,
+            "Result": self.result
         }
+    def __hash__(self):
+        return hash((self.player1, self.player2, self.result))
 
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):
@@ -261,31 +267,5 @@ class CacheItem:
         }
 
 
-class RoundItem:
-    def __init__(self, player1: str, player2: str, result: str,id:Optional[str]=None):
-        self.player1 = player1
-        self.player2 = player2
-        self.result = result
-        p1_wins, p2_wins, _ = map(int, result.split('-'))  
-        self.id = id
-        # Pré-calculer les résultats sous forme de tuples (wins, losses)
-        self.scores = [
-            (int(p1_wins > p2_wins), int(p1_wins < p2_wins)),  # Résultat pour player1
-            (int(p2_wins > p1_wins), int(p2_wins < p1_wins))   # Résultat pour player2
-        ]
 
-    def __eq__(self, other):
-        return (self.player1 == other.player1 and
-                self.player2 == other.player2 and
-                self.result == other.result)
-    def __str__(self):
-        return f"player1 : {self.player1}, player2 : {self.player2}, result : {self.result}"
-    def to_dict(self):
-        return {
-            "Player1": self.player1,
-            "Player2": self.player2,
-            "Result": self.result
-        }
-    def __hash__(self):
-        return hash((self.player1, self.player2, self.result))
 

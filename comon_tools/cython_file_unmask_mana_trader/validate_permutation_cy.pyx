@@ -8,19 +8,19 @@ cpdef tuple validate_permutation(
     list match_combination,
     dict history,
     dict player_indices,
-    cnp.ndarray[int, ndim=1] standings_wins,
-    cnp.ndarray[int, ndim=1] standings_losses,
+    cnp.ndarray[cnp.int64_t, ndim=1] standings_wins,
+    cnp.ndarray[cnp.int64_t, ndim=1] standings_losses,
     cnp.ndarray[double, ndim=1] standings_gwp,
     set full_list_of_masked_player,
-    dict Result_history=None,
+    object Result_history=None,
     int iteration=0
 ):
     
-    cdef cnp.ndarray[int, ndim=1] Match_wins = history["Match_wins"]
-    cdef cnp.ndarray[int, ndim=1] Match_losses = history["Match_losses"]
-    cdef cnp.ndarray[int, ndim=1] Game_wins = history["Game_wins"]
-    cdef cnp.ndarray[int, ndim=1] Game_losses = history["Game_losses"]
-    cdef cnp.ndarray[int, ndim=1] Game_draws = history["Game_draws"]
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] Match_wins = history["Match_wins"]
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] Match_losses = history["Match_losses"]
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] Game_wins = history["Game_wins"]
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] Game_losses = history["Game_losses"]
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] Game_draws = history["Game_draws"]
     cdef dict matchups = history["matchups"]
     
     cdef set modified_players = set()
