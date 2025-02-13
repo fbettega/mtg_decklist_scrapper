@@ -24,9 +24,9 @@ def main():
         tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
         mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
-        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/55", date=datetime(2024, 10, 31))
+
+        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/52/", date=datetime(2024, 7, 30))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
-        
         # tournament = TournamentList.DL_tournaments(datetime(2024,9, 20, tzinfo=timezone.utc),datetime(2024, 10, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
@@ -36,8 +36,6 @@ def main():
         # tournament = TournamentList.DL_tournaments(datetime(2023,4, 20, tzinfo=timezone.utc),datetime(2023, 5, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
-        # tournament = TournamentList.DL_tournaments(datetime(2024, 10, 20, tzinfo=timezone.utc),datetime(2024, 11, 5, tzinfo=timezone.utc))
-        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
         # vraiment pas sur
     except Exception as e:
         print(f"Error during get_players: {e}")
