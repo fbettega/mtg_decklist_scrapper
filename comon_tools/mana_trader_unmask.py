@@ -280,7 +280,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
 
     if not remaining_rounds:
-        tree_standings_res = compute_stat_fun(base_result_from_know_player, history,full_list_of_masked_player,player_indices)
+        modified_player = set(full_list_of_masked_player)
+        for player in full_list_of_masked_player:
+            for opo in history["matchups"][player]:
+                if is_unmasked_valid(opo):
+                    modified_player.add(opo)
+        tree_standings_res = compute_stat_fun(history,modified_player,player_indices)
         standings_comparator_res = []
         # ajouter ici un merge avec le base_result_from_know_player
 
@@ -651,10 +656,6 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
                                              full_list_of_masked_player)
     
     if not valid:
-        print("history")
-        check_history(history,full_list_of_masked_player,player_indices)
-        print("New history")
-        check_history(new_history,full_list_of_masked_player,player_indices)
         print(f"Nœud {iteration} invalide après mise à jour, suppression de {problematic_players}")
         return None  # Ce nœud est devenu invalide, on le supprime
 
@@ -673,21 +674,19 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 
     node.children = new_children  # Mettre à jour les enfants du nœud 
     
-    if not node.children and len(updated_rounds) -1 == iteration:   
-        computed_standings = compute_stat_fun(base_result_from_know_player, new_history,full_list_of_masked_player,player_indices)
+    if not node.children and len(updated_rounds) -1 == iteration:
+        modified_player = set(full_list_of_masked_player)
+        for player in full_list_of_masked_player:
+            for opo in new_history["matchups"][player]:
+                if is_unmasked_valid(opo):
+                    modified_player.add(opo)
+        computed_standings = compute_stat_fun(new_history,modified_player,player_indices)
         standings_comparator_res = []
         for unsure_standings in computed_standings:
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
         if all(standings_comparator_res):
-            # for player in full_list_of_masked_player:
-            #     print(f"real standings_ite_current : {standings[player]}")
-            #     for unsure_standings in computed_standings:
-            #         if unsure_standings.player == player:
-            #             print(f"Calc standings_ite_current : {unsure_standings}")
-            #     print(new_history["matchups"][player])
-            # print("###############################################")
             return node  # Retourne le nœud valide
         else:  
             return None  # Feuille invalide
@@ -1303,8 +1302,7 @@ class Manatrader_fix_hidden_duplicate_name:
             else :
                 final_lenght_total_len = 0 
         # Supprime les entrées vides
-        if  "M**********r" in masked_to_actual:
-            print_tree(tree_result)
+
         print(f"Change in treee size :{final_lenght_total_len}/{base_lenght_total_len} remove {base_lenght_total_len - final_lenght_total_len}")
         return tree_result
     
@@ -1376,7 +1374,7 @@ class Manatrader_fix_hidden_duplicate_name:
         }      
 
 
-    def calculate_stats_for_matches(self, base_table_res,permutation_res_table,full_list_of_masked_player,player_indices):  
+    def calculate_stats_for_matches(self,permutation_res_table,full_list_of_masked_player,player_indices):  
         Match_wins = permutation_res_table["Match_wins"]
         Match_losses =permutation_res_table["Match_losses"]
         Game_wins = permutation_res_table["Game_wins"]
@@ -1386,7 +1384,7 @@ class Manatrader_fix_hidden_duplicate_name:
         update_player_standings = []
 
         for player in player_indices:
-            if len(matchups[player]) > 0:
+            if player in full_list_of_masked_player and len(matchups[player]) > 0:
                 player_idx = player_indices[player]
                 computable_ogp_omwp = True
                 number_of_opponent = 0

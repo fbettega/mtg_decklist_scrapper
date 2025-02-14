@@ -37,7 +37,7 @@ def main():
         tournament = TournamentList.DL_tournaments(datetime(2023,7, 20, tzinfo=timezone.utc),datetime(2023, 8, 5, tzinfo=timezone.utc))
         mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
-        # a tester car fonctionne pas 
+        # Exemple tournoi insoluble
         # tournament = TournamentList.DL_tournaments(datetime(2023,7, 20, tzinfo=timezone.utc),datetime(2023, 8, 5, tzinfo=timezone.utc))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
         # vraiment pas sur

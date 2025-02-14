@@ -175,7 +175,12 @@ class Round:
             "RoundName": self.round_name,
             "Matches": [match.to_dict() for match in self.matches],
         }
-
+    def display_round(self):
+        print(f"--- {self.round_name} ---")
+        for match in self.matches:
+            print(f"{match.player1} vs {match.player2} -> Résultat: {match.result}")
+        print()
+        
 class DeckItem:
     def __init__(self, count: int, card_name: str):
         self.count = count
