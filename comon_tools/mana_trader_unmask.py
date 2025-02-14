@@ -564,9 +564,6 @@ def process_combination(task):
         full_list_of_masked_player
     )
 
-    # Extraire les permutations valides à partir de l'arbre
-    # modifié pour imap imap_unordered 
-    # return root if root.children else []
     return root
     
 #######################################################################################################################
@@ -616,14 +613,11 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             used_players[match.player1] += 1
             player1_real_names = node.combination[match.player1]
             match.player1 = player1_real_names[used_players[match.player1] - 1]
-            # print(f"iteration : {iteration} {match}")
+
         if match.player2 in node.combination:
             used_players[match.player2] += 1
             player2_real_names = node.combination[match.player2]
-            match.player2 = player2_real_names[used_players[match.player2] - 1]
-            # print(f"iteration : {iteration} {match}")
-    # print("##################################################")
-        
+            match.player2 = player2_real_names[used_players[match.player2] - 1]        
 
     # Valider la mise à jour
     valid, problematic_players = validate_fn(new_masked_name_matches[iteration].matches, new_history, 
@@ -649,6 +643,7 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
 
     node.children = new_children  # Mettre à jour les enfants du nœud 
     
+
     if not node.children and len(updated_rounds) -1 == iteration:
         modified_player = set(full_list_of_masked_player)
         for player in full_list_of_masked_player:
@@ -1003,7 +998,11 @@ class Manatrader_fix_hidden_duplicate_name:
                     )
                 ]
             )
-            for round_obj in rounds
+            for round_obj in rounds 
+            if any(
+        ((match.player1 is not None) and match.player1 in masked_to_actual) or
+        ((match.player2 is not None) and match.player2 in masked_to_actual)
+        for match in round_obj.matches    )  
         ]
 
         player_with_real_name = set()
@@ -1198,7 +1197,12 @@ class Manatrader_fix_hidden_duplicate_name:
                 ]
             )
             for round_obj in rounds
+                if any(
+        ((match.player1 is not None) and match.player1 in masked_to_actual) or
+        ((match.player2 is not None) and match.player2 in masked_to_actual)
+        for match in round_obj.matches    )  
         ]
+
 
         player_with_real_name = set()
             # Identifier l'adversaire
