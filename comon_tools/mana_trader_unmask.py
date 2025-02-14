@@ -43,7 +43,25 @@ def count_nodes(node):
 
     traverse_tree(node, increment_count)
     return count       
+def print_tree(node, depth=0):
+    """
+    Affiche l'arbre de manière hiérarchique avec indentation.
+    
+    Args:
+        node (TreeNode): Le nœud racine à afficher.
+        depth (int): La profondeur actuelle dans l'arbre (utilisée pour l'indentation).
+    """
+    if node is None:
+        return
+    
+    indent = "    " * depth  # Indentation pour représenter la profondeur
+    combination_str = str(node.combination) if node.combination else "Root"
+    status = "Valid" if node.valid else "Invalid"
 
+    print(f"{indent}- {combination_str} ({status})")
+
+    for child in node.children:
+        print_tree(child, depth + 1)  # Affichage récursif avec plus d'indentation
 
 ################################################
 # root method for multi processing
@@ -326,12 +344,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
         }
         
-
         new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
         
         new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
         new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
-
 
         used_players = defaultdict(int)
         for match in new_masked_name_matches[iteration].matches:
@@ -366,14 +382,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         tuple(Result_history[problematic_player]),  # Conserve l'ordre
                         iteration  # Immuable
                     )
-
                     Global_bad_tupple_history[problematic_player].add(bad_entry) 
-                    # Global_bad_tupple_history[suspect_player].append(frozenset({
-                    #     'tuple': frozenset({suspect_player: player_position}.items()),  # Clé unique, donc frozenset OK
-                    #     'history': tuple(history["matchups"][suspect_player]),  # Conserve l'ordre
-                    #     'resul_history': tuple(Result_history[suspect_player]),  # Conserve l'ordre
-                    #     "bad_comb_iteration": iteration  # Immuable
-                    # }.items()))
                     # sys.stdout.flush()
                     # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
             ###########################################################################################################################            
@@ -663,7 +672,8 @@ def update_and_validate_tree(node, updated_rounds, validate_fn, compute_stat_fun
             new_children.append(updated_child)
 
     node.children = new_children  # Mettre à jour les enfants du nœud 
-    if not node.children:     
+    
+    if not node.children and len(updated_rounds) -1 == iteration:   
         computed_standings = compute_stat_fun(base_result_from_know_player, new_history,full_list_of_masked_player,player_indices)
         standings_comparator_res = []
         for unsure_standings in computed_standings:
@@ -1180,8 +1190,8 @@ class Manatrader_fix_hidden_duplicate_name:
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 start_time = time.time()
-                # if mask == "M**********r" and it == 2:
-                #     mask
+                if mask == "M**********r" and it == 2:
+                    mask
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")
@@ -1192,19 +1202,6 @@ class Manatrader_fix_hidden_duplicate_name:
         return modified_rounds ,masked_to_actual_en_cours
     
     def update_tree_after_round_assignation(self,tree, masked_to_actual,rounds, standings):
-        # masked_name_matches = [
-        #     Round(
-        #         round_obj.round_name,
-        #         [
-        #             match for match in round_obj.matches
-        #                 if (
-        #                     (isinstance(match.player1, str) and re.fullmatch(r'.\*{10}.\d*', match.player1)) or
-        #                     (isinstance(match.player2, str) and re.fullmatch(r'.\*{10}.\d*', match.player2))
-        #                 )
-        #         ]
-        #     )
-        #     for round_obj in rounds
-        # ]
         masked_name_counts = {}
 
         masked_name_matches = [
@@ -1306,7 +1303,8 @@ class Manatrader_fix_hidden_duplicate_name:
             else :
                 final_lenght_total_len = 0 
         # Supprime les entrées vides
-
+        if  "M**********r" in masked_to_actual:
+            print_tree(tree_result)
         print(f"Change in treee size :{final_lenght_total_len}/{base_lenght_total_len} remove {base_lenght_total_len - final_lenght_total_len}")
         return tree_result
     
