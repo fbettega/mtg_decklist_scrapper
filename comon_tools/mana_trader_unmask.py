@@ -371,7 +371,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
            if used_players[mask] != len(match_combination[mask]):
                print("bug all player not assign")
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history,iteration)
+        valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
 
         if not valid:
             ###########################################################################################################################
@@ -466,16 +466,14 @@ def update_encounters(encounters, player1, player2):
     return True
 
 
-def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None,iteration = 0):
+def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None):
     """
     Valider une permutation partielle dans le cadre de la construction de l'arbre.
     """
-    Match_wins = history["Match_wins"]
-    Match_losses = history["Match_losses"]
-    Game_wins = history["Game_wins"]
-    Game_losses = history["Game_losses"]
-    Game_draws = history["Game_draws"]
+    Match_wins, Match_losses = history["Match_wins"], history["Match_losses"]
+    Game_wins, Game_losses, Game_draws = history["Game_wins"], history["Game_losses"], history["Game_draws"]
     matchups = history["matchups"]
+
     # modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
     if Result_history is not None:
         Match_reusult = Result_history
@@ -491,33 +489,27 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             # Vérifier que le joueur n'est pas None et valider les résultats
             if player is None or player not in full_list_of_masked_player:
                 continue  # On ignore les joueurs non masqués ou None dès le début
-            else :
-                    # modified_players.add(player)
-                    # if opponent is None:
-                    #     number_of_none_opo[player_indices[player]] +=1 
-                    # if opponent in matchups[player] and not re.fullmatch(r'.\*{10}.\d*', opponent):
-                    is_valid_opp = is_unmasked_valid(opponent)
-                    if opponent in matchups[player] and is_valid_opp:
-                        return False,player
-                    else:
-                        # if opponent:
-                        matchups[player].extend([opponent])
-                        # if not re.fullmatch(r'.\*{10}.\d*', opponent):
-                        if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
-                            matchups[opponent].extend([player])
-                    # Mettre à jour les statistiques
-                    player_idx = player_indices[player]
-                    Match_wins[player_idx] += win
-                    Match_losses[player_idx] += loss
-                    Game_wins[player_idx] += M_win
-                    Game_losses[player_idx] += M_loss
-                    Game_draws[player_idx] += M_draw
-                    if Result_history is not None :
-                        Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
-                        # Match_reusult[player].extend([M_win> M_loss])
-                    # Valider les limites de wins et losses
-                    if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                        return False,player
+            is_valid_opp = is_unmasked_valid(opponent)
+            if opponent in matchups[player] and is_valid_opp:
+                return False,player
+            # if opponent:
+            matchups[player].extend([opponent])
+            # if not re.fullmatch(r'.\*{10}.\d*', opponent):
+            if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
+                matchups[opponent].extend([player])
+            # Mettre à jour les statistiques
+            player_idx = player_indices[player]
+            Match_wins[player_idx] += win
+            Match_losses[player_idx] += loss
+            Game_wins[player_idx] += M_win
+            Game_losses[player_idx] += M_loss
+            Game_draws[player_idx] += M_draw
+            if Result_history is not None :
+                Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
+                # Match_reusult[player].extend([M_win> M_loss])
+            # Valider les limites de wins et losses
+            if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
+                return False,player
                     
     # Validation finale du GWP uniquement pour les joueurs modifiés
     for player in full_list_of_masked_player:
@@ -528,8 +520,6 @@ def validate_permutation(match_combination, history, player_indices, standings_w
             if total_games > 0:
                 gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
                 if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-                    # changé car dangereux si opop n'a rencontré que des mask ou non
-                    # return False,(player,list(matchups[player])[-1])
                     return False,player
                 
     return True, "ok"
