@@ -18,8 +18,8 @@ from Client.ManatraderClient import *
 # tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
     try:
-        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-        # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+        tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
+        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
@@ -34,8 +34,6 @@ def main():
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/51/", date=datetime(2024, 6, 30))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
-        tournament = TournamentList.DL_tournaments(datetime(2023,7, 20, tzinfo=timezone.utc),datetime(2023, 8, 5, tzinfo=timezone.utc))
-        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
         # Exemple tournoi insoluble
         # tournament = TournamentList.DL_tournaments(datetime(2023,7, 20, tzinfo=timezone.utc),datetime(2023, 8, 5, tzinfo=timezone.utc))

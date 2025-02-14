@@ -293,10 +293,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             standings_ite_current = standings[unsure_standings.player ]
             res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
             standings_comparator_res.append(res_comparator)
-            # if res_comparator == False:
-            #     res_comparator_count += 1
-            if res_comparator is None :
-                print("res_comparator is None")
         if all(standings_comparator_res):
             return [node]  # Retourne le nœud valide
         else:
@@ -305,7 +301,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     current_round = remaining_rounds[0]
     valid_children = []
     remaining_combinations = current_round[:] 
-    ###########################################################################################################################
+
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
 
@@ -334,9 +330,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for key, players in combination.items()
         )
     ]
-    ###########################################################################################################################
-    # print(f"Initial filter using other_tree iteration : {iteration} {bad_tuples_dict} Remaining perm : {len(remaining_combinations)} remove {len(current_round) - len(remaining_combinations)}")
-
     while remaining_combinations:
         match_combination = remaining_combinations.pop(0)  #
         # Copier l'historique actuel pour ce chemin
@@ -351,11 +344,11 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         
         new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
         
-        new_masked_name_matches = masked_name_matches.copy()  # Shallow copy du dict
-        new_masked_name_matches[iteration] = copy.deepcopy(masked_name_matches[iteration])
+
+        new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
 
         used_players = defaultdict(int)
-        for match in new_masked_name_matches[iteration].matches:
+        for match in new_masked_name_matches.matches:
             # Remplacer player1 si c'est un nom masqué
             if match.player1 in match_combination:
                 used_players[match.player1] += 1
@@ -367,14 +360,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 player2_real_names = match_combination[match.player2]  # Correction ici
                 match.player2 = player2_real_names[used_players[match.player2] -1]  # Utiliser player2_real_names
 
-        for mask in  used_players:
-           if used_players[mask] != len(match_combination[mask]):
-               print("bug all player not assign")
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(new_masked_name_matches[iteration].matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
+        valid,problematic_player = validate_fn(new_masked_name_matches.matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
 
         if not valid:
-            ###########################################################################################################################
             for masked_name, player_tuple in match_combination.items():
                 if problematic_player in player_tuple: 
                     # je ne filtré plus ici
@@ -388,21 +377,17 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         iteration  # Immuable
                     )
                     Global_bad_tupple_history[problematic_player].add(bad_entry) 
-                    # sys.stdout.flush()
-                    # print(f"iteration : {iteration} remove {player_tuple} Remaining perm : {len(remaining_combinations)} : remove : {len(current_round) - len(remaining_combinations)}")
-            ###########################################################################################################################            
             continue  # Ignorez cette combinaison invalide
         
         if valid:
             child_node = TreeNode(match_combination)
             child_node.valid = True
             node.add_child(child_node)
-            # previous_dead_combination_backward = copy.deepcopy(dead_combination_backward)
             # Appel récursif avec l'historique mis à jour
             result = build_tree(
                 child_node,
                 remaining_rounds[1:],
-                new_masked_name_matches,
+                masked_name_matches,
                 validate_fn,
                 compute_stat_fun,
                 compare_standings_fun,
@@ -1141,10 +1126,7 @@ class Manatrader_fix_hidden_duplicate_name:
             Assignement_per_mask_result[mask] = self.generate_assignments( rounds, {mask: actual_player}, standings)
             tree_result[mask] = self.find_real_tournament_from_permutation(Assignement_per_mask_result[mask],{mask: actual_player}, rounds, standings,True)
 
-        # standings[55]
-        # standings[44]
-        modified_rounds = copy.deepcopy(rounds)
-            
+        modified_rounds = copy.deepcopy(rounds)    
         # 1 les arbres sont crée reste a vérifier les arbres unique puis update les rounds
         it = 0
         while True:
@@ -1179,7 +1161,7 @@ class Manatrader_fix_hidden_duplicate_name:
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 start_time = time.time()
-                if mask == "M**********r" and it == 2:
+                if mask == "s**********o" and it == 1:
                     mask
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
@@ -1409,7 +1391,6 @@ class Manatrader_fix_hidden_duplicate_name:
                         losses=Match_losses[player_idx],
                         draws=0,
                         omwp= total_omp/number_of_opponent if computable_ogp_omwp else None,
-
                         gwp=(Game_wins[player_idx] +(Game_draws[player_idx]/3)) / (Game_wins[player_idx] +Game_draws[player_idx] + Game_losses[player_idx]),
                         ogwp=total_ogp/number_of_opponent if computable_ogp_omwp else None
 
