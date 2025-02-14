@@ -314,7 +314,7 @@ class MtgMeleeClient:
 class MtgMeleeAnalyzerSettings:
     MinimumPlayers = 16
     MininumPercentageOfDecks = 0.5
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander"]
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern"]
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
@@ -326,7 +326,7 @@ class FormatDetector:
     _pioneer_cards1 = ["Hallowed Fountain", "Watery Grave", "Blood Crypt", "Stomping Ground", "Temple Garden", "Godless Shrine", "Overgrown Tomb", "Breeding Pool", "Steam Vents", "Sacred Foundry"]
     _pioneer_cards2 = ["Nykthos, Shrine to Nyx", "Savai Triome", "Indatha Triome", "Zagoth Triome", "Ketria Triome", "Raugrin Triome", "Spara's Headquarters", "Raffine's Tower", "Xander's Lounge", "Ziatora's Proving Ground", "Jetmir's Garden"]
     _pauper_cards = ["Lightning Bolt", "Counterspell"]
-
+    # manque le premodern mais je sais pas comment le traiter
     @staticmethod
     def detect(decks: List[dict]) -> str:
         if any(c.card_name in FormatDetector._vintage_cards for d in decks for c in d.mainboard):

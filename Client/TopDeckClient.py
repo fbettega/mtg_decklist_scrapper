@@ -229,7 +229,15 @@ class TournamentList:
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
         if end_date is None:
             end_date = datetime.now(timezone.utc) + timedelta(days=1)
-        valid_formats = [TopDeckConstants.Format.Standard.value, TopDeckConstants.Format.Pioneer.value, TopDeckConstants.Format.Modern.value, TopDeckConstants.Format.Legacy.value, TopDeckConstants.Format.Vintage.value, TopDeckConstants.Format.Pauper.value,TopDeckConstants.Format.DuelCommander.value]
+        valid_formats = [TopDeckConstants.Format.Standard.value,
+                        TopDeckConstants.Format.Pioneer.value,
+                        TopDeckConstants.Format.Modern.value,
+                        TopDeckConstants.Format.Legacy.value,
+                        TopDeckConstants.Format.Vintage.value,
+                        TopDeckConstants.Format.Pauper.value,
+                        TopDeckConstants.Format.DuelCommander.value,
+                        TopDeckConstants.Format.Premodern.value
+                        ]
         client = TopdeckClient()
         result = []
         while start_date < end_date:
