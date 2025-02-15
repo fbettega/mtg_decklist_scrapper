@@ -18,11 +18,11 @@ from Client.ManatraderClient import *
 # tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
     try:
-        tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
-        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
-
-        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/53/", date=datetime(2024, 8, 31))
+        # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
         # mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
+
+        tournament = Tournament(uri="https://www.manatraders.com/tournaments/54/", date=datetime(2024, 9, 30))
+        mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament)
 
         # july vintage enorme
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/52/", date=datetime(2024, 7, 30))

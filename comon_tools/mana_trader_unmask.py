@@ -367,7 +367,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for masked_name, player_tuple in match_combination.items():
                 if problematic_player in player_tuple: 
                     # je ne filtré plus ici
-                    remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                    # remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
                     # Trouver la position exacte de suspect_player
                     player_position = player_tuple.index(problematic_player)
                     bad_entry = (
@@ -727,7 +727,8 @@ class Manatrader_fix_hidden_duplicate_name:
     # Fonction ou méthode principale
     def Find_name_form_player_stats(self, rounds: List[Round], standings: List[Standing],bracket: List[Round]) -> List[Round]: 
         # Initialiser les rounds pour les mises à jour successives
-
+        # graciasportanto
+        # Garthoro
         # if True:
         masked_to_actual = self.map_masked_to_actual(standings,rounds)
         # on boucle jusqu'a ce que ça ne boude plus
@@ -743,6 +744,8 @@ class Manatrader_fix_hidden_duplicate_name:
         unmasked_rounds,remaining_mask_after_step2 = self.handle_mask_by_mask(rounds, masked_to_actual,standings)
 
         print("stop here ")
+        if unmasked_rounds is None:
+            return None
         # with open('debug_data1.json', 'r') as file:
         #     data = json.load(file)
 
@@ -1117,7 +1120,6 @@ class Manatrader_fix_hidden_duplicate_name:
     
 
     def handle_mask_by_mask(self,rounds, masked_to_actual,standings):
-
         masked_to_actual_en_cours = copy.deepcopy(masked_to_actual)
         Assignement_per_mask_result = {}
         tree_result = {}
@@ -1144,6 +1146,7 @@ class Manatrader_fix_hidden_duplicate_name:
                     ]
                     if debug_masked_name_matches:
                         print("Il reste des noms masqués :", mask)
+                        return None,masked_to_actual_en_cours
                     else:
                         print("Unique perm : ", mask)
                         keys_to_delete.append(mask)
@@ -1160,8 +1163,6 @@ class Manatrader_fix_hidden_duplicate_name:
             for mask, tree in tree_result.items():
                 print(f"Start Update round {mask}")
                 start_time = time.time()
-                if mask == "s**********o" and it == 1:
-                    mask
                 tree_result[mask] = self.update_tree_after_round_assignation(tree,{mask: masked_to_actual_en_cours[mask]}, modified_rounds, standings)
                 end_time = time.time()
                 print(f"Update round : {end_time - start_time:.2f} secondes")

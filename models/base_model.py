@@ -134,8 +134,18 @@ class RoundItem:
         self.player1 = player1
         self.player2 = player2
         self.result = result
-        p1_wins, p2_wins, draws = map(int, result.split('-'))  
         self.id = id
+        try:
+            scores = list(map(int, result.split('-')))
+            if len(scores) == 2:
+                p1_wins, p2_wins = scores
+                draws = 0
+            elif len(scores) == 3:
+                p1_wins, p2_wins, draws = scores
+            else:
+                raise ValueError
+        except ValueError:
+            p1_wins, p2_wins, draws = 0, 0, 0  # Valeurs par défaut en cas d'erreur
         # Pré-calculer les résultats sous forme de tuples (wins, losses)
         self.scores = [
             (int(p1_wins > p2_wins), int(p1_wins < p2_wins)),  # Résultat pour player1
