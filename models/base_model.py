@@ -167,6 +167,9 @@ class RoundItem:
         }
     def __hash__(self):
         return hash((self.player1, self.player2, self.result))
+    # Copie légère, seulement les informations pertinentes
+    def shallow_copy(self):
+        return RoundItem(self.player1, self.player2, self.result)
     
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):

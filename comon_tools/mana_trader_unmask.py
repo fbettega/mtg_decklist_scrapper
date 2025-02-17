@@ -345,23 +345,27 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         # new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
 
         used_players = defaultdict(int)
-        masked_matches_copy = [match.copy() for match in masked_name_matches[iteration].matches]  # Copie des matchs
-    
-
-        for match in masked_matches_copy[iteration].matches:
+        modified_matches = []
+        # Parcourir les matchs et modifier les joueurs si nécessaire
+        for match in masked_name_matches[iteration].matches:
+            match_copy = match.shallow_copy()  # Créer une copie légère de match
             # Remplacer player1 si c'est un nom masqué
-            if match.player1 in match_combination:
-                used_players[match.player1] += 1
-                player1_real_names = match_combination[match.player1]
-                match.player1 = player1_real_names[used_players[match.player1] -1]
+            if match_copy.player1 in match_combination:
+                used_players[match_copy.player1] += 1
+                player1_real_names = match_combination[match_copy.player1]
+                match_copy.player1 = player1_real_names[used_players[match_copy.player1] - 1]
+            
             # Remplacer player2 si c'est un nom masqué
-            if match.player2 in match_combination:
-                used_players[match.player2] += 1
-                player2_real_names = match_combination[match.player2]  # Correction ici
-                match.player2 = player2_real_names[used_players[match.player2] -1]  # Utiliser player2_real_names
+            if match_copy.player2 in match_combination:
+                used_players[match_copy.player2] += 1
+                player2_real_names = match_combination[match_copy.player2]
+                match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
+            
+            # Ajouter le match modifié à la liste
+            modified_matches.append(match_copy)
 
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(masked_matches_copy[iteration].matches, 
+        valid,problematic_player = validate_fn(modified_matches, 
                                             history, player_indices, standings_wins,
                                             standings_losses, standings_gwp,
                                             full_list_of_masked_player,Result_history)
