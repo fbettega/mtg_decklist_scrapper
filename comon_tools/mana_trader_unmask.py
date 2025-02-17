@@ -15,8 +15,6 @@ import time
 import copy
 from collections import Counter
 # from  comon_tools.cython_file_unmask_mana_trader.validate_permutation_cy import validate_permutation, is_unmasked_valid
-
-
 ################################################
 # shitty method for debug
 def traverse_tree(node, operation):
@@ -274,7 +272,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):
     if history is None:
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
-
     if not node.valid:
         return
     # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
