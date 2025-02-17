@@ -167,7 +167,7 @@ class RoundItem:
         }
     def __hash__(self):
         return hash((self.player1, self.player2, self.result))
-
+    
 class Round:
     def __init__(self, round_name: str, matches: List[RoundItem]):
         self.round_name = round_name

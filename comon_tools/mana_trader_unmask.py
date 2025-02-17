@@ -297,7 +297,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     current_round = remaining_rounds[0]
     valid_children = []
-    remaining_combinations = current_round[:] 
+    # remaining_combinations = current_round[:] 
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
@@ -316,9 +316,9 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations = [
+    current_round = [
         combination
-        for combination in remaining_combinations
+        for combination in current_round
         if all(
             not any(
                 key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
@@ -327,8 +327,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for key, players in combination.items()
         )
     ]
-    while remaining_combinations:
-        match_combination = remaining_combinations.pop(0)  #
+    while current_round:
+        match_combination = current_round.pop(0)  #
         # Copier l'historique actuel pour ce chemin
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
@@ -339,13 +339,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
         }
         
-        new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
-        
+        # new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
+        original_Result_history = dict(Result_history) 
 
-        new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
+        # new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
 
         used_players = defaultdict(int)
-        for match in new_masked_name_matches.matches:
+        masked_matches_copy = [match.copy() for match in masked_name_matches[iteration].matches]  # Copie des matchs
+    
+
+        for match in masked_matches_copy[iteration].matches:
             # Remplacer player1 si c'est un nom masqué
             if match.player1 in match_combination:
                 used_players[match.player1] += 1
@@ -358,7 +361,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 match.player2 = player2_real_names[used_players[match.player2] -1]  # Utiliser player2_real_names
 
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(new_masked_name_matches.matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
+        valid,problematic_player = validate_fn(masked_matches_copy[iteration].matches, 
+                                            history, player_indices, standings_wins,
+                                            standings_losses, standings_gwp,
+                                            full_list_of_masked_player,Result_history)
 
         if not valid:
             for masked_name, player_tuple in match_combination.items():
@@ -374,6 +380,10 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         iteration  # Immuable
                     )
                     Global_bad_tupple_history[problematic_player].add(bad_entry) 
+                        # Restauration de l'état initial
+            history.update(new_history)
+            Result_history.clear()
+            Result_history.update(original_Result_history)
             continue  # Ignorez cette combinaison invalide
         
         if valid:
@@ -398,8 +408,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 standings,
                 full_list_of_masked_player,
                 Global_bad_tupple_history,
-                new_Result_history,
-                new_history,
+                Result_history,
+                history,
                 iteration + 1,
                 max_ite_reach
             )
