@@ -242,36 +242,14 @@ def combination_has_forbidden(combination, positions_to_exclude):
     return False
 
 
-def build_tree_init_history(player_indices, base_result_from_know_player, history=None):
-    n_players = len(player_indices)
 
-    history = {
-        "Match_wins": np.zeros(n_players, dtype=int),
-        "Match_losses": np.zeros(n_players, dtype=int),
-        "Game_wins": np.zeros(n_players, dtype=int),
-        "Game_losses": np.zeros(n_players, dtype=int),
-        "Game_draws": np.zeros(n_players, dtype=int),
-        "matchups": {player: [] for player in player_indices.keys()}
-    }
+def build_tree(
+        node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, 
+        player_indices,standings_matrix, base_result_from_know_player,matchup_matrix,
+        standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
+        Result_history = defaultdict(tuple), iteration=0):
 
-    # Mise à jour de l'historique avec les informations de base_result_from_know_player
-    for player, idx in player_indices.items():
-        if player in base_result_from_know_player:
-            player_data = base_result_from_know_player[player]
-            history["Match_wins"][idx] = player_data['wins']
-            history["Match_losses"][idx] = player_data['losses']
-            history["Game_wins"][idx] = player_data['total_games_won']
-            history["Game_losses"][idx] = player_data['total_games_played'] - (player_data['total_games_won'] + player_data['total_game_draw'])
-            history["Game_draws"][idx] = player_data['total_game_draw']
-            history["matchups"][player].extend(player_data['opponents'])
 
-    return history
-
-def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
-                standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
-                Result_history = defaultdict(tuple), history=None, iteration=0):
-    if history is None:
-        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
     if not node.valid:
         return
     # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
@@ -329,18 +307,12 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         match_combination = current_round.pop(0)  #
         # Copier l'historique actuel pour ce chemin
         # Créer une copie locale de history
-        new_history = {
-            "Match_wins": history["Match_wins"].copy(),
-            "Match_losses": history["Match_losses"].copy(),
-            "Game_wins": history["Game_wins"].copy(),
-            "Game_losses": history["Game_losses"].copy(),
-            "Game_draws": history["Game_draws"].copy(),
-            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
-        }
-        
+
+        new_history = base_result_from_know_player.copy()
+        new_matchup = matchup_matrix.copy(),
+
         new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
         
-
         used_players = defaultdict(int)
         new_masked_name_matches = []
         modified_player_in_this_round = set()
@@ -359,9 +331,18 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
             # Ajouter le match modifié à la liste
             new_masked_name_matches.append(match_copy)
+
         # Sauvegarde uniquement les valeurs des joueurs affectés par la permutation
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(new_masked_name_matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
+        valid,problematic_player = validate_fn(
+            new_masked_name_matches,
+            new_history,
+            new_matchup,
+            player_indices,
+            standings_matrix,
+            full_list_of_masked_player,
+            new_Result_history
+            )
 
         if not valid: 
             for masked_name, player_tuple in match_combination.items():
@@ -392,11 +373,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 compute_stat_fun,
                 compare_standings_fun,
                 player_indices,
-                standings_wins,
-                standings_losses,
-                standings_gwp,
-                standings_omwp,
-                standings_ogwp,
+                standings_matrix,
                 base_result_from_know_player,
                 standings,
                 full_list_of_masked_player,
@@ -452,64 +429,99 @@ def update_encounters(encounters, player1, player2):
     return True
 
 
-def validate_permutation(match_combination, history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,Result_history =None):
+def validate_permutation(match_combination, history, matchup_matrix, player_indices, standings_matrix, full_list_of_masked_player, Result_history=None):
     """
-    Valider une permutation partielle dans le cadre de la construction de l'arbre.
+    Valide une permutation en comparant les résultats avec le classement attendu.
     """
-    Match_wins, Match_losses = history["Match_wins"], history["Match_losses"]
-    Game_wins, Game_losses, Game_draws = history["Game_wins"], history["Game_losses"], history["Game_draws"]
-    matchups = history["matchups"]
+    # Récupération des matrices
+    Match_wins, Match_losses = history[:, 0], history[:, 1]
+    Game_wins, Game_losses, Game_draws = history[:, 2], history[:, 3], history[:, 4]
+    
+    # Extraction des standings sous forme de matrices NumPy
+    standings_wins = standings_matrix[:, 0]
+    standings_losses = standings_matrix[:, 1]
+    standings_gwp = standings_matrix[:, 2]
 
-    # modified_players = set()  # Suivi des joueurs dont les statistiques ont été modifiées
+    # Copie locale de Result_history
     if Result_history is not None:
-        Match_reusult = Result_history
-    for round_item in match_combination:
-        results_match = round_item.numeric_score 
-        players = [(round_item.player1, round_item.player2, *round_item.scores[0], *results_match),
-                    (round_item.player2, round_item.player1, *round_item.scores[1],results_match[1], results_match[0], results_match[2])]
-        
-        # if round_item.player1 in modified_players or round_item.player2 in modified_players:
-        #     print("problem")            
-        # Itérer sur les deux joueurs de chaque match
-        for player, opponent, win, loss, M_win, M_loss, M_draw in players:
-            # Vérifier que le joueur n'est pas None et valider les résultats
-            if player is None or player not in full_list_of_masked_player:
-                continue  # On ignore les joueurs non masqués ou None dès le début
-            is_valid_opp = is_unmasked_valid(opponent)
-            if opponent in matchups[player] and is_valid_opp:
-                return False,player
-            # if opponent:
-            matchups[player].extend([opponent])
-            # if not re.fullmatch(r'.\*{10}.\d*', opponent):
-            if is_valid_opp and not (player in full_list_of_masked_player and opponent in full_list_of_masked_player):
-                matchups[opponent].extend([player])
-            # Mettre à jour les statistiques
-            player_idx = player_indices[player]
-            Match_wins[player_idx] += win
-            Match_losses[player_idx] += loss
-            Game_wins[player_idx] += M_win
-            Game_losses[player_idx] += M_loss
-            Game_draws[player_idx] += M_draw
-            if Result_history is not None :
-                Match_reusult[player] = Match_reusult[player] + (M_win> M_loss,)
-                # Match_reusult[player].extend([M_win> M_loss])
-            # Valider les limites de wins et losses
-            if Match_wins[player_idx] > standings_wins[player_idx] or Match_losses[player_idx] > standings_losses[player_idx]:
-                return False,player
-                    
-    # Validation finale du GWP uniquement pour les joueurs modifiés
-    for player in full_list_of_masked_player:
-        player_idx = player_indices[player]
-        if Match_wins[player_idx] == standings_wins[player_idx] and Match_losses[player_idx] == standings_losses[player_idx]:
-            # Lorsque les résultats sont complets pour un joueur, le GWP peut être validé
-            total_games = Game_wins[player_idx] + Game_losses[player_idx] + Game_draws[player_idx]
-            if total_games > 0:
-                gwp_calculated = (Game_wins[player_idx] + (Game_draws[player_idx] / 3)) / total_games
-                if not np.isclose(gwp_calculated, standings_gwp[player_idx], atol=0.001):
-                    return False,player
-                
-    return True, "ok"
+        Match_result = Result_history
 
+    # Extraction des joueurs et résultats sous forme vectorielle
+    players = []
+    opponents = []
+    wins = []
+    losses = []
+    game_wins = []
+    game_losses = []
+    game_draws = []
+
+    for round_item in match_combination:
+        results_match = round_item.numeric_score
+        players.extend([round_item.player1, round_item.player2])
+        opponents.extend([round_item.player2, round_item.player1])
+        wins.extend([round_item.scores[0][0], round_item.scores[1][0]])
+        losses.extend([round_item.scores[0][1], round_item.scores[1][1]])
+        game_wins.extend([results_match[0], results_match[1]])
+        game_losses.extend([results_match[1], results_match[0]])
+        game_draws.extend([results_match[2], results_match[2]])
+
+    players = np.array(players)
+    opponents = np.array(opponents)
+    wins = np.array(wins)
+    losses = np.array(losses)
+    game_wins = np.array(game_wins)
+    game_losses = np.array(game_losses)
+    game_draws = np.array(game_draws)
+
+    # Filtrer les joueurs valides
+    valid_mask = np.isin(players,  list(full_list_of_masked_player))
+    players = players[valid_mask]
+    opponents = opponents[valid_mask]
+    wins = wins[valid_mask]
+    losses = losses[valid_mask]
+    game_wins = game_wins[valid_mask]
+    game_losses = game_losses[valid_mask]
+    game_draws = game_draws[valid_mask]
+
+    # Récupérer les indices des joueurs
+    player_indices_arr = np.array([player_indices.get(player, -1) for player in players])
+    # Vérifier les matchs déjà joués
+    opponent_indices_arr = np.vectorize(player_indices.get)(opponents)
+    matchup_check = matchup_matrix[player_indices_arr, opponent_indices_arr]
+    
+    if np.any(matchup_check == 1):  # Si un match a déjà eu lieu
+        return False, players[np.where(matchup_check == 1)]
+
+    # Mise à jour des statistiques
+    np.add.at(Match_wins, player_indices_arr, wins)
+    np.add.at(Match_losses, player_indices_arr, losses)
+    np.add.at(Game_wins, player_indices_arr, game_wins)
+    np.add.at(Game_losses, player_indices_arr, game_losses)
+    np.add.at(Game_draws, player_indices_arr, game_draws)
+
+    # Mise à jour de Match_result si nécessaire
+    if Result_history is not None:
+        for i, player in enumerate(players):
+            Match_result[player] = Match_result[player] + (game_wins[i] > game_losses[i],)
+
+    # Vérification des limites de wins et losses
+    if np.any(Match_wins[player_indices_arr] > standings_wins[player_indices_arr]) or \
+       np.any(Match_losses[player_indices_arr] > standings_losses[player_indices_arr]):
+        return False, players[Match_wins[player_indices_arr] > standings_wins[player_indices_arr]]
+
+    # Vérification du GWP uniquement pour les joueurs modifiés
+    player_indices_masked = np.vectorize(player_indices.get)(full_list_of_masked_player)
+    total_games = Game_wins[player_indices_masked] + Game_losses[player_indices_masked] + Game_draws[player_indices_masked]
+    
+    valid_gwp_mask = (Match_wins[player_indices_masked] == standings_wins[player_indices_masked]) & \
+                     (Match_losses[player_indices_masked] == standings_losses[player_indices_masked]) & \
+                     (total_games > 0)
+
+    gwp_calculated = (Game_wins[player_indices_masked] + (Game_draws[player_indices_masked] / 3)) / total_games
+    if np.any(valid_gwp_mask & ~np.isclose(gwp_calculated, standings_gwp[player_indices_masked], atol=0.001)):
+        return False, full_list_of_masked_player[np.argmax(valid_gwp_mask & ~np.isclose(gwp_calculated, standings_gwp[player_indices_masked], atol=0.001))]
+
+    return True, "ok"
 
 
 
@@ -536,12 +548,9 @@ def process_combination(task):
         compute_stat_fun,
         compare_standings_fun,
         player_indices,
-        standings_wins, 
-        standings_losses, 
-        standings_gwp,
-        standings_omwp,
-        standings_ogwp, 
+        standings_matrix ,
         base_result_of_named_player,
+        matchup_matrix,
         standings,
         full_list_of_masked_player
     ) = task
@@ -555,12 +564,9 @@ def process_combination(task):
         compute_stat_fun,
         compare_standings_fun,
         player_indices,
-        standings_wins, 
-        standings_losses, 
-        standings_gwp,
-        standings_omwp,
-        standings_ogwp, 
+        standings_matrix ,
         base_result_of_named_player,
+        matchup_matrix,
         standings,
         full_list_of_masked_player
     )
@@ -1017,28 +1023,19 @@ class Manatrader_fix_hidden_duplicate_name:
                         player_with_real_name.add(match.player1)
                 if match.player2 and not re.fullmatch(r'.\*{10}.\d*', match.player2):
                         player_with_real_name.add(match.player2)
-
-        base_result_of_named_player = {}
-        for ite_player in player_with_real_name:
-           base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, rounds ,standings,True)
+        n_players = len(standings)
+        player_indices = {standing.player: idx for idx, standing in enumerate(standings)}
+        base_result_of_named_player, matchup_matrix = self.From_player_to_result_dict_matches(rounds,player_indices ,n_players,True)
 
         full_list_of_masked_player = set()
         for mask,player_list in masked_to_actual.items():
             for player in player_list:
                 full_list_of_masked_player.add(player)
         
-
-
-        player_indices = {standing.player: idx for idx, standing in enumerate(standings)}
-        # n_players = len(standings)
-        # Créer les numpy arrays en extrayant les attributs des instances Standing
-        # Créer les numpy arrays en extrayant les attributs des instances Standing
-        standings_wins = np.array([standing.wins for standing in standings])
-        standings_losses = np.array([standing.losses for standing in standings])
-        standings_gwp = np.array([standing.gwp for standing in standings])
-        standings_omwp = np.array([standing.omwp for standing in standings])
-        standings_ogwp = np.array([standing.ogwp for standing in standings])
-
+        standings_matrix = np.array([
+            [standing.wins, standing.losses, standing.gwp, standing.omwp, standing.ogwp] 
+            for standing in standings
+        ], dtype=float)
         dict_standings = self.standings_to_dict(standings)
         # Parallélisation
         start_time = time.time()
@@ -1059,12 +1056,9 @@ class Manatrader_fix_hidden_duplicate_name:
                 self.calculate_stats_for_matches,
                 self.compare_standings,
                 player_indices,
-                standings_wins, 
-                standings_losses, 
-                standings_gwp,
-                standings_omwp,
-                standings_ogwp, 
+                standings_matrix,
                 base_result_of_named_player,
+                matchup_matrix,
                 dict_standings,
                 full_list_of_masked_player
             )
@@ -1091,12 +1085,9 @@ class Manatrader_fix_hidden_duplicate_name:
                     self.calculate_stats_for_matches,
                     self.compare_standings,
                     player_indices,
-                    standings_wins, 
-                    standings_losses, 
-                    standings_gwp,
-                    standings_omwp,
-                    standings_ogwp, 
+                    standings_matrix,
                     base_result_of_named_player,
+                    matchup_matrix,
                     dict_standings,
                     full_list_of_masked_player
                 )
@@ -1215,16 +1206,15 @@ class Manatrader_fix_hidden_duplicate_name:
                 if match.player2 and not re.fullmatch(r'.\*{10}.\d*', match.player2):
                         player_with_real_name.add(match.player2)
 
-        base_result_of_named_player = {}
-        for ite_player in player_with_real_name:
-           base_result_of_named_player[ite_player] = self.From_player_to_result_dict_matches(ite_player, rounds ,standings,True)
+        player_indices = {standing.player: idx for idx, standing in enumerate(standings)}
+        base_result_of_named_player, matchup_matrix = self.From_player_to_result_dict_matches(ite_player, rounds ,standings,True)
 
         full_list_of_masked_player = set()
         for mask,player_list in masked_to_actual.items():
             for player in player_list:
                 full_list_of_masked_player.add(player)
             
-        player_indices = {standing.player: idx for idx, standing in enumerate(standings)}
+
         n_players = len(standings)
         # Créer les numpy arrays en extrayant les attributs des instances Standing
         # Créer les numpy arrays en extrayant les attributs des instances Standing
@@ -1286,71 +1276,60 @@ class Manatrader_fix_hidden_duplicate_name:
     
 
 
-    def From_player_to_result_dict_matches(self, player: str,rounds ,standings: List[Standing],masked_player_tolerate = False):
-        # Initialiser les stats
-        points = 0
-        wins = 0
-        losses = 0
-        draws = 0
-        total_games_played = 0
-        total_games_won = 0
-        total_game_draw = 0
-        opponents = []
+    def From_player_to_result_dict_matches(self,rounds ,player_indices, n_players:int,masked_player_tolerate = False):
+        # Initialisation des matrices et vecteurs NumPy
+        match_wins = np.zeros(n_players, dtype=int)
+        match_losses = np.zeros(n_players, dtype=int)
+        match_draws = np.zeros(n_players, dtype=int)
+        game_wins = np.zeros(n_players, dtype=int)
+        game_losses = np.zeros(n_players, dtype=int)
+        game_draws = np.zeros(n_players, dtype=int)
+        
+        # Matrice (n x n) pour suivre les matchups (1 si joué contre, 0 sinon)
+        matchup_matrix = np.zeros((n_players, n_players), dtype=int)
 
-        # Parcourir les matchs
+        # Parcourir tous les matchs
         for round in rounds:
             for match in round.matches:
-                p1_wins, p2_wins, draws = match.numeric_score 
-                valid_opo = False
-                # Identifier l'adversaire
-                if match.player1 == player:
-                    if (match.player2 is None or not re.fullmatch(r'.\*{10}.\d*', match.player2)) and masked_player_tolerate:
-                    # elif is_unmasked_valid(match.player2) and masked_player_tolerate:
-                        opponent = match.player2
-                        valid_opo = True
-                    
-                    player_wins, player_losses ,player_draw= p1_wins, p2_wins,draws
-                elif match.player2 == player:
-                    # elif not re.fullmatch(r'.\*{10}.\d*', match.player1) and masked_player_tolerate:
-                    # elif is_unmasked_valid(match.player1) and masked_player_tolerate:
-                    if (match.player1 is None or not re.fullmatch(r'.\*{10}.\d*', match.player1)) and masked_player_tolerate:
-                        opponent = match.player1
-                        valid_opo = True
-                    player_wins, player_losses ,player_draw = p2_wins, p1_wins,draws
-                else:
-                    continue  # Ignorer les matchs où le joueur n'est pas impliqué
+                p1, p2 = match.player1, match.player2
+                p1_wins, p2_wins, draws = match.numeric_score  # Scores des joueurs
 
-                # Calculer les victoires, défaites et égalités
-                # Mise à jour des statistiques
-                # total_matches += 1
-                if player_wins > player_losses:
-                    wins += 1
-                elif player_wins < player_losses:
-                    losses += 1
-                else:
-                    draws += 1
+                if p1 in player_indices:
+                    p1_idx = player_indices[p1]
+                    if p2 is None or not re.fullmatch(r'.\*{10}.\d*', p2):
+                        if masked_player_tolerate and p2 in player_indices:
+                            p2_idx = player_indices[p2]
+                            matchup_matrix[p1_idx, p2_idx] = 1  # Ajout du match
+                            matchup_matrix[p2_idx, p1_idx] = 1  # Symétrique
 
-                # Ajouter aux jeux joués et gagnés
-                total_games_played += player_wins + player_losses + player_draw
-                total_games_won += player_wins 
-                total_game_draw += player_draw
-                # Ajouter l'adversaire à la liste
-                if valid_opo:
-                    opponents.extend([opponent])
-                    # opponents.add(opponent)
-        # Ajouter aux points (3 pour chaque victoire, 1 pour chaque égalité)
-        points += 3 * wins + draws
+                    # Mise à jour des stats pour p1
+                    match_wins[p1_idx] += int(p1_wins > p2_wins)
+                    match_losses[p1_idx] += int(p1_wins < p2_wins)
+                    match_draws[p1_idx] += int(p1_wins == p2_wins)
+                    game_wins[p1_idx] += p1_wins
+                    game_losses[p1_idx] += p2_wins
+                    game_draws[p1_idx] += draws
 
-        return {
-        'wins' : wins,
-        'losses' : losses,
-        'draws' : draws,
-        'total_games_played' : total_games_played,
-        'total_games_won' : total_games_won,
-        'total_game_draw' : total_game_draw,
-        'opponents' : opponents,
-        }      
+                if p2 in player_indices:
+                    p2_idx = player_indices[p2]
+                    if p1 is None or not re.fullmatch(r'.\*{10}.\d*', p1):
+                        if masked_player_tolerate and p1 in player_indices:
+                            p1_idx = player_indices[p1]
+                            matchup_matrix[p2_idx, p1_idx] = 1  # Ajout du match
+                            matchup_matrix[p1_idx, p2_idx] = 1  # Symétrique
 
+                    # Mise à jour des stats pour p2
+                    match_wins[p2_idx] += int(p2_wins > p1_wins)
+                    match_losses[p2_idx] += int(p2_wins < p1_wins)
+                    match_draws[p2_idx] += int(p2_wins == p1_wins)
+                    game_wins[p2_idx] += p2_wins
+                    game_losses[p2_idx] += p1_wins
+                    game_draws[p2_idx] += draws
+
+        # Création de la matrice des résultats
+        results_matrix = np.stack([match_wins, match_losses, match_draws, game_wins, game_losses, game_draws], axis=1)
+
+        return results_matrix, matchup_matrix
 
     def calculate_stats_for_matches(self,permutation_res_table,full_list_of_masked_player,player_indices):  
         Match_wins = permutation_res_table["Match_wins"]
