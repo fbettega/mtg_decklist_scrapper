@@ -297,7 +297,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     current_round = remaining_rounds[0]
     valid_children = []
-    # remaining_combinations = current_round[:] 
+    remaining_combinations = current_round[:] 
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
@@ -316,9 +316,9 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    current_round = [
+    remaining_combinations = [
         combination
-        for combination in current_round
+        for combination in remaining_combinations
         if all(
             not any(
                 key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
@@ -327,8 +327,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for key, players in combination.items()
         )
     ]
-    while current_round:
-        match_combination = current_round.pop(0)  #
+    while remaining_combinations:
+        match_combination = remaining_combinations.pop(0)  #
         # Copier l'historique actuel pour ce chemin
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
@@ -339,13 +339,11 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
         }
         
-        # new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
-        original_Result_history = dict(Result_history) 
-
-        # new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
+        new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
+        
 
         used_players = defaultdict(int)
-        modified_matches = []
+        new_masked_name_matches = []
         # Parcourir les matchs et modifier les joueurs si nécessaire
         for match in masked_name_matches[iteration].matches:
             match_copy = match.shallow_copy()  # Créer une copie légère de match
@@ -362,19 +360,15 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
             
             # Ajouter le match modifié à la liste
-            modified_matches.append(match_copy)
-
+            new_masked_name_matches.append(match_copy)
         # Mettre à jour les statistiques pour la combinaison actuelle
-        valid,problematic_player = validate_fn(modified_matches, 
-                                            history, player_indices, standings_wins,
-                                            standings_losses, standings_gwp,
-                                            full_list_of_masked_player,Result_history)
+        valid,problematic_player = validate_fn(new_masked_name_matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
 
         if not valid:
             for masked_name, player_tuple in match_combination.items():
                 if problematic_player in player_tuple: 
                     # je ne filtré plus ici
-                    # remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                    remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
                     # Trouver la position exacte de suspect_player
                     player_position = player_tuple.index(problematic_player)
                     bad_entry = (
@@ -384,10 +378,6 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         iteration  # Immuable
                     )
                     Global_bad_tupple_history[problematic_player].add(bad_entry) 
-                        # Restauration de l'état initial
-            history.update(new_history)
-            Result_history.clear()
-            Result_history.update(original_Result_history)
             continue  # Ignorez cette combinaison invalide
         
         if valid:
@@ -412,8 +402,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 standings,
                 full_list_of_masked_player,
                 Global_bad_tupple_history,
-                Result_history,
-                history,
+                new_Result_history,
+                new_history,
                 iteration + 1,
                 max_ite_reach
             )
@@ -423,6 +413,8 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     # Met à jour les enfants du nœud actuel avec les enfants valides
     node.children = valid_children
     return valid_children if valid_children else []
+
+
 
 
 def filter_other_node_combinations(remaining_combinations, masked_name, player_tuple):
@@ -1122,7 +1114,7 @@ class Manatrader_fix_hidden_duplicate_name:
             # valid_permutations = results
             if len(valid_permutations) > 1:
                 print("tree ok")
-            elif len(results) == 1 and len(valid_permutations[0].children) > 0:
+            elif len(valid_permutations) == 1 and len(valid_permutations[0].children) > 0:
                 valid_permutations=valid_permutations[0]
                 print("tree ok")
         end_time = time.time()

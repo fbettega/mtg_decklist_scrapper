@@ -15,6 +15,188 @@ import time
 import copy
 from collections import Counter
 
+
+
+
+
+
+
+
+
+def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
+                standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
+                Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):
+    if history is None:
+        history = build_tree_init_history(player_indices, base_result_from_know_player, history)
+    if not node.valid:
+        return
+    # Si le nœud est une feuille, calcule les standings et évalue les comparaisons
+
+    if not remaining_rounds:
+        modified_player = set(full_list_of_masked_player)
+        for player in full_list_of_masked_player:
+            for opo in history["matchups"][player]:
+                if is_unmasked_valid(opo):
+                    modified_player.add(opo)
+        tree_standings_res = compute_stat_fun(history,modified_player,player_indices)
+        standings_comparator_res = []
+        # ajouter ici un merge avec le base_result_from_know_player
+
+        for unsure_standings in tree_standings_res:
+            standings_ite_current = standings[unsure_standings.player ]
+            res_comparator = compare_standings_fun(standings_ite_current, unsure_standings, 3, 3, 3)
+            standings_comparator_res.append(res_comparator)
+        if all(standings_comparator_res):
+            return [node]  # Retourne le nœud valide
+        else:
+            return None  # Feuille invalide
+
+    current_round = remaining_rounds[0]
+    valid_children = []
+    # remaining_combinations = current_round[:] 
+
+    # Construire un dictionnaire stockant les positions interdites pour chaque joueur
+    bad_tuples_dict = defaultdict(lambda: defaultdict(set))
+
+    for player, bad_tuples in Global_bad_tupple_history.items():
+        for bad_data in bad_tuples:  # `bad_data` est un tuple
+            bad_tuple, bad_history, bad_resul_history, bad_comb_iteration = bad_data
+            if (
+                tuple(history["matchups"].get(player)) == bad_history and 
+                iteration == bad_comb_iteration and 
+                Result_history.get(player) == bad_resul_history
+                ):
+                for bad_player, pos in dict(bad_tuple).items():
+                    if bad_player == player:
+                        player_mask = f"{bad_player[0]}{'*' * 10}{bad_player[-1]}"
+                        bad_tuples_dict[player_mask][pos].add(player)
+
+    # Filtrer les combinaisons où un joueur est à une position interdite
+    current_round = [
+        combination
+        for combination in current_round
+        if all(
+            not any(
+                key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
+                for pos, player in enumerate(players)
+            )
+            for key, players in combination.items()
+        )
+    ]
+    while current_round:
+        match_combination = current_round.pop(0)  #
+        # Copier l'historique actuel pour ce chemin
+        new_history = {
+            "Match_wins": history["Match_wins"].copy(),
+            "Match_losses": history["Match_losses"].copy(),
+            "Game_wins": history["Game_wins"].copy(),
+            "Game_losses": history["Game_losses"].copy(),
+            "Game_draws": history["Game_draws"].copy(),
+            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
+        }
+        
+        # new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
+        original_Result_history = dict(Result_history) 
+
+        # new_masked_name_matches = copy.deepcopy(masked_name_matches[iteration])
+
+        used_players = defaultdict(int)
+        modified_matches = []
+        # Parcourir les matchs et modifier les joueurs si nécessaire
+        for match in masked_name_matches[iteration].matches:
+            match_copy = match.shallow_copy()  # Créer une copie légère de match
+            # Remplacer player1 si c'est un nom masqué
+            if match_copy.player1 in match_combination:
+                used_players[match_copy.player1] += 1
+                player1_real_names = match_combination[match_copy.player1]
+                match_copy.player1 = player1_real_names[used_players[match_copy.player1] - 1]
+            
+            # Remplacer player2 si c'est un nom masqué
+            if match_copy.player2 in match_combination:
+                used_players[match_copy.player2] += 1
+                player2_real_names = match_combination[match_copy.player2]
+                match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
+            
+            # Ajouter le match modifié à la liste
+            modified_matches.append(match_copy)
+
+        # Mettre à jour les statistiques pour la combinaison actuelle
+        valid,problematic_player = validate_fn(modified_matches, 
+                                            history, player_indices, standings_wins,
+                                            standings_losses, standings_gwp,
+                                            full_list_of_masked_player,Result_history)
+
+        if not valid:
+            for masked_name, player_tuple in match_combination.items():
+                if problematic_player in player_tuple: 
+                    # je ne filtré plus ici
+                    # remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                    # Trouver la position exacte de suspect_player
+                    player_position = player_tuple.index(problematic_player)
+                    bad_entry = (
+                        frozenset({problematic_player: player_position}.items()),  # Clé unique
+                        tuple(history["matchups"][problematic_player]),  # Conserve l'ordre
+                        tuple(Result_history[problematic_player]),  # Conserve l'ordre
+                        iteration  # Immuable
+                    )
+                    Global_bad_tupple_history[problematic_player].add(bad_entry) 
+                        # Restauration de l'état initial
+            history.update(new_history)
+            Result_history.clear()
+            Result_history.update(original_Result_history)
+            continue  # Ignorez cette combinaison invalide
+        
+        if valid:
+            child_node = TreeNode(match_combination)
+            child_node.valid = True
+            node.add_child(child_node)
+            # Appel récursif avec l'historique mis à jour
+            result = build_tree(
+                child_node,
+                remaining_rounds[1:],
+                masked_name_matches,
+                validate_fn,
+                compute_stat_fun,
+                compare_standings_fun,
+                player_indices,
+                standings_wins,
+                standings_losses,
+                standings_gwp,
+                standings_omwp,
+                standings_ogwp,
+                base_result_from_know_player,
+                standings,
+                full_list_of_masked_player,
+                Global_bad_tupple_history,
+                Result_history,
+                history,
+                iteration + 1,
+                max_ite_reach
+            )
+
+            if result:
+                valid_children.append(child_node)
+    # Met à jour les enfants du nœud actuel avec les enfants valides
+    node.children = valid_children
+    return valid_children if valid_children else []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def custom_round(value, decimals=0):
     # multiplier = 10**decimalsr
     epsilon = 10 ** (-decimals -3)
