@@ -269,7 +269,7 @@ def build_tree_init_history(player_indices, base_result_from_know_player, histor
 
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
                 standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
-                Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):
+                Result_history = defaultdict(tuple), history=None, iteration=0):
     if history is None:
         history = build_tree_init_history(player_indices, base_result_from_know_player, history)
     if not node.valid:
@@ -328,6 +328,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
     while current_round:
         match_combination = current_round.pop(0)  #
         # Copier l'historique actuel pour ce chemin
+        # Créer une copie locale de history
         new_history = {
             "Match_wins": history["Match_wins"].copy(),
             "Match_losses": history["Match_losses"].copy(),
@@ -342,27 +343,27 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
         used_players = defaultdict(int)
         new_masked_name_matches = []
+        modified_player_in_this_round = set()
         # Parcourir les matchs et modifier les joueurs si nécessaire
         for match in masked_name_matches[iteration].matches:
-            match_copy = match.shallow_copy()  # Créer une copie légère de match
+            match_copy = match.shallow_copy()  # Créer une copie légère de match           
             # Remplacer player1 si c'est un nom masqué
             if match_copy.player1 in match_combination:
                 used_players[match_copy.player1] += 1
                 player1_real_names = match_combination[match_copy.player1]
-                match_copy.player1 = player1_real_names[used_players[match_copy.player1] - 1]
-            
+                match_copy.player1 = player1_real_names[used_players[match_copy.player1] - 1] 
             # Remplacer player2 si c'est un nom masqué
             if match_copy.player2 in match_combination:
                 used_players[match_copy.player2] += 1
                 player2_real_names = match_combination[match_copy.player2]
                 match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
-            
             # Ajouter le match modifié à la liste
             new_masked_name_matches.append(match_copy)
+        # Sauvegarde uniquement les valeurs des joueurs affectés par la permutation
         # Mettre à jour les statistiques pour la combinaison actuelle
         valid,problematic_player = validate_fn(new_masked_name_matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
 
-        if not valid:
+        if not valid: 
             for masked_name, player_tuple in match_combination.items():
                 if problematic_player in player_tuple: 
                     # je ne filtré plus ici
@@ -402,8 +403,7 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                 Global_bad_tupple_history,
                 new_Result_history,
                 new_history,
-                iteration + 1,
-                max_ite_reach
+                iteration + 1
             )
 
             if result:
