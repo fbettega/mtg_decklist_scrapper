@@ -21,8 +21,6 @@ from collections import Counter
 
 
 
-
-
 def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_stat_fun,compare_standings_fun, player_indices, standings_wins, standings_losses, standings_gwp,standings_omwp,
                 standings_ogwp, base_result_from_know_player,standings,full_list_of_masked_player,Global_bad_tupple_history = defaultdict(set),
                 Result_history = defaultdict(tuple), history=None, iteration=0,max_ite_reach = 0):

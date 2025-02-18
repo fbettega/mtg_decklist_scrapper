@@ -297,11 +297,9 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
 
     current_round = remaining_rounds[0]
     valid_children = []
-    remaining_combinations = current_round[:] 
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
     bad_tuples_dict = defaultdict(lambda: defaultdict(set))
-
     for player, bad_tuples in Global_bad_tupple_history.items():
         for bad_data in bad_tuples:  # `bad_data` est un tuple
             bad_tuple, bad_history, bad_resul_history, bad_comb_iteration = bad_data
@@ -316,11 +314,9 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
                         bad_tuples_dict[player_mask][pos].add(player)
 
     # Filtrer les combinaisons où un joueur est à une position interdite
-    remaining_combinations = [
-    remaining_combinations = [
+    current_round = [
         combination
-        for combination in remaining_combinations
-        for combination in remaining_combinations
+        for combination in current_round
         if all(
             not any(
                 key in bad_tuples_dict and pos in bad_tuples_dict[key] and player in bad_tuples_dict[key][pos]
@@ -329,18 +325,16 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
             for key, players in combination.items()
         )
     ]
-    while remaining_combinations:
-        match_combination = remaining_combinations.pop(0)  #
-    while remaining_combinations:
-        match_combination = remaining_combinations.pop(0)  #
+    while current_round:
+        match_combination = current_round.pop(0)  #
         # Copier l'historique actuel pour ce chemin
-        history_before_valid = {
+        new_history = {
             "Match_wins": history["Match_wins"].copy(),
             "Match_losses": history["Match_losses"].copy(),
             "Game_wins": history["Game_wins"].copy(),
             "Game_losses": history["Game_losses"].copy(),
             "Game_draws": history["Game_draws"].copy(),
-            "matchups": history["matchups"].copy()#{player: matchups.copy() for player, matchups in history["matchups"].items()}
+            "matchups": {player: matchups.copy() for player, matchups in history["matchups"].items()}
         }
         
         new_Result_history = defaultdict(tuple, Result_history)  # Copie légère
@@ -350,39 +344,29 @@ def build_tree(node, remaining_rounds,masked_name_matches, validate_fn,compute_s
         new_masked_name_matches = []
         # Parcourir les matchs et modifier les joueurs si nécessaire
         for match in masked_name_matches[iteration].matches:
-            match_copy = match.shallow_copy()  # Créer une copie légère de match           
+            match_copy = match.shallow_copy()  # Créer une copie légère de match
             # Remplacer player1 si c'est un nom masqué
             if match_copy.player1 in match_combination:
                 used_players[match_copy.player1] += 1
                 player1_real_names = match_combination[match_copy.player1]
                 match_copy.player1 = player1_real_names[used_players[match_copy.player1] - 1]
-                modified_player_in_this_round.add(match_copy.player1)
-                if is_unmasked_valid(match_copy.player2):
-                    modified_player_in_this_round.add(match_copy.player2)    
+            
             # Remplacer player2 si c'est un nom masqué
             if match_copy.player2 in match_combination:
                 used_players[match_copy.player2] += 1
                 player2_real_names = match_combination[match_copy.player2]
                 match_copy.player2 = player2_real_names[used_players[match_copy.player2] - 1]
-                modified_player_in_this_round.add(match_copy.player2)
-                if is_unmasked_valid(match_copy.player1):
-                    modified_player_in_this_round.add(match_copy.player1)  
+            
             # Ajouter le match modifié à la liste
             new_masked_name_matches.append(match_copy)
         # Mettre à jour les statistiques pour la combinaison actuelle
         valid,problematic_player = validate_fn(new_masked_name_matches, new_history, player_indices, standings_wins, standings_losses, standings_gwp,full_list_of_masked_player,new_Result_history)
 
-        if not valid: 
-            # Restauration de l'état initial
-            history.update(history_before_valid)
-            for player in modified_player_in_this_round:
-                history["matchups"][player] = saved_history[player]
-            Result_history.clear()
-            Result_history.update(original_Result_history)
+        if not valid:
             for masked_name, player_tuple in match_combination.items():
                 if problematic_player in player_tuple: 
                     # je ne filtré plus ici
-                    remaining_combinations =  filter_other_node_combinations(remaining_combinations, masked_name, player_tuple)
+                    current_round =  filter_other_node_combinations(current_round, masked_name, player_tuple)
                     # Trouver la position exacte de suspect_player
                     player_position = player_tuple.index(problematic_player)
                     bad_entry = (
