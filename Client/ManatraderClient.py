@@ -288,8 +288,6 @@ class TournamentList:
             rounds=rounds
         )
 
-    
-
     @classmethod
     def DL_tournaments(cls,start_date: datetime, end_date: datetime = None) -> List[dict]:
         client = MantraderClient()

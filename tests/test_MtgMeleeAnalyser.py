@@ -126,7 +126,7 @@ def test_tournament_data_is_correct(tournament_loader_data):
         date= datetime(2023, 9, 7, 17, 15, 0),
         uri="https://melee.gg/Tournament/View/18285",
         formats="Legacy",
-        json_file="berlin-double-up-legacy-viii-im-brettspielplatz-07.09.23-18285-2023-09-07.json"
+        json_file="berlin-double-up-legacy-viii-im-brettspielplatz-070923-18285-2023-09-07.json"
         )
     assert test_tournament == expected_tournament
 
