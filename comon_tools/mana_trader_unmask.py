@@ -277,7 +277,7 @@ def build_tree(
         else:
             return None  # Feuille invalide
 
-    current_round = remaining_rounds[0]
+    current_round = list(remaining_rounds[0])
     valid_children = []
 
     # Construire un dictionnaire stockant les positions interdites pour chaque joueur
@@ -347,8 +347,9 @@ def build_tree(
             full_list_of_masked_player,
             new_Result_history
             )
-
         if not valid: 
+            # print(matchup_matrix[1])
+            # print(new_matchup[1])
             for masked_name, player_tuple in match_combination.items():
                 for problematic_player in problematic_players:
                     if problematic_player in player_tuple: 
@@ -371,21 +372,21 @@ def build_tree(
             node.add_child(child_node)
             # Appel récursif avec l'historique mis à jour
             result = build_tree(
-                child_node,
-                remaining_rounds[1:],
-                masked_name_matches,
-                validate_fn,
-                compute_stat_fun,
-                compare_standings_fun,
-                player_indices,
-                standings_matrix,
-                new_history,
-                new_matchup,
-                standings,
-                full_list_of_masked_player,
-                Global_bad_tupple_history,
-                new_Result_history,
-                iteration + 1
+                node=child_node,
+                remaining_rounds=remaining_rounds[1:],
+                masked_name_matches=masked_name_matches,
+                validate_fn=validate_fn,
+                compute_stat_fun=compute_stat_fun,
+                compare_standings_fun=compare_standings_fun,
+                player_indices=player_indices,
+                standings_matrix=standings_matrix,
+                base_result_from_know_player=new_history,
+                matchup_matrix=new_matchup,
+                standings=standings,
+                full_list_of_masked_player=full_list_of_masked_player,
+                Global_bad_tupple_history=Global_bad_tupple_history,
+                Result_history=new_Result_history,
+                iteration=iteration + 1,
             )
 
             if result:
@@ -439,8 +440,9 @@ def validate_permutation(match_combination, history, matchup_matrix, player_indi
     Valide une permutation en comparant les résultats avec le classement attendu.
     """
     # Récupération des matrices
-    Match_wins, Match_losses = history[:, 0], history[:, 1]
-    Game_wins, Game_losses, Game_draws = history[:, 2], history[:, 3], history[:, 4]
+    # results_matrix = np.stack([match_wins, match_losses, match_draws, game_wins, game_losses, game_draws], axis=1)
+    Match_wins, Match_losses  = history[:, 0], history[:, 1] #,history[:, 2]
+    Game_wins, Game_losses, Game_draws =  history[:, 3], history[:, 4],history[:, 5]
     
     # Extraction des standings sous forme de matrices NumPy
     standings_wins = standings_matrix[:, 0]
@@ -499,15 +501,13 @@ def validate_permutation(match_combination, history, matchup_matrix, player_indi
         # Ajout du match si pas déjà présent
         player_indices_ite = player_indices.get(p_idx, -1) 
         opponent_indices_ite = player_indices.get(o_idx, -1) 
-        if not is_valid_opo:
+        if is_valid_opo:
             if o_idx in matchup_matrix[player_indices_ite]:
                 return False, p_idx
-            matchup_matrix[player_indices_ite] += ( o_idx,)
-        elif not player_masked_matchup:
-            matchup_matrix[player_indices_ite] += ( o_idx,)
+        matchup_matrix[player_indices_ite] += ( o_idx,)
+        if not player_masked_matchup:
+            # matchup_matrix[player_indices_ite] += ( o_idx,)
             matchup_matrix[opponent_indices_ite] += (p_idx,)
-
-            
 
     # Mise à jour des statistiques
     np.add.at(Match_wins, player_indices_arr, wins)
@@ -531,19 +531,16 @@ def validate_permutation(match_combination, history, matchup_matrix, player_indi
     if np.any(invalid_W_L):
         return False, players[invalid_W_L]
 
-
-
     # Vérification du GWP uniquement pour les joueurs modifiés
-
-    total_games = Game_wins[player_indices_arr] + Game_losses[player_indices_arr] + Game_draws[player_indices_arr]
+    player_indices_arr_gwp = np.array([player_indices.get(player, -1) for player in full_list_of_masked_player])
+    valid_gwp_mask = (Match_wins[player_indices_arr_gwp] == standings_wins[player_indices_arr_gwp]) & \
+                     (Match_losses[player_indices_arr_gwp] == standings_losses[player_indices_arr_gwp])
     
-    valid_gwp_mask = (Match_wins[player_indices_arr] == standings_wins[player_indices_arr]) & \
-                     (Match_losses[player_indices_arr] == standings_losses[player_indices_arr]) & \
-                     (total_games > 0)
-    if np.any(valid_gwp_mask):
-        gwp_calculated = (Game_wins[player_indices_arr] + (Game_draws[player_indices_arr] / 3)) / total_games
-        if np.any(~np.isclose(gwp_calculated, standings_gwp[player_indices_arr], atol=0.001)):
-            return False, np.array(list(full_list_of_masked_player))[valid_gwp_mask & ~np.isclose(gwp_calculated, standings_gwp[player_indices_arr], atol=0.001)]
+    if np.all(valid_gwp_mask):
+        total_games = Game_wins[player_indices_arr_gwp] + Game_losses[player_indices_arr_gwp] + Game_draws[player_indices_arr_gwp]
+        gwp_calculated = (Game_wins[player_indices_arr_gwp] + (Game_draws[player_indices_arr_gwp] / 3)) / total_games
+        if np.any(~np.isclose(gwp_calculated, standings_gwp[player_indices_arr_gwp], atol=0.001)):
+            return False, np.array(list(full_list_of_masked_player))[valid_gwp_mask & ~np.isclose(gwp_calculated, standings_gwp[player_indices_arr_gwp], atol=0.001)]
 
     return True, "ok"
 
@@ -1376,14 +1373,13 @@ class Manatrader_fix_hidden_duplicate_name:
                     computable_ogp_omwp = False
                 else:
                     number_of_opponent = opponent_indices.size
-                    
                     opponent_gwp = (game_wins[opponent_indices] + (game_draws[opponent_indices] / 3)) / \
                                 (game_wins[opponent_indices] + game_draws[opponent_indices] + game_losses[opponent_indices])
-                    opponent_gwp = np.maximum(opponent_gwp, 0.3333)
+                    opponent_gwp = np.maximum(opponent_gwp, 0.33)
                     total_ogp = np.sum(opponent_gwp)
                     
                     opponent_match_winrate = match_wins[opponent_indices] / (match_wins[opponent_indices] + match_losses[opponent_indices])
-                    opponent_match_winrate = np.maximum(opponent_match_winrate, 0.3333)
+                    opponent_match_winrate = np.maximum(opponent_match_winrate, 0.33)
                     total_omp = np.sum(opponent_match_winrate)
             else:
                 computable_ogp_omwp = False
