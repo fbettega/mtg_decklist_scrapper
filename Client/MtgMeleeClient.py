@@ -280,7 +280,8 @@ class MtgMeleeClient:
                     organizer=self.normalize_spaces(item['OrganizationName']),
                     formats=[self.normalize_spaces(item['FormatDescription'])],
                     uri=MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(item['ID'])),
-                    decklists=item['Decklists']
+                    decklists=item['Decklists'],
+                    statut = item['StatusDescription']
                 )
                 result.append(tournament)
             if offset >= limit:
@@ -381,7 +382,9 @@ class MtgMeleeAnalyzer:
         # Skips small tournaments
         if len(players) < MtgMeleeAnalyzerSettings.MinimumPlayers:
             return None
-
+        # skip not ended tournament 'In Progress'
+        if tournament.statut != 'Ended' and (tournament.date.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)) < timedelta(days=5):
+            return None
         # Skips "mostly empty" tournaments
         total_players = len(players)
         players_with_decks = sum(1 for p in players if p.decks)

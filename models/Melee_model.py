@@ -119,14 +119,15 @@ class MtgMeleeRoundInfo:
         }
 
 class MtgMeleeTournamentInfo:
-    def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None):
+    def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None , statut : Optional[str] = None ):
         self.id = tournament_id
         self.uri = uri
         self.date = date
         self.organizer = organizer
         self.name = name
         self.decklists = decklists
-        self.formats = formats if formats is not None else []
+        self.formats = formats if formats is not None else [],
+        self.statut = statut
     def __str__(self):
         return (f"Tournament ID: {self.id}\n"
                 f"Name: {self.name}\n"
@@ -179,6 +180,7 @@ class MtgMeleeTournament:
         self.deck_offset = deck_offset
         self.expected_decks = expected_decks
         self.fix_behavior = fix_behavior
+
     def __eq__(self, other):
         if not isinstance(other, MtgMeleeTournament):
             return False
