@@ -9,7 +9,6 @@ from typing import List, Optional
 from datetime import datetime
 from enum import Enum
 
-# sfdsdf
 class TopDeckConstants:
     class Format(Enum):
         EDH = "EDH"
