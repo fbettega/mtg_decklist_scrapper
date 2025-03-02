@@ -278,7 +278,8 @@ class MtgMeleeClient:
                     date=datetime.strptime(item['StartDate'], "%Y-%m-%dT%H:%M:%S"), #"%Y-%m-%dT%H:%M:%S%z"
                     name=self.normalize_spaces(item['Name']),
                     organizer=self.normalize_spaces(item['OrganizationName']),
-                    formats=[self.normalize_spaces(item['FormatDescription'])],
+                    # formats=[self.normalize_spaces(item['FormatDescription'])],
+                    formats=self.normalize_spaces(item['FormatDescription']),
                     uri=MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(item['ID'])),
                     decklists=item['Decklists'],
                     statut = item['StatusDescription']
@@ -315,7 +316,7 @@ class MtgMeleeClient:
 class MtgMeleeAnalyzerSettings:
     MinimumPlayers = 16
     MininumPercentageOfDecks = 0.5
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern"]
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander"] #,"Premodern"
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]

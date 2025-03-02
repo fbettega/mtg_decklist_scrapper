@@ -18,7 +18,7 @@ from comon_tools.tools import *
 # tournament manatraders-series-pauper-june-2024-2024-06-30.json
 def main():
     try:
-        tournament = TournamentList.DL_tournaments(datetime(2025,2, 21, tzinfo=timezone.utc),datetime(2025, 2, 22, tzinfo=timezone.utc))
+        tournament = TournamentList.DL_tournaments(datetime(2025,2, 22, tzinfo=timezone.utc),datetime(2025, 3, 1, tzinfo=timezone.utc))
         mana_trader_get_tournament_details_data = TournamentList().get_tournament_details(tournament[0])
 
         # tournament = Tournament(uri="https://www.manatraders.com/tournaments/30/", date=datetime(2022, 8, 31))
