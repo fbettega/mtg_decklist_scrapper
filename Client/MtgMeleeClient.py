@@ -222,7 +222,7 @@ class MtgMeleeClient:
         round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players) if a_tag else None
 
         round_result = self.normalize_spaces(round_columns[3].text.strip())
-        item = None
+        item = None      
         if round_result.startswith(f"{player_name} won"):
             item = RoundItem(player1=player_name, player2=round_opponent, result=round_result.split(" ")[-1])
         elif round_result.startswith(f"{round_opponent} won"):
@@ -316,7 +316,7 @@ class MtgMeleeClient:
 class MtgMeleeAnalyzerSettings:
     MinimumPlayers = 16
     MininumPercentageOfDecks = 0.5
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander"] #,"Premodern"
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Premodern"] #"Commander",
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
@@ -352,7 +352,6 @@ class FormatDetector:
 
 
 
-
 class MtgMeleeAnalyzer:
     def get_scraper_tournaments(self, tournament: MtgMeleeTournamentInfo) -> Optional[List[MtgMeleeTournament]]:
         is_pro_tour = (
@@ -361,36 +360,49 @@ class MtgMeleeAnalyzer:
             "Qualifier" not in tournament.name
         )
         # Skips tournaments with blacklisted terms
-
         if any(term.lower() in tournament.name.lower() for term in MtgMeleeAnalyzerSettings.BlacklistedTerms):
             return None
 
         # Skips tournaments with weird formats
         if not is_pro_tour and any(f not in MtgMeleeAnalyzerSettings.ValidFormats for f in tournament.formats):
             return None
-
-        # Skips small tournaments
-        if tournament.decklists < MtgMeleeAnalyzerSettings.MinimumPlayers:
+        # skip not ended tournament 'In Progress'
+        if tournament.statut != 'Ended' and (tournament.date.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)) < timedelta(days=5):
             return None
-
+        
         client = MtgMeleeClient()
         players = client.get_players(tournament.uri, MtgMeleeAnalyzerSettings.PlayersLoadedForAnalysis)
 
         # Skips empty tournaments
         if not players:
             return None
+        
+        # if any(f == 'Commander' for f in tournament.formats):
+        #     tournament
+        #     #         if re.search(r'\d+(-\d+){3,}', round_result):
+        #     # return "commander multi"
+            
+        #     deck_uris = [
+        #         p.decks[0].uri for p in players if p.decks and len(p.decks) > 0
+        #     ][:MtgMeleeAnalyzerSettings.DecksLoadedForAnalysis]
+        #     decks = [MtgMeleeClient().get_deck(uri, players, False) for uri in deck_uris]
 
+
+
+        # not in badaro code
         # Skips small tournaments
-        if len(players) < MtgMeleeAnalyzerSettings.MinimumPlayers:
-            return None
-        # skip not ended tournament 'In Progress'
-        if tournament.statut != 'Ended' and (tournament.date.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)) < timedelta(days=5):
-            return None
-        # Skips "mostly empty" tournaments
-        total_players = len(players)
-        players_with_decks = sum(1 for p in players if p.decks)
-        if players_with_decks < total_players * MtgMeleeAnalyzerSettings.MininumPercentageOfDecks:
-            return None
+        # if tournament.decklists < MtgMeleeAnalyzerSettings.MinimumPlayers:
+        #     return None
+        # Skips small tournaments
+        # if len(players) < MtgMeleeAnalyzerSettings.MinimumPlayers:
+        #     return None
+
+
+        # # Skips "mostly empty" tournaments
+        # total_players = len(players)
+        # players_with_decks = sum(1 for p in players if p.decks)
+        # if players_with_decks < total_players * MtgMeleeAnalyzerSettings.MininumPercentageOfDecks:
+        #     return None
 
         max_decks_per_player = max((len(p.decks) for p in players if p.decks), default=0)
 

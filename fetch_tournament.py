@@ -17,9 +17,10 @@ import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
 
-# use pipreqs ./ for generated requierment.txt
+# use pipreqs --force --ignore .venv --mode no-pin
+#  for generated requierment.txt
 #  https://github.com/bndr/pipreqs
-
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 all keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 mtgo keepleague
