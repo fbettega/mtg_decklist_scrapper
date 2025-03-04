@@ -374,15 +374,16 @@ class MtgMeleeAnalyzer:
         
         client = MtgMeleeClient()
         players = client.get_players(tournament.uri, MtgMeleeAnalyzerSettings.PlayersLoadedForAnalysis)
+        # Skips empty tournaments
+        if not players:
+            return None
         # Not commander multi tournament
         if any(f == 'Commander' for f in tournament.formats):
             for player in players:
                 if player.nb_of_oppo >  (player.standing.wins + player.standing.losses + player.standing.draws):
                     return None
                 
-        # Skips empty tournaments
-        if not players:
-            return None
+
         
 
         #     #         if re.search(r'\d+(-\d+){3,}', round_result):
