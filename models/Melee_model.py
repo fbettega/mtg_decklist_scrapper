@@ -9,12 +9,13 @@ from typing import List, Optional
 
 
 class MtgMeleePlayerInfo:
-    def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None):
+    def __init__(self, username: str, player_name: str, result: str, standing: 'Standing', decks: Optional[List['MtgMeleePlayerDeck']] = None,nb_of_oppo:int = None):
         self.username = username
         self.player_name = player_name
         self.result = result
         self.standing = standing
         self.decks = decks if decks is not None else []
+        self.nb_of_oppo = nb_of_oppo if nb_of_oppo is not None else None
     def __str__(self):
         return f"round_name : {self.round_name}, match : {self.match}"
     def to_dict(self):

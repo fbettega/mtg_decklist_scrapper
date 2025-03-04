@@ -87,6 +87,7 @@ class MtgMeleeClient:
                 wins = entry['MatchWins']
                 losses = entry['MatchLosses']
                 draws = entry['MatchDraws']
+                nb_of_oppo = entry['OpponentCount']
 
                 standing = Standing(
                     player=player_name,
@@ -118,7 +119,8 @@ class MtgMeleeClient:
                         player_name=player_name,
                         result=f"{wins}-{losses}-{draws}",
                         standing=standing,
-                        decks=player_decks if player_decks else None
+                        decks=player_decks if player_decks else None,
+                        nb_of_oppo = nb_of_oppo
                 )
                 )
 
@@ -316,7 +318,7 @@ class MtgMeleeClient:
 class MtgMeleeAnalyzerSettings:
     MinimumPlayers = 16
     MininumPercentageOfDecks = 0.5
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Premodern"] #"Commander",
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern"] #
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
@@ -372,13 +374,17 @@ class MtgMeleeAnalyzer:
         
         client = MtgMeleeClient()
         players = client.get_players(tournament.uri, MtgMeleeAnalyzerSettings.PlayersLoadedForAnalysis)
-
+        # Not commander multi tournament
+        if any(f == 'Commander' for f in tournament.formats):
+            for player in players:
+                if player.nb_of_oppo >  (player.standing.wins + player.standing.losses + player.standing.draws):
+                    return None
+                
         # Skips empty tournaments
         if not players:
             return None
         
-        # if any(f == 'Commander' for f in tournament.formats):
-        #     tournament
+
         #     #         if re.search(r'\d+(-\d+){3,}', round_result):
         #     # return "commander multi"
             
