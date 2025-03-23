@@ -134,17 +134,22 @@ class MtgMeleeClient:
         deck_page_content = self.get_client().get(uri).text
         deck_soup = BeautifulSoup(deck_page_content, 'html.parser')
 
-        copy_button = deck_soup.select_one("button.decklist-builder-copy-button.btn-sm.btn.btn-card.text-nowrap")
-        card_list = copy_button['data-clipboard-text'].split("\r\n")
 
-        player_url = deck_soup.select_one("span.decklist-card-title-author a")['href']
-        player_raw = deck_soup.select_one("span.decklist-card-title-author a").text
+        deck_text = deck_soup.select_one("pre#decklist-text")
+        card_list = deck_text.text.split("\r\n")
+
+        player_link_element = deck_soup.select_one("a.text-nowrap.text-muted")
+
+        player_url = player_link_element['href']
+        player_raw = player_link_element.select_one("span.text-nowrap").text.strip()
+
         player_name = self.get_player_name(player_raw, player_url, players)
 
-        date_string = deck_soup.find('div', class_='decklist-card-info').get_text(strip=True)
+        date_string = deck_soup.select_one('span[data-toggle="date"]')['data-value'].strip()
 
-        date_tournament = datetime.strptime(date_string, "%m/%d/%Y")
-        format_div = deck_soup.select_one(".card-header.decklist-card-header").find_all("div")[1].find_all("div")[2]
+        date_tournament = datetime.strptime(date_string, "%m/%d/%Y %I:%M:%S %p")
+
+        format_div = deck_soup.select_one(".d-flex.flex-row.gap-8px .text-nowrap:last-of-type")
         format = format_div.text.strip()
 
         main_board = []
@@ -152,7 +157,7 @@ class MtgMeleeClient:
         inside_sideboard = inside_companion = inside_commander = False
         CardNameNormalizer.initialize()
         for card in card_list:
-            if card in ['Deck', 'Companion', 'Sideboard','Commander','']:
+            if card in ['MainDeck', 'Companion', 'Sideboard','Commander','']:
                 if card == 'Commander':
                     inside_commander = True
                 else:
