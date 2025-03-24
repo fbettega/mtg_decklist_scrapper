@@ -182,19 +182,35 @@ class MtgMeleeClient:
                     main_board.append(DeckItem(card_name=name, count=count))
         rounds = []
         if not skip_round_data:
-            
-            rounds_div = deck_soup.select_one("div#tournament-path-grid-item")
-            if rounds_div:
-                # rounds_div.select("div div div table tbody tr")
-                for round_div in rounds_div.select("div > div > div > table > tbody > tr")[1:]: 
-                    # le [:1] est un ajout perso a tester car le selecteur python prend le tableau supérieur qui n'est pas un round par exmple dans le code debug 
-                    # # Javier Dominguez
-                    # # Rank:	6
-                    # # Record:	0-0-0
-                    # # Points:	42
-                    round = self.get_round(round_div, player_name, players)
-                    if round:
-                        rounds.append(round)
+            # Extract the decklist GUID from the URI
+            decklist_guid = uri.split('/')[-1]
+
+            # Construct the API endpoint URL
+            api_url = f"https://melee.gg/Decklist/GetTournamentViewData/{decklist_guid}"
+
+            try:
+                # Make the API request
+                response = self.get_client().get(api_url)
+                if response.status_code == 200:
+                    match_data = response.json()
+
+                    # Parse the nested JSON string in the 'Json' key
+                    if 'Json' in match_data and match_data['Json']:
+                        inner_data = json.loads(match_data['Json'])
+
+                        # Now check for 'Matches' in the parsed inner data
+                        if 'Matches' in inner_data and inner_data['Matches']:
+                            for match in inner_data['Matches']:
+                                round_name = f"Round {match['Round']}"
+                                opponent_name = match['Opponent'] if match['Opponent'] else "-"
+                                result = match['Result']
+
+                                # Use the existing get_round method with adapted parameters
+                                round_info = self.get_round_from_api(round_name, player_name, opponent_name, result)
+                                if round_info:
+                                    rounds.append(round_info)
+            except Exception as e:
+                print(f"Error fetching match data from API: {e}")
 
         return MtgMeleeDeckInfo(
             # in order to match badaro test put date to none,
@@ -208,51 +224,52 @@ class MtgMeleeClient:
             rounds=rounds if rounds else None
         )
 
-    def get_round(self, round_node, player_name, players):
-
-        round_columns = round_node.find_all("td")
-        if round_columns[0].text.strip() == "No results found":
-            return None
-        # round_name = self.normalize_spaces(html.unescape(round_columns[0].decode_contents()))
-
-        # opponent_link = round_columns[1].find("a")
-        # round_opponent_url = opponent_link["href"] if opponent_link else None
-        # round_opponent_raw = opponent_link.decode_contents() if opponent_link else None
-        # round_opponent = get_player_name(round_opponent_raw, round_opponent_url, players)
-
-
-
-        round_name = self.normalize_spaces(round_columns[0].text.strip())
-        a_tag = round_columns[1].find("a")
-        round_opponent_url = a_tag.get("href", None) if a_tag else None
-        round_opponent_raw = a_tag.decode_contents() if a_tag else None
-        round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players) if a_tag else None
-
-        round_result = self.normalize_spaces(round_columns[3].text.strip())
-        item = None      
-        if round_result.startswith(f"{player_name} won"):
-            item = RoundItem(player1=player_name, player2=round_opponent, result=round_result.split(" ")[-1])
-        elif round_result.startswith(f"{round_opponent} won"):
-            item = RoundItem(player1=round_opponent, player2=player_name, result=round_result.split(" ")[-1])
-        elif "Draw" in round_result:
-            item = RoundItem(player1=player_name, player2=round_opponent, result=round_result.split(" ")[0])
-        elif "bye" in round_result or "was awarded a bye" in round_result:
+    def get_round_from_api(self, round_name, player_name, opponent_name, result):
+        """Parse round information from API data"""
+        item = None
+        if result.startswith(f"{player_name} won"):
+            item = RoundItem(player1=player_name, player2=opponent_name, result=result.split(" ")[-1])
+        elif opponent_name != "-" and result.startswith(f"{opponent_name} won"):
+            item = RoundItem(player1=opponent_name, player2=player_name, result=result.split(" ")[-1])
+        elif "Draw" in result:
+            item = RoundItem(player1=player_name, player2=opponent_name, result=result.split(" ")[0])
+        elif "bye" in result or "was awarded a bye" in result:
             item = RoundItem(player1=player_name, player2="-", result="2-0-0")
-        elif round_result.startswith("won "):
+        elif result.startswith("won "):
             item = RoundItem(player1="-", player2=player_name, result="2-0-0")
-        elif round_result.startswith(f"{player_name} forfeited"):
-            item = RoundItem(player1=player_name, player2=round_opponent, result="0-2-0")
-        elif round_result.startswith("Not reported") or "[FORMAT EXCEPTION]" in round_result:
-            item = RoundItem(player1=player_name, player2=round_opponent, result="0-0-0")
-        elif f"{player_name} forfeited" in round_result and f"{round_opponent} forfeited" in round_result:
-            item = RoundItem(player1=player_name, player2=round_opponent, result="0-0-0")
+        elif result.startswith(f"{player_name} forfeited"):
+            item = RoundItem(player1=player_name, player2=opponent_name, result="0-2-0")
+        elif result.startswith("Not reported") or "[FORMAT EXCEPTION]" in result:
+            item = RoundItem(player1=player_name, player2=opponent_name, result="0-0-0")
+        elif f"{player_name} forfeited" in result and f"{opponent_name} forfeited" in result:
+            item = RoundItem(player1=player_name, player2=opponent_name, result="0-0-0")
         if item is None:
-            raise ValueError(f"Cannot parse round data for player {player_name} and opponent {round_opponent}")
+            raise ValueError(f"Cannot parse round data for player {player_name} and opponent {opponent_name}")
 
         if len(item.result.split("-")) == 2:
             item.result += "-0"
 
         return MtgMeleeRoundInfo(round_name=round_name, match=item)
+
+    def get_round(self, round_node, player_name, players):
+        """Legacy method for HTML parsing - kept for compatibility"""
+        round_columns = round_node.find_all("td")
+        if len(round_columns) < 4:  # Make sure there are enough columns
+            return None
+
+        if "No matches available" in round_node.text:
+            return None
+
+        round_name = f"Round {self.normalize_spaces(round_columns[0].text.strip())}"
+
+        a_tag = round_columns[1].find("a")
+        round_opponent_url = a_tag.get("href", "") if a_tag else ""
+        round_opponent_raw = a_tag.text if a_tag else ""
+        round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players) if round_opponent_raw else "-"
+
+        round_result = self.normalize_spaces(round_columns[3].text.strip())
+
+        return self.get_round_from_api(round_name, player_name, round_opponent, round_result)
 
     def get_player_name(self, player_name_raw, profile_url, players):
         player_id = profile_url.split("/")[-1]
