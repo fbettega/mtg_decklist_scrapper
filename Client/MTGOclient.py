@@ -197,20 +197,20 @@ class TournamentLoader:
             sideboard = []
             player = deck.get("player")
             player_id = deck.get("loginid")
-
+            CardNameNormalizer.initialize()
             # Traiter le mainboard
             for card in deck.get("main_deck", []):
                 name = card["card_attributes"]["card_name"]
                 quantity = int(card["qty"]) 
-                name = CardNameNormalizer.normalize(name)
-                mainboard.append(DeckItem(count=quantity, card_name=name))
+                name_normalize = CardNameNormalizer.normalize(name)
+                mainboard.append(DeckItem(count=quantity, card_name=name_normalize))
 
             # Traiter le sideboard
             for card in deck.get("sideboard_deck", []):
                 name = card["card_attributes"]["card_name"]
                 quantity = int(card["qty"]) 
-                name = CardNameNormalizer.normalize(name)
-                sideboard.append(DeckItem(count=quantity, card_name=name))
+                name_normalize = CardNameNormalizer.normalize(name)
+                sideboard.append(DeckItem(count=quantity, card_name=name_normalize))
 
             # Déterminer le résultat du joueur
             result = ""

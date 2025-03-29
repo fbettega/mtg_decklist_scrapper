@@ -6,6 +6,7 @@ from models.base_model import *
 from comon_tools.tools import *
 
 CardNameNormalizer.initialize()
+
 ##############################################################################
 # CardNormalizerTests
 def test_should_remove_leading_spaces():
