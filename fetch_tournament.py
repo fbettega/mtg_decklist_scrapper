@@ -17,41 +17,11 @@ import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
 
-# use pipreqs --force --ignore .venv --mode no-pin
-#  for generated requierment.txt
-#  https://github.com/bndr/pipreqs
+
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2025-03-30 mtgo keepleague
+
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 mtgo keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-01 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 topdeck keepleague
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 topdeck keepleague
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 melee keepleague
-#fait
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-01-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-02-01 2024-02-29 all keepleague
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-03-01 2024-03-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-04-01 2024-04-30 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-05-01 2024-05-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-06-01 2024-06-30 melee keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-07-01 2024-07-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-08-01 2024-08-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-09-01 2024-09-30 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-10-01 2024-10-31 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-30 all keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-31 all keepleague
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-11-01 2024-11-07 mtgo keepleague
-
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-12-01 2024-12-12 topdeck keepleague
-
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 manatrader keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2022-01-01 2022-12-31 manatrader keepleague
 # Configure logging to file and console
 def configure_logging(log_file_path):
     class Logger:

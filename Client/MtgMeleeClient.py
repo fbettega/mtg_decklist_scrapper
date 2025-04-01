@@ -317,42 +317,10 @@ class MtgMeleeClient:
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
-    MinimumPlayers = 16
-    MininumPercentageOfDecks = 0.5
     ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern"] #
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
-
-# class FormatDetector:
-#     _vintage_cards = ["Black Lotus", "Mox Emerald", "Mox Jet", "Mox Sapphire", "Mox Ruby", "Mox Pearl"]
-#     _legacy_cards = ["Tundra", "Underground Sea", "Badlands", "Taiga", "Savannah", "Scrubland", "Volcanic Island", "Bayou", "Plateau", "Tropical Island"]
-#     _modern_cards = ["Flooded Strand", "Polluted Delta", "Bloodstained Mire", "Wooded Foothills", "Windswept Heath", "Marsh Flats", "Scalding Tarn", "Verdant Catacombs", "Arid Mesa", "Misty Rainforest"]
-#     _pioneer_cards1 = ["Hallowed Fountain", "Watery Grave", "Blood Crypt", "Stomping Ground", "Temple Garden", "Godless Shrine", "Overgrown Tomb", "Breeding Pool", "Steam Vents", "Sacred Foundry"]
-#     _pioneer_cards2 = ["Nykthos, Shrine to Nyx", "Savai Triome", "Indatha Triome", "Zagoth Triome", "Ketria Triome", "Raugrin Triome", "Spara's Headquarters", "Raffine's Tower", "Xander's Lounge", "Ziatora's Proving Ground", "Jetmir's Garden"]
-#     _pauper_cards = ["Lightning Bolt", "Counterspell"]
-#     # manque le premodern mais je sais pas comment le traiter
-#     @staticmethod
-#     def detect(decks: List[dict]) -> str:
-#         if any(c.card_name in FormatDetector._vintage_cards for d in decks for c in d.mainboard):
-#             return "Vintage"
-#         if all(c.count == 1 for d in decks for c in d.mainboard + d.sideboard) and \
-#         all(len(d.sideboard) <= 3 for d in decks) and \
-#         all((len(d.mainboard) + len(d.sideboard) == 100 or 
-#                 (len(d.mainboard) + len(d.sideboard) == 101 and len(d.sideboard) == 3)) for d in decks):
-#             return "Commander"
-#         if any(c.card_name in FormatDetector._legacy_cards for d in decks for c in d.mainboard):
-#             return "Legacy"
-#         if any(c.card_name in FormatDetector._modern_cards for d in decks for c in d.mainboard):
-#             return "Modern"
-#         if (any(c.card_name in FormatDetector._pioneer_cards1 for d in decks for c in d.mainboard) and
-#             any(c.card_name in FormatDetector._pioneer_cards2 for d in decks for c in d.mainboard)):
-#             return "Pioneer"
-#         if any(c.card_name in FormatDetector._pauper_cards for d in decks for c in d.mainboard):
-#             return "Pauper"
-#         return "Standard"
-
-
 
 
 class MtgMeleeAnalyzer:
@@ -385,33 +353,6 @@ class MtgMeleeAnalyzer:
                     return None
                 
 
-        
-
-        #     #         if re.search(r'\d+(-\d+){3,}', round_result):
-        #     # return "commander multi"
-            
-        #     deck_uris = [
-        #         p.decks[0].uri for p in players if p.decks and len(p.decks) > 0
-        #     ][:MtgMeleeAnalyzerSettings.DecksLoadedForAnalysis]
-        #     decks = [MtgMeleeClient().get_deck(uri, players, False) for uri in deck_uris]
-
-
-
-        # not in badaro code
-        # Skips small tournaments
-        # if tournament.decklists < MtgMeleeAnalyzerSettings.MinimumPlayers:
-        #     return None
-        # Skips small tournaments
-        # if len(players) < MtgMeleeAnalyzerSettings.MinimumPlayers:
-        #     return None
-
-
-        # # Skips "mostly empty" tournaments
-        # total_players = len(players)
-        # players_with_decks = sum(1 for p in players if p.decks)
-        # if players_with_decks < total_players * MtgMeleeAnalyzerSettings.MininumPercentageOfDecks:
-        #     return None
-
         max_decks_per_player = max((len(p.decks) for p in players if p.decks), default=0)
 
         if is_pro_tour:
@@ -426,13 +367,6 @@ class MtgMeleeAnalyzer:
                 return result
 
     def generate_single_format_tournament(self, tournament: MtgMeleeTournamentInfo) -> MtgMeleeTournament:
-        ### Complètement inutile car deja filtré dans (# Skips tournaments with weird formats) et prend enormement de temps
-        # , players: List[MtgMeleePlayerInfo]
-        # if any(tournament.formats[0] not in MtgMeleeAnalyzerSettings.ValidFormats):   
-        #     deck_uris = [p.decks[0].uri for p in players if p.decks and len(p.decks) > 0][:MtgMeleeAnalyzerSettings.DecksLoadedForAnalysis]
-        #     decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
-        #     format_detected = FormatDetector.detect(decks)
-        # else:
         format_detected = tournament.formats[0]
 
 
