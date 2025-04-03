@@ -207,13 +207,15 @@ class TournamentList:
             ))
 
         decks = []
+        CardNameNormalizer.initialize()
         for standing in tournament_data.standings:
             list_standing = next((s for s in tournament_data_from_list.standings if s.name == standing.name), None)
 
             if list_standing and list_standing.deckSnapshot and list_standing.deckSnapshot.mainboard:
                 player_result = f"{standing.standing}th Place" if standing.standing > 3 else f"{standing.standing}st Place"  # or nd, rd depending on the rank
-                mainboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.mainboard.items()] if list_standing.deckSnapshot.mainboard else []
-                sideboard = [DeckItem(count=value, card_name=key) for key, value in list_standing.deckSnapshot.sideboard.items()] if list_standing.deckSnapshot.sideboard else []
+                
+                mainboard = [DeckItem(count=value, card_name=CardNameNormalizer.normalize(key)) for key, value in list_standing.deckSnapshot.mainboard.items()] if list_standing.deckSnapshot.mainboard else []
+                sideboard = [DeckItem(count=value, card_name=CardNameNormalizer.normalize(key)) for key, value in list_standing.deckSnapshot.sideboard.items()] if list_standing.deckSnapshot.sideboard else []
                 decks.append(Deck(
                     player=standing.name,
                     date=tournament.date,
