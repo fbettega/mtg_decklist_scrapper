@@ -415,13 +415,13 @@ class MtgMeleeAnalyzer:
 
         if len(formats) > 1:
             raise ValueError(f"multiple formats need fix  : {formats}")
-            
-        format_detected = FormatDetector.detect(decks)
+        format_detected = formats.pop()
+        # format_detected = FormatDetector.detect(decks)
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
             name=tournament.name,
-            formats=formats.pop(),
+            formats=format_detected,
             json_file=self.generate_file_name(tournament, format_detected, -1),
             deck_offset=0,
             expected_decks=3,
