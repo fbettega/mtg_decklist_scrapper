@@ -11,6 +11,7 @@ from typing import Optional
 from dateutil import parser
 import argparse
 import sys
+import time
 import re
 import Client.MtgMeleeClient as MTGmelee
 import Client.MTGOclient as MTGO
@@ -81,7 +82,7 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
         if os.path.exists(target_file):
             continue
         print(f"- Downloading tournament {sanitize_json_file}")
-        details = run_with_retry(lambda: source.TournamentList().get_tournament_details(tournament), 3)
+        details = run_with_retry(lambda: source.TournamentList().get_tournament_details(tournament), 5)
         if not details:
             print(f"-- Tournament has no data, skipping")
             if not os.listdir(target_folder):  # If folder is empty, remove it
@@ -113,6 +114,8 @@ def run_with_retry(action, max_attempts: int):
             if retry_count < max_attempts:
                 print(f"-- Error '{str(ex).strip('.')}' during call, retrying ({retry_count + 1}/{max_attempts})")
                 retry_count += 1
+                # add sleep before retry
+                time.sleep(5)  
             else:
                 raise
 

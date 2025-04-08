@@ -57,7 +57,7 @@ python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31
 The script logs its execution to `log_scraping.txt`. Errors and progress updates will be recorded there.
 
 ## Error Handling & Retry Mechanism
-If an error occurs while fetching tournament data, the script will automatically retry up to three times before failing.
+If an error occurs while fetching tournament data, the script will automatically retry up to five times before failing.
 
 ## File Storage Structure
 Tournaments are stored in:
