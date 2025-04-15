@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup
 import json
 import re
 from datetime import datetime, timedelta, timezone
-# import os
+import os
+import time
 # import sys
 from typing import List, Optional
 # import html
@@ -27,8 +28,63 @@ class MtgMeleeClient:
         session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
         'Content-Type': 'application/x-www-form-urlencoded'
-    })
+                })
+        if MtgMeleeClient._cookies_valid():
+            MtgMeleeClient._load_cookies(session)
+        else:
+            MtgMeleeClient._refresh_cookies(session)
+
         return session
+    @staticmethod
+    def _cookies_valid():
+        if not os.path.exists(MtgMeleeConstants.COOKIE_FILE):
+            return False
+        try:
+            with open(MtgMeleeConstants.COOKIE_FILE, "r") as f:
+                data = json.load(f)
+                timestamp = data.get("_timestamp")
+                if not timestamp:
+                    return False
+                age = datetime.now() - datetime.fromtimestamp(timestamp)
+                return age < timedelta(days=MtgMeleeConstants.COOKIE_MAX_AGE_DAYS)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _load_cookies(session):
+        with open(MtgMeleeConstants.COOKIE_FILE, "r") as f:
+            data = json.load(f)
+            cookies = data.get("cookies", {})
+            session.cookies.update(cookies)
+
+    @staticmethod
+    def _refresh_cookies(session):
+        if not os.path.exists(MtgMeleeConstants.CRED_FILE):
+            raise FileNotFoundError("Fichier de login manquant : melee_login.json")
+
+        with open(MtgMeleeConstants.CRED_FILE, "r") as f:
+            creds = json.load(f)
+
+        payload = {
+            'email': creds['login'],
+            'password': creds['mdp']
+        }
+
+        # À ajuster si ce n’est pas le bon endpoint
+        response = session.post(MtgMeleeConstants.LOGIN_URL, data=payload)  # "data" pour x-www-form-urlencoded
+
+        if response.status_code != 200 or "__RequestVerificationToken" not in session.cookies.get_dict():
+            raise Exception("Échec de l'authentification : code {}, cookies = {}".format(
+                response.status_code, session.cookies.get_dict()
+            ))
+
+        # Sauvegarde des cookies
+        cookies_to_store = {
+            "cookies": session.cookies.get_dict(),
+            "_timestamp": time.time()
+        }
+        with open(MtgMeleeConstants.COOKIE_FILE, "w") as f:
+            json.dump(cookies_to_store, f, indent=2)
 
     @staticmethod
     def normalize_spaces(data):
@@ -288,19 +344,6 @@ class MtgMeleeClient:
         limit = -1
         result = []
 
-        # with open("Api_token_and_login/melee_login.json", "r") as f:
-        #     creds = json.load(f)
-
-        # payload = {
-        #     'email': creds['login'],
-        #     'password': creds['mdp']
-        # }
-        # # URL d'authentification (à adapter selon melee.gg)
-        # auth_url = "https://melee.gg/Account/SignIn"  # À confirmer via analyse réseau
-
-        # # Requête d'authentification
-        # response = requests.post(auth_url, json=payload)
-        # token = response.json().get('access_token')
         while True:
             tournament_list_parameters = MtgMeleeConstants.TOURNAMENT_LIST_PARAMETERS.replace("{offset}", str(offset)).replace("{startDate}", start_date.strftime("%Y-%m-%d")).replace("{endDate}", end_date.strftime("%Y-%m-%d"))
             tournament_list_url = MtgMeleeConstants.TOURNAMENT_LIST_PAGE
