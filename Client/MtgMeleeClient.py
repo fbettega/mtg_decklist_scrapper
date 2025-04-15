@@ -288,6 +288,19 @@ class MtgMeleeClient:
         limit = -1
         result = []
 
+        # with open("Api_token_and_login/melee_login.json", "r") as f:
+        #     creds = json.load(f)
+
+        # payload = {
+        #     'email': creds['login'],
+        #     'password': creds['mdp']
+        # }
+        # # URL d'authentification (à adapter selon melee.gg)
+        # auth_url = "https://melee.gg/Account/SignIn"  # À confirmer via analyse réseau
+
+        # # Requête d'authentification
+        # response = requests.post(auth_url, json=payload)
+        # token = response.json().get('access_token')
         while True:
             tournament_list_parameters = MtgMeleeConstants.TOURNAMENT_LIST_PARAMETERS.replace("{offset}", str(offset)).replace("{startDate}", start_date.strftime("%Y-%m-%d")).replace("{endDate}", end_date.strftime("%Y-%m-%d"))
             tournament_list_url = MtgMeleeConstants.TOURNAMENT_LIST_PAGE
