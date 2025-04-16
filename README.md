@@ -24,7 +24,8 @@ To enable the parsers, you need to provide your API keys or login credentials in
 
 #####  MTG Melee Login
 - Add your **login credentials** to this file: "Api_token_and_login/melee_login.json"
-Expected format:
+
+- Expected format:
 ```json
 {
   "login": "your MTG Melee email",
