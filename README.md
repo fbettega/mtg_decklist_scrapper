@@ -17,8 +17,20 @@ Then install the dependencies:
 pip install -r requirements.txt
 ```
 
-For the Topdeck parser to work, you need to add your api key to the "Client/api_topdeck.txt" file.
+#### Loging information and token api
+To enable the parsers, you need to provide your API keys or login credentials in the following files:
+##### Topdeck API
+- Add your **API key** to the following file: "Api_token_and_login/api_topdeck.txt"
 
+#####  MTG Melee Login
+- Add your **login credentials** to this file: "Api_token_and_login/melee_login.json"
+Expected format:
+```json
+{
+  "login": "your MTG Melee email",
+  "mdp": "your MTG Melee password"
+}
+```
 
 ### Python Version
 Make sure you are using Python 3.8 or later.
