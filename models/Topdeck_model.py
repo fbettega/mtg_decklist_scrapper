@@ -58,7 +58,7 @@ class TopDeckConstants:
         FULL_TOURNAMENT_ROUTE = f"{ROOT_URL}/v2/tournaments/{{TID}}"
 
     class Settings:
-        API_KEY_FILE_PATH = "Client/api_topdeck.txt"
+        API_KEY_FILE_PATH = "Api_token_and_login/api_topdeck.txt"
         def get_api_key():
             try:
                 with open(TopDeckConstants.Settings.API_KEY_FILE_PATH, "r") as file:
