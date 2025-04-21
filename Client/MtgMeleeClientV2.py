@@ -18,17 +18,118 @@ from dataclasses import dataclass
 from models.Melee_model import *
 from models.base_model import *
 from comon_tools.tools import *
+from requests.cookies import RequestsCookieJar
 # sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 
 class MtgMeleeClient:
     @staticmethod
     def get_client():
         session = requests.Session()
         session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
-        'Content-Type': 'application/x-www-form-urlencoded'
-                })
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        })
+
+        MtgMeleeClient._refresh_cookies(session)
+        if MtgMeleeClient._cookies_valid():
+            MtgMeleeClient._load_cookies(session)
+        else:
+            MtgMeleeClient._refresh_cookies(session)
         return session
+    @staticmethod
+    def _cookies_valid():
+        if not os.path.exists(MtgMeleeConstants.COOKIE_FILE):
+            return False
+        try:
+            with open(MtgMeleeConstants.COOKIE_FILE, "r") as f:
+                data = json.load(f)
+                timestamp = data.get("_timestamp")
+                if not timestamp:
+                    return False
+                age = datetime.now() - datetime.fromtimestamp(timestamp)
+                return age < timedelta(days=MtgMeleeConstants.COOKIE_MAX_AGE_DAYS)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _load_cookies(session):
+        # need to reresh __RequestVerificationToken
+        with open(MtgMeleeConstants.COOKIE_FILE, "r") as f:
+            data = json.load(f)
+            cookies = data.get("cookies", {})
+            session.cookies.update(cookies)
+    @staticmethod
+    def _refresh_cookies(session):
+        # Initialiser la session
+        session = requests.Session()
+
+        # Headers classiques pour accéder au formulaire de login
+        classic_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Referer": "https://melee.gg/",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+        }
+
+        # Charger les identifiants
+        if not os.path.exists(MtgMeleeConstants.CRED_FILE):
+            raise FileNotFoundError("Fichier de login manquant : melee_login.json")
+        with open(MtgMeleeConstants.CRED_FILE, "r") as f:
+            creds = json.load(f)
+
+        # Étape 1 : GET la page de login pour récupérer le token
+        login_page = session.get("https://melee.gg/Account/SignIn", headers=classic_headers)
+        if login_page.status_code != 200:
+            raise Exception(f"Échec lors du chargement de la page de login : {login_page.status_code}")
+        
+        soup = BeautifulSoup(login_page.text, "html.parser")
+        token_input = soup.find("input", {"name": "__RequestVerificationToken"})
+        if not token_input:
+            raise Exception("Token CSRF non trouvé dans la page HTML")
+        token = token_input["value"]
+
+        # Étape 2 : POST AJAX vers SignInPassword avec le bon token
+        ajax_headers = {
+            "User-Agent": classic_headers["User-Agent"],
+            "Accept": "*/*",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+            "Origin": "https://melee.gg",
+            "Referer": "https://melee.gg/Account/SignIn"
+        }
+
+        login_payload = {
+            "email": creds["login"],
+            "password": creds["mdp"],
+            "__RequestVerificationToken": token
+        }
+
+        response = session.post(
+            "https://melee.gg/Account/SignInPassword",
+            headers=ajax_headers,
+            data=login_payload
+        )
+
+        if response.status_code != 200 or '"Error":true' in response.text:
+            print("Réponse brute : ", response.text[:1000])
+            raise Exception(f"Échec de la connexion : status={response.status_code}")
+        
+        if response.status_code != 200 or ".AspNet.ApplicationCookie" not in session.cookies.get_dict():
+            raise Exception(f"Échec de l'authentification complète : code {response.status_code}, cookies = {session.cookies.get_dict()}")
+        # Sauvegarde des cookies
+        cookies_to_store = {
+            "cookies": session.cookies.get_dict(),
+            "_timestamp": time.time()
+        }
+        with open(MtgMeleeConstants.COOKIE_FILE, "w") as f:
+            json.dump(cookies_to_store, f, indent=2)
 
     @staticmethod
     def normalize_spaces(data):
@@ -287,7 +388,12 @@ class MtgMeleeClient:
         offset = 0
         limit = -1
         result = []
+#############################################################################################
 
+        payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=25)
+        response2 = session.post('https://melee.gg/Decklist/SearchDecklists',data=payload)
+        a = json.loads(response2.text)
+#################################################################################################
         while True:
             tournament_list_parameters = MtgMeleeConstants.TOURNAMENT_LIST_PARAMETERS.replace("{offset}", str(offset)).replace("{startDate}", start_date.strftime("%Y-%m-%d")).replace("{endDate}", end_date.strftime("%Y-%m-%d"))
             tournament_list_url = MtgMeleeConstants.TOURNAMENT_LIST_PAGE
@@ -525,3 +631,13 @@ class TournamentList:
             start_date = current_end_date
         print("\r[MtgMelee] Download finished".ljust(80))
         return result
+
+
+
+
+#############################################################################################
+        # client = MtgMeleeClient()
+        # payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=25)
+        # response2 = session.post('https://melee.gg/Decklist/SearchDecklists',data=payload)
+        # a = json.loads(response2.text)
+
