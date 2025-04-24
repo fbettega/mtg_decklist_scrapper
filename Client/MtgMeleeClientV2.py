@@ -35,12 +35,14 @@ class MtgMeleeClient:
             'X-Requested-With': 'XMLHttpRequest'
         })
 
-        MtgMeleeClient._refresh_cookies(session)
-        if MtgMeleeClient._cookies_valid():
+        # Load cookies if still valid
+        cookies_are_valid = MtgMeleeClient._cookies_valid()
+        MtgMeleeClient._refresh_cookies(session, force_login=not cookies_are_valid)
+        
+        if cookies_are_valid:
             MtgMeleeClient._load_cookies(session)
-        else:
-            MtgMeleeClient._refresh_cookies(session)
         return session
+    
     @staticmethod
     def _cookies_valid():
         if not os.path.exists(MtgMeleeConstants.COOKIE_FILE):
@@ -64,9 +66,9 @@ class MtgMeleeClient:
             cookies = data.get("cookies", {})
             session.cookies.update(cookies)
     @staticmethod
-    def _refresh_cookies(session):
+    def _refresh_cookies(session, force_login=False):
         # Initialiser la session
-        session = requests.Session()
+        session.cookies.clear()
 
         # Headers classiques pour accéder au formulaire de login
         classic_headers = {
@@ -77,59 +79,61 @@ class MtgMeleeClient:
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1"
         }
-
-        # Charger les identifiants
-        if not os.path.exists(MtgMeleeConstants.CRED_FILE):
-            raise FileNotFoundError("Fichier de login manquant : melee_login.json")
-        with open(MtgMeleeConstants.CRED_FILE, "r") as f:
-            creds = json.load(f)
-
-        # Étape 1 : GET la page de login pour récupérer le token
+        # Step 1: GET login page to extract __RequestVerificationToken
         login_page = session.get("https://melee.gg/Account/SignIn", headers=classic_headers)
         if login_page.status_code != 200:
-            raise Exception(f"Échec lors du chargement de la page de login : {login_page.status_code}")
-        
+            raise Exception(f"Failed to load login page: {login_page.status_code}")
+
         soup = BeautifulSoup(login_page.text, "html.parser")
         token_input = soup.find("input", {"name": "__RequestVerificationToken"})
         if not token_input:
-            raise Exception("Token CSRF non trouvé dans la page HTML")
+            raise Exception("CSRF token not found in login page")
         token = token_input["value"]
 
-        # Étape 2 : POST AJAX vers SignInPassword avec le bon token
-        ajax_headers = {
-            "User-Agent": classic_headers["User-Agent"],
-            "Accept": "*/*",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
-            "Origin": "https://melee.gg",
-            "Referer": "https://melee.gg/Account/SignIn"
-        }
+        if force_login:
+            # Load credentials
+            if not os.path.exists(MtgMeleeConstants.CRED_FILE):
+                raise FileNotFoundError("Missing login file: melee_login.json")
+            with open(MtgMeleeConstants.CRED_FILE, "r") as f:
+                creds = json.load(f)
 
-        login_payload = {
-            "email": creds["login"],
-            "password": creds["mdp"],
-            "__RequestVerificationToken": token
-        }
+            # Prepare AJAX headers and payload
+            ajax_headers = {
+                "User-Agent": classic_headers["User-Agent"],
+                "Accept": "*/*",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin": "https://melee.gg",
+                "Referer": "https://melee.gg/Account/SignIn"
+            }
 
-        response = session.post(
-            "https://melee.gg/Account/SignInPassword",
-            headers=ajax_headers,
-            data=login_payload
-        )
+            login_payload = {
+                "email": creds["login"],
+                "password": creds["mdp"],
+                "__RequestVerificationToken": token
+            }
 
-        if response.status_code != 200 or '"Error":true' in response.text:
-            print("Réponse brute : ", response.text[:1000])
-            raise Exception(f"Échec de la connexion : status={response.status_code}")
-        
-        if response.status_code != 200 or ".AspNet.ApplicationCookie" not in session.cookies.get_dict():
-            raise Exception(f"Échec de l'authentification complète : code {response.status_code}, cookies = {session.cookies.get_dict()}")
-        # Sauvegarde des cookies
-        cookies_to_store = {
-            "cookies": session.cookies.get_dict(),
-            "_timestamp": time.time()
-        }
-        with open(MtgMeleeConstants.COOKIE_FILE, "w") as f:
-            json.dump(cookies_to_store, f, indent=2)
+            # Step 2: POST login
+            response = session.post(
+                "https://melee.gg/Account/SignInPassword",
+                headers=ajax_headers,
+                data=login_payload
+            )
+
+            if response.status_code != 200 or '"Error":true' in response.text:
+                print("Raw response: ", response.text[:1000])
+                raise Exception(f"Login failed: status={response.status_code}")
+
+            if ".AspNet.ApplicationCookie" not in session.cookies.get_dict():
+                raise Exception(f"Login did not set auth cookie properly: {session.cookies.get_dict()}")
+
+            # Save cookies
+            cookies_to_store = {
+                "cookies": session.cookies.get_dict(),
+                "_timestamp": time.time()
+            }
+            with open(MtgMeleeConstants.COOKIE_FILE, "w") as f:
+                json.dump(cookies_to_store, f, indent=2)
 
     @staticmethod
     def normalize_spaces(data):
@@ -385,39 +389,59 @@ class MtgMeleeClient:
         return "-"
     
     def get_tournaments(self, start_date, end_date):
-        offset = 0
-        limit = -1
+        length_tournament_page = 1000
         result = []
-#############################################################################################
+        draw = 1
+        Tournament_resutl = []
 
-        payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=25)
-        response2 = session.post('https://melee.gg/Decklist/SearchDecklists',data=payload)
-        a = json.loads(response2.text)
-#################################################################################################
         while True:
-            tournament_list_parameters = MtgMeleeConstants.TOURNAMENT_LIST_PARAMETERS.replace("{offset}", str(offset)).replace("{startDate}", start_date.strftime("%Y-%m-%d")).replace("{endDate}", end_date.strftime("%Y-%m-%d"))
-            tournament_list_url = MtgMeleeConstants.TOURNAMENT_LIST_PAGE
-            response = self.get_client().post(tournament_list_url, data=tournament_list_parameters)
+            payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=length_tournament_page,draw = draw,start = 0)
+            tournament_list_url = 'https://melee.gg/Decklist/SearchDecklists' # MtgMeleeConstants.TOURNAMENT_LIST_PAGE
+            response = self.get_client().post(tournament_list_url,data=payload)
             tournament_data = json.loads(response.text)
-
-            limit = tournament_data['recordsTotal']
-            for item in tournament_data['data']:
-                offset += 1
-                tournament = MtgMeleeTournamentInfo(
-                    tournament_id=item['ID'],
-                    date=datetime.strptime(item['StartDate'], "%Y-%m-%dT%H:%M:%S"), #"%Y-%m-%dT%H:%M:%S%z"
-                    name=self.normalize_spaces(item['Name']),
-                    organizer=self.normalize_spaces(item['OrganizationName']),
-                    # formats=[self.normalize_spaces(item['FormatDescription'])],
-                    formats=self.normalize_spaces(item['FormatDescription']),
-                    uri=MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(item['ID'])),
-                    decklists=item['Decklists'],
-                    statut = item['StatusDescription']
-                )
-                result.append(tournament)
-            if offset >= limit:
+            
+            result.extend(tournament_data.get("data", []))
+            if tournament_data["recordsFiltered"] < 1000:
                 break
-        return result
+            draw += 1
+        # Group all data by tournament
+        tournaments = {}
+        # Iterate over each player record in the result list
+        for item in result:
+            tournament_id = item['TournamentId']
+            
+            # If the tournament has not been added yet, initialize it
+            if tournament_id not in tournaments:
+                tournaments[tournament_id] = {
+                    'players': {},  # player_name -> decklist
+                    'date': datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
+                    'name': item.get('TournamentName', 'Unnamed Tournament'),
+                    'organizer': item['OrganizationName'],
+                    'formats': item.get('FormatDescription'),
+                    'uri': MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(tournament_id)),
+                    'statut': str(item['TournamentStatusDescription']),  # You can convert this to a label later
+                }
+
+            # Add player decklist
+            player_name = item.get('OwnerUsername') or item.get('DiscordUsername') or "UnknownPlayer"
+            tournaments[tournament_id]['players'][player_name] = item['Records']
+        # Convert the structured dictionary to a list of MtgMeleeTournamentInfo objects
+        tournament_infos = []
+
+        for tournament_id, data in tournaments.items():
+            tournament_info = MtgMeleeTournamentInfo(
+                tournament_id=tournament_id,
+                uri=data['uri'],
+                date=data['date'],
+                organizer=data['organizer'],
+                name=data['name'],
+                decklists=data['players'],
+                formats=data['formats'],
+                statut=data['statut'],
+            )
+            tournament_infos.append(tournament_info)
+
+        return tournament_infos
     
 
 
@@ -474,8 +498,6 @@ class MtgMeleeAnalyzer:
 
     def generate_single_format_tournament(self, tournament: MtgMeleeTournamentInfo) -> MtgMeleeTournament:
         format_detected = tournament.formats[0]
-
-
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
@@ -636,8 +658,4 @@ class TournamentList:
 
 
 #############################################################################################
-        # client = MtgMeleeClient()
-        # payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=25)
-        # response2 = session.post('https://melee.gg/Decklist/SearchDecklists',data=payload)
-        # a = json.loads(response2.text)
 

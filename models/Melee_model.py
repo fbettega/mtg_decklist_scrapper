@@ -48,13 +48,13 @@ class MtgMeleeConstants:
     def format_url(url, **params):
         return url.format(**params)
     @staticmethod
-    def build_magic_payload(start_date, end_date, length: int = 50):
+    def build_magic_payload(start_date, end_date, length: int = 50,draw: int = 1,start: int = 0):
     # Convertit en chaîne de caractères format "YYYY-MM-DD"
         start_str = start_date.strftime("%Y-%m-%d")
         end_str = end_date.strftime("%Y-%m-%d")
         date_filter = f"{start_str}|{end_str}"
         payload = {
-                "draw": "1",
+                "draw": str(draw),
                 "columns[0][data]": "DecklistName",
                 "columns[0][name]": "DecklistName",
                 "columns[0][searchable]": "true",
@@ -151,7 +151,7 @@ class MtgMeleeConstants:
                 "columns[14][search][regex]": "false",
                 "order[0][column]": "6",
                 "order[0][dir]": "desc",
-                "start": "0",
+                "start": str(start),
                 "length": str(length),
                 "search[value]": "",
                 "search[regex]": "false"}
