@@ -24,7 +24,17 @@ from requests.cookies import RequestsCookieJar
 
 class MtgMeleeClient:
     @staticmethod
-    def get_client():
+    def get_client(load_cookies: bool = False):
+        """
+        Create and configure a requests session for interacting with MTG Melee.
+        
+        Parameters:
+        - load_cookies (bool): If True, attempt to load cookies from file if still valid.
+                               Defaults to False.
+        
+        Returns:
+        - session (requests.Session): Configured requests session.
+        """
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0',
@@ -34,13 +44,13 @@ class MtgMeleeClient:
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest'
         })
-
-        # Load cookies if still valid
-        cookies_are_valid = MtgMeleeClient._cookies_valid()
-        MtgMeleeClient._refresh_cookies(session, force_login=not cookies_are_valid)
-        
-        if cookies_are_valid:
-            MtgMeleeClient._load_cookies(session)
+        if load_cookies:
+            # Load cookies if still valid
+            cookies_are_valid = MtgMeleeClient._cookies_valid()
+            MtgMeleeClient._refresh_cookies(session, force_login=not cookies_are_valid)
+            
+            if cookies_are_valid:
+                MtgMeleeClient._load_cookies(session)
         return session
     
     @staticmethod
@@ -397,7 +407,7 @@ class MtgMeleeClient:
         while True:
             payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=length_tournament_page,draw = draw,start = 0)
             tournament_list_url = 'https://melee.gg/Decklist/SearchDecklists' # MtgMeleeConstants.TOURNAMENT_LIST_PAGE
-            response = self.get_client().post(tournament_list_url,data=payload)
+            response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)
             tournament_data = json.loads(response.text)
             
             result.extend(tournament_data.get("data", []))
@@ -412,19 +422,43 @@ class MtgMeleeClient:
             
             # If the tournament has not been added yet, initialize it
             if tournament_id not in tournaments:
+                tournments_url_loop = MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(tournament_id))
+                tournament_page = self.get_client().get(tournments_url_loop).text
+
+                # Parser le HTML
+                soup = BeautifulSoup(tournament_page, "html.parser")
+
+                # Chercher le bloc où est écrit l'info
+                registration_info = soup.find("p", id="tournament-headline-registration")
+                text = registration_info.get_text()
+                # Utiliser une regex pour extraire ce qui suit "Format: " jusqu'à " |"
+                match = re.search(r'Format: (.*?) \|', text)
+                if match:
+                    tournament_format = match.group(1)
                 tournaments[tournament_id] = {
                     'players': {},  # player_name -> decklist
                     'date': datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
                     'name': item.get('TournamentName', 'Unnamed Tournament'),
                     'organizer': item['OrganizationName'],
-                    'formats': item.get('FormatDescription'),
+                    'formats': tournament_format,# item.get('FormatDescription'),
                     'uri': MtgMeleeConstants.TOURNAMENT_PAGE.replace("{tournamentId}", str(tournament_id)),
                     'statut': str(item['TournamentStatusDescription']),  # You can convert this to a label later
                 }
 
             # Add player decklist
-            player_name = item.get('OwnerUsername') or item.get('DiscordUsername') or "UnknownPlayer"
-            tournaments[tournament_id]['players'][player_name] = item['Records']
+            player_name = item.get('OwnerUsername')  or "UnknownPlayer" #or item.get('DiscordUsername') or 
+            tournaments[tournament_id]['players'][player_name] =  melee_extract_decklist(
+                date = datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
+                TournamentId =  tournament_id,
+                Valid = item.get('IsValid'),
+                OwnerDisplayName =  item.get('OwnerDisplayName'),
+                OwnerUsername = item.get('OwnerUsername') or "UnknownPlayer",
+                Guid = item.get('Guid'),
+                DecklistName = item.get('DecklistName'),
+                decklists = item['Records'],
+                decklists_formats = item.get('FormatDescription')
+            )
+
         # Convert the structured dictionary to a list of MtgMeleeTournamentInfo objects
         tournament_infos = []
 
@@ -454,6 +488,30 @@ class MtgMeleeAnalyzerSettings:
 
 
 class MtgMeleeAnalyzer:
+    _banned_only_in_duel = None  # cache shared across all instances
+    @classmethod
+    def _get_banned_only_in_duel(cls):
+        """Fetch and cache the list of cards banned in Duel Commander but not in multiplayer Commander."""
+        if cls._banned_only_in_duel is None:
+            def get_banned_cards(format_name):
+                url = f"https://api.scryfall.com/cards/search"
+                params = {
+                    "q": f"banned:{format_name}",
+                    "unique": "cards"
+                }
+                cards = []
+                while url:
+                    response = requests.get(url, params=params if url.endswith('/search') else None)
+                    data = response.json()
+                    cards.extend(data["data"])
+                    url = data.get("next_page")
+                return set(card["name"] for card in cards)
+
+            banned_duel = get_banned_cards("duel")
+            banned_multi = get_banned_cards("commander")
+            cls._banned_only_in_duel = banned_duel - banned_multi
+        return cls._banned_only_in_duel
+    
     def get_scraper_tournaments(self, tournament: MtgMeleeTournamentInfo) -> Optional[List[MtgMeleeTournament]]:
         is_pro_tour = (
             tournament.organizer == "Wizards of the Coast" and
@@ -477,7 +535,10 @@ class MtgMeleeAnalyzer:
         if not players:
             return None
         # Not commander multi tournament
+
         if any(f == 'Commander' for f in tournament.formats):
+            # Access the banned list only once, when needed
+            banned_cards = self._get_banned_only_in_duel()
             for player in players:
                 if player.nb_of_oppo >  (player.standing.wins + player.standing.losses + player.standing.draws):
                     return None

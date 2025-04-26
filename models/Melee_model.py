@@ -43,6 +43,9 @@ class MtgMeleeConstants:
     CRED_FILE = "Api_token_and_login/melee_login.json"
     LOGIN_URL = "https://melee.gg/Account/SignIn"  
     COOKIE_MAX_AGE_DAYS = 21  # 3 weeks
+    # valid decklist treshold
+    VALID_DECKLIST_THRESHOLD = 0.5
+    Min_number_of_valid_decklists = 5
 
     @staticmethod
     def format_url(url, **params):
@@ -235,13 +238,22 @@ class MtgMeleeRoundInfo:
         }
 
 class MtgMeleeTournamentInfo:
-    def __init__(self, tournament_id: Optional[int], uri: str, date: datetime, organizer: str, name: str, decklists: Optional[int], formats: Optional[List[str]] = None , statut : Optional[str] = None ):
+    def __init__(
+            self,
+            tournament_id: Optional[int],
+            uri: str,
+            date: datetime,
+            organizer: str, 
+            name: str, 
+            decklists: Optional[List['melee_extract_decklist']] = None, 
+            formats: Optional[List[str]] = None , 
+            statut : Optional[str] = None ):
         self.id = tournament_id
         self.uri = uri
         self.date = date
         self.organizer = organizer
         self.name = name
-        self.decklists = decklists
+        self.decklists = decklists if decklists is not None else []
         self.formats = formats if formats is not None else [],
         self.statut = statut
     def __str__(self):
@@ -250,7 +262,7 @@ class MtgMeleeTournamentInfo:
                 f"Organizer: {self.organizer}\n"
                 f"Date: {self.date.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 f"URI: {self.uri}\n"
-                f"Decklists: {self.decklists}\n"
+                f"Decklists: {len(self.decklists)} decklists\n"
                 f"Formats: {', '.join(self.formats)}"
                 )
     def __eq__(self, other):
@@ -264,7 +276,7 @@ class MtgMeleeTournamentInfo:
             "date": self.date,
             "organizer": self.organizer,
             "name": self.name,
-            "decklists": self.decklists,
+            "decklists": [d.to_dict() for d in self.decklists],
             "formats": self.formats
         }
 
@@ -333,4 +345,66 @@ class MtgMeleeTournament:
             # "deck_offset": self.deck_offset,
             # "expected_decks": self.expected_decks,
             # "fix_behavior": self.fix_behavior,
+        }
+
+class melee_extract_decklist:
+    def __init__(
+        self,
+        uri: Optional[str] = None,
+        date: Optional[datetime] = None,
+        TournamentId: Optional[int] = None,
+        Valid: Optional[bool] = None,
+        OwnerDisplayName: Optional[str] = None,
+        OwnerUsername: Optional[str] = None,
+        Guid: Optional[str] = None,
+        DecklistName : Optional[str] = None,
+        decklists: Optional[list[dict]] = None,
+        decklists_formats: Optional[List[str]] = None
+    ):
+        self.uri = uri
+        self.date = date
+        self.TournamentId = TournamentId
+        self.Valid = Valid
+        self.OwnerDisplayName = OwnerDisplayName
+        self.OwnerUsername = OwnerUsername
+        self.Guid = Guid
+        self.DecklistName = DecklistName
+        self.decklists = decklists if decklists is not None else []
+        self.decklists_formats = decklists_formats if decklists_formats is not None else []
+
+    def __eq__(self, other):
+        if not isinstance(other, melee_extract_decklist):
+            return NotImplemented
+        return (
+            self.uri == other.uri and
+            self.date == other.date and
+            self.TournamentId == other.TournamentId and
+            self.Valid == other.Valid and
+            self.OwnerDisplayName == other.OwnerDisplayName and
+            self.OwnerUsername == other.OwnerUsername and
+            self.Guid == other.Guid and
+            self.DecklistName == other.DecklistName and
+            self.decklists == other.decklists and
+            self.decklists_formats == other.decklists_formats
+        )
+
+    def __str__(self):
+        return (f"melee_extract_decklist(uri={self.uri}, date={self.date}, "
+                f"TournamentId={self.TournamentId}, Valid={self.Valid}, "
+                f"OwnerDisplayName={self.OwnerDisplayName}, OwnerUsername={self.OwnerUsername}, "
+                f"Guid={self.Guid}, DecklistName={self.DecklistName}, "
+                f"decklists={self.decklists}, formats={self.decklists_formats})")
+
+    def to_dict(self):
+        return {
+            "uri": self.uri,
+            "date": self.date.isoformat() if self.date else None,
+            "TournamentId": self.TournamentId,
+            "Valid": self.Valid,
+            "OwnerDisplayName": self.OwnerDisplayName,
+            "OwnerUsername": self.OwnerUsername,
+            "Guid": self.Guid,
+            "DecklistName": self.DecklistName,
+            "decklists": self.decklists,
+            "formats": self.decklists_formats
         }
