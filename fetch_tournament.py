@@ -13,14 +13,15 @@ import argparse
 import sys
 import time
 import re
-import Client.MtgMeleeClient as MTGmelee
+# import Client.MtgMeleeClient as MTGmelee
+import Client.MtgMeleeClientV2 as MTGmelee
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
 
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2025-03-30 mtgo keepleague
-
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-03-01 2025-04-26 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
 # Configure logging to file and console

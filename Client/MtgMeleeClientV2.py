@@ -149,9 +149,9 @@ class MtgMeleeClient:
     def normalize_spaces(data):
         return re.sub(r'\s+', ' ', data).strip()
 
-    def get_players(self, uri, max_players=None):
+    def get_players(self, tournament, max_players=None):
         result = []
-        # je ne suis pas sur de bien comprendre pourquoi utilisé self ici sachant qu'on appel une méthode static
+        uri = tournament.uri
         # page_content = self.get_client().get(uri).text
         page_content = MtgMeleeClient.get_client().get(uri).text
         soup = BeautifulSoup(page_content, 'html.parser')
@@ -176,7 +176,7 @@ class MtgMeleeClient:
             response = MtgMeleeClient.get_client().post(round_url, data=round_parameters)
             # print("Réponse obtenue:", response.status_code)
             round_data = json.loads(response.text)
-
+            used_deck_ids = set()   
             if len(round_data['data']) == 0 and offset == 0:
                 if len(round_ids) > 1:
                     round_ids = round_ids[:-1]
@@ -185,7 +185,7 @@ class MtgMeleeClient:
                     continue
                 else:
                     break
-
+                 
             for entry in round_data['data']:
                 has_data = True
                 player_name = entry['Team']['Players'][0]['DisplayName']
@@ -215,19 +215,35 @@ class MtgMeleeClient:
                     losses=losses,
                     draws=draws
                 )
-
                 player_decks = []
-                for decklist in entry['Decklists']:
-                    deck_list_id = decklist['DecklistId']
-                    if not deck_list_id:
-                        continue
-                    decklist_format = decklist['Format']
-                    player_decks.append(MtgMeleePlayerDeck(
-                        deck_id=deck_list_id,
-                        format=decklist_format,
-                        uri=MtgMeleeConstants.format_url(MtgMeleeConstants.DECK_PAGE, deckId=deck_list_id)
-                    ))
-
+                # get player decklist from decklist page
+                player_decklists = tournament.decklists.get(user_name, None)
+                if player_decklists:
+                    for deck_list_id, player_decklist in player_decklists.items():
+                        # If the deck_list_id has already been used, skip this deck
+                        if deck_list_id in used_deck_ids:
+                            continue  # Skip this deck and move to the next one
+                        # Mark the deck_list_id as used
+                        used_deck_ids.add(deck_list_id)
+                        decklist_format = player_decklist.decklists_formats
+                        player_decks.append(MtgMeleePlayerDeck(
+                            deck_id=deck_list_id,
+                            format=decklist_format,
+                            uri=MtgMeleeConstants.format_url(MtgMeleeConstants.DECK_PAGE, deckId=deck_list_id),
+                            tournament_decklists=player_decklist
+                        ))
+                # keep legacy code if player not match decklist player    
+                else:
+                    for decklist in entry['Decklists']:
+                        deck_list_id = decklist['DecklistId']
+                        if not deck_list_id:
+                            continue
+                        decklist_format = decklist['Format']
+                        player_decks.append(MtgMeleePlayerDeck(
+                            deck_id=deck_list_id,
+                            format=decklist_format,
+                            uri=MtgMeleeConstants.format_url(MtgMeleeConstants.DECK_PAGE, deckId=deck_list_id)
+                        ))
                 result.append(
                     MtgMeleePlayerInfo( 
                         username=user_name,
@@ -399,21 +415,35 @@ class MtgMeleeClient:
         return "-"
     
     def get_tournaments(self, start_date, end_date):
-        length_tournament_page = 1000
+        length_tournament_page = 500
         result = []
         draw = 1
+        starting_point = 0
+        seen_ids = set()
         Tournament_resutl = []
 
+
         while True:
-            payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=length_tournament_page,draw = draw,start = 0)
+            payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=length_tournament_page,draw = draw,start = starting_point)
             tournament_list_url = 'https://melee.gg/Decklist/SearchDecklists' # MtgMeleeConstants.TOURNAMENT_LIST_PAGE
             response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)
             tournament_data = json.loads(response.text)
             
-            result.extend(tournament_data.get("data", []))
-            if tournament_data["recordsFiltered"] < 1000:
+            new_tournaments = tournament_data.get("data", [])
+             # Ajout uniquement des tournois nouveaux
+            for tournament in new_tournaments:
+                tournament_id = tournament.get('Guid')
+                if tournament_id not in seen_ids:
+                    result.append(tournament)
+                    seen_ids.add(tournament_id)
+            if tournament_data["recordsFiltered"] == len(result):
                 break
+            if ((draw-1) * length_tournament_page) >= tournament_data["recordsFiltered"]:
+                break
+            # print(f"\r[MtgMelee] Downloading tournaments from {starting_point} to {starting_point + length_tournament_page}/{tournament_data["recordsFiltered"]}", end="")
+
             draw += 1
+            starting_point += length_tournament_page
         # Group all data by tournament
         tournaments = {}
         # Iterate over each player record in the result list
@@ -427,7 +457,6 @@ class MtgMeleeClient:
 
                 # Parser le HTML
                 soup = BeautifulSoup(tournament_page, "html.parser")
-
                 # Chercher le bloc où est écrit l'info
                 registration_info = soup.find("p", id="tournament-headline-registration")
                 text = registration_info.get_text()
@@ -446,22 +475,50 @@ class MtgMeleeClient:
                 }
 
             # Add player decklist
-            player_name = item.get('OwnerUsername')  or "UnknownPlayer" #or item.get('DiscordUsername') or 
-            tournaments[tournament_id]['players'][player_name] =  melee_extract_decklist(
+            player_name = self.normalize_spaces(item.get('OwnerUsername')) or "UnknownPlayer" # self.normalize_spaces(item.get('OwnerDisplayName'))  or "UnknownPlayer" #or item.get('DiscordUsername') or 
+            Guid_deck = item.get('Guid')
+            if player_name not in tournaments[tournament_id]['players']:
+                tournaments[tournament_id]['players'][player_name] = {}
+            tournaments[tournament_id]['players'][player_name][Guid_deck] =  melee_extract_decklist(
                 date = datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
                 TournamentId =  tournament_id,
                 Valid = item.get('IsValid'),
-                OwnerDisplayName =  item.get('OwnerDisplayName'),
-                OwnerUsername = item.get('OwnerUsername') or "UnknownPlayer",
-                Guid = item.get('Guid'),
+                OwnerDisplayName =  self.normalize_spaces(item.get('OwnerDisplayName')),
+                OwnerUsername = self.normalize_spaces(item.get('OwnerUsername')) or "UnknownPlayer",
+                Guid = Guid_deck,
                 DecklistName = item.get('DecklistName'),
                 decklists = item['Records'],
                 decklists_formats = item.get('FormatDescription')
             )
 
-        # Convert the structured dictionary to a list of MtgMeleeTournamentInfo objects
-        tournament_infos = []
+        for tournament_id, tournament in tournaments.items():
+            players = tournament['players']
+            for player_name, decks in players.items():
+                # Check if the player has more than one deck
+                if len(decks) > 1:
+                    # Filter to only keep valid decks
+                    valid_decks = {guid: deck for guid, deck in decks.items() if deck.Valid}
+                    if len(valid_decks) == 1:
+                        # If exactly one valid deck exists, keep only that one
+                        # print(f"Player {player_name} in tournament {tournament_id} had multiple decks. Keeping only the valid one.")
+                        players[player_name] = valid_decks
+                    # Else (no valid decks or multiple valid decks), keep all original decks
+                    else:
+                        # Case 2: Multiple decks (valid or not) → check if all decks are identical
+                        decklists = list(decks.values())
+                        first_deck = decklists[0]
+                        all_identical = all(
+                            deck.decklists == first_deck.decklists and deck.decklists_formats == first_deck.decklists_formats
+                            for deck in decklists[1:]
+                        )
+                        if all_identical:
+                            # If all decks are identical → keep only the first one
+                            # print(f"Player {player_name} in tournament {tournament_id} had multiple identical decks. Keeping only one.")
+                            first_guid = next(iter(decks))
+                            players[player_name] = {first_guid: first_deck}
+                        # Else: do nothing, keep all decks
 
+        tournament_infos = []
         for tournament_id, data in tournaments.items():
             tournament_info = MtgMeleeTournamentInfo(
                 tournament_id=tournament_id,
@@ -529,8 +586,23 @@ class MtgMeleeAnalyzer:
         if tournament.statut != 'Ended' and (tournament.date.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)) < timedelta(days=5):
             return None
         
+        Number_of_deck = sum(len(player_decks) for player_decks in tournament.decklists.values())
+        Number_of_valid_decklist = sum(
+            1
+            for player_decks in tournament.decklists.values()
+            for decklist in player_decks.values()
+            if decklist.Valid
+        )
+        ratio_of_valid_decklist = Number_of_valid_decklist / Number_of_deck if Number_of_deck > 0 else 0
+        # Skips tournaments with no decklists
+        if Number_of_valid_decklist < MtgMeleeConstants.Min_number_of_valid_decklists:
+            return None
+        if ratio_of_valid_decklist < MtgMeleeConstants.VALID_DECKLIST_THRESHOLD:
+            return None
+        
+
         client = MtgMeleeClient()
-        players = client.get_players(tournament.uri, MtgMeleeAnalyzerSettings.PlayersLoadedForAnalysis)
+        players = client.get_players(tournament, MtgMeleeAnalyzerSettings.PlayersLoadedForAnalysis)
         # Skips empty tournaments
         if not players:
             return None
@@ -538,7 +610,7 @@ class MtgMeleeAnalyzer:
 
         if any(f == 'Commander' for f in tournament.formats):
             # Access the banned list only once, when needed
-            banned_cards = self._get_banned_only_in_duel()
+            # banned_cards = self._get_banned_only_in_duel()
             for player in players:
                 if player.nb_of_oppo >  (player.standing.wins + player.standing.losses + player.standing.draws):
                     return None
@@ -564,7 +636,8 @@ class MtgMeleeAnalyzer:
             date=tournament.date,
             name=tournament.name,
             formats=format_detected,
-            json_file=self.generate_file_name(tournament, format_detected, -1)
+            json_file=self.generate_file_name(tournament, format_detected, -1),
+            decklists = tournament.decklists
         )
 
     def generate_multi_format_tournament(self, tournament: MtgMeleeTournamentInfo, players: List[MtgMeleePlayerInfo], offset: int, expected_decks: int) -> MtgMeleeTournament:
@@ -593,7 +666,8 @@ class MtgMeleeAnalyzer:
             ),
             deck_offset=offset,
             expected_decks=expected_decks,
-            fix_behavior="Skip"
+            fix_behavior="Skip",
+            decklists = tournament.decklists
         )
 
     def generate_pro_tour_tournament(self, tournament: MtgMeleeTournamentInfo, players: List[MtgMeleePlayerInfo]) -> MtgMeleeTournament:
@@ -612,10 +686,12 @@ class MtgMeleeAnalyzer:
             name=tournament.name,
             formats=format_detected,
             json_file=self.generate_file_name(tournament, format_detected, -1),
+            MtgMeleeTournamentInfo_res = tournament,
             deck_offset=0,
             expected_decks=3,
             fix_behavior="UseFirst",
-            excluded_rounds=["Round 1", "Round 2", "Round 3", "Round 9", "Round 10", "Round 11"]
+            excluded_rounds=["Round 1", "Round 2", "Round 3", "Round 9", "Round 10", "Round 11"],
+            decklists = tournament.decklists
         )
 
     def generate_file_name(self, tournament: MtgMeleeTournamentInfo, format: str, offset: int) -> str:
@@ -636,7 +712,7 @@ class MtgMeleeAnalyzer:
 class TournamentList:
     def get_tournament_details(self,  tournament: MtgMeleeTournament) -> 'CacheItem':
         client = MtgMeleeClient()
-        players = client.get_players(tournament.uri)
+        players = client.get_players(tournament)
         
         decks = []
         standings = []
@@ -695,6 +771,7 @@ class TournamentList:
     @classmethod
     def DL_tournaments(cls,start_date: datetime, end_date: datetime = None) -> List[dict]:
         """Récupérer les tournois entre les dates start_date et end_date."""
+
         if start_date < datetime(2020, 1, 1, tzinfo=timezone.utc):
             return []  # Si la date de départ est avant le 1er janvier 2020, retourner une liste vide.
         if end_date is None:
@@ -706,6 +783,7 @@ class TournamentList:
             # Créer une instance du client et récupérer les tournois
             client = MtgMeleeClient()
             tournaments = client.get_tournaments(start_date, current_end_date)
+            # print(f"end DL tournament")
             analyzer = MtgMeleeAnalyzer()
             for tournament in tournaments:
                 melee_tournaments = analyzer.get_scraper_tournaments(tournament)

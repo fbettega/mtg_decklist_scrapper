@@ -212,10 +212,11 @@ class MtgMeleeDeckInfo:
         }
 
 class MtgMeleePlayerDeck:
-    def __init__(self, deck_id: str, uri: str, format: str):
+    def __init__(self, deck_id: str, uri: str, format: str,tournament_decklists: Optional['melee_extract_decklist']  =  None):
         self.id = deck_id
         self.uri = uri
-        self.format = format
+        self.format = format,
+        self.tournament_decklists = tournament_decklists
     def to_dict(self):
         return {
             "id": self.id,
@@ -288,20 +289,20 @@ class MtgMeleeTournament:
         date: Optional[datetime] = None,
         organizer: Optional[str] = None,
         name: Optional[str] = None,
-        decklists: Optional[int] = None,
+        decklists:  Optional[List['melee_extract_decklist']] = None, 
         formats: Optional[List[str]] = None,
         excluded_rounds: Optional[List[str]] = None,
         json_file: Optional[str] = None,
         deck_offset: Optional[int] = None,
         expected_decks: Optional[int] = None,  
-        fix_behavior: Optional[str] = None 
+        fix_behavior: Optional[str] = None ,
     ):
         self.id = id
         self.uri = uri
         self.date = date
         self.organizer = organizer
         self.name = name
-        self.decklists = decklists
+        self.decklists = decklists if decklists is not None else []
         self.formats = formats
         self.excluded_rounds = excluded_rounds
         self.json_file = json_file
@@ -317,7 +318,7 @@ class MtgMeleeTournament:
                 self.date == other.date and
                 self.organizer == other.organizer and
                 self.name == other.name and
-                self.decklists == other.decklists and
+                # self.decklists == other.decklists and
                 self.formats == other.formats and
                 self.excluded_rounds == other.excluded_rounds and
                 self.json_file == other.json_file and

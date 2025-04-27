@@ -4,7 +4,7 @@ Client/api_topdeck.txt
 initial_debug.py
 log_scraping.txt
 debug/
-
+tournament_data.pkl
 .vscode/
 
 # Byte-compiled / optimized / DLL files
