@@ -173,9 +173,24 @@ class MtgMeleeClient:
             has_data = False
             round_parameters = MtgMeleeConstants.ROUND_PAGE_PARAMETERS.replace("{start}", str(offset)).replace("{roundId}", round_id) 
             round_url = MtgMeleeConstants.ROUND_PAGE 
-            response = MtgMeleeClient.get_client().post(round_url, data=round_parameters)
-            # print("Réponse obtenue:", response.status_code)
-            round_data = json.loads(response.text)
+
+            MAX_RETRIES = 3
+            DELAY_SECONDS = 2
+            for attempt in range(1, MAX_RETRIES + 1):
+                response = MtgMeleeClient.get_client().post(round_url, data=round_parameters)       
+                if response.text.strip():  # vérifie que la réponse n'est pas vide
+                    try:
+                        round_data = json.loads(response.text)
+                        break  # succès, on sort de la boucle
+                    except json.JSONDecodeError:
+                        print(f"Attempt  {attempt}: Empty response.")
+                else:
+                    print(f"Attempt  ative {attempt}: Failed to parse JSON.")
+                if attempt < MAX_RETRIES:
+                    time.sleep(DELAY_SECONDS)
+            else:
+                return None
+
             used_deck_ids = set()   
             if len(round_data['data']) == 0 and offset == 0:
                 if len(round_ids) > 1:
@@ -405,8 +420,26 @@ class MtgMeleeClient:
         while True:
             payload = MtgMeleeConstants.build_magic_payload(start_date, end_date, length=length_tournament_page,draw = draw,start = starting_point)
             tournament_list_url = 'https://melee.gg/Decklist/SearchDecklists' # MtgMeleeConstants.TOURNAMENT_LIST_PAGE
-            response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)
-            tournament_data = json.loads(response.text)
+
+            MAX_RETRIES = 3
+            DELAY_SECONDS = 2
+            for attempt in range(1, MAX_RETRIES + 1):
+                response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)      
+                if response.text.strip():  # vérifie que la réponse n'est pas vide
+                    try:
+                        tournament_data = json.loads(response.text)
+                        break  # succès, on sort de la boucle
+                    except json.JSONDecodeError:
+                        print(f"Attempt  {attempt}: Empty response.")
+                else:
+                    print(f"Attempt  ative {attempt}: Failed to parse JSON.")
+
+                if attempt < MAX_RETRIES:
+                    time.sleep(DELAY_SECONDS)
+            else:
+                return None
+            
+            
             
             new_tournaments = tournament_data.get("data", [])
              # Ajout uniquement des tournois nouveaux
