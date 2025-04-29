@@ -15,6 +15,7 @@ import time
 import re
 # import Client.MtgMeleeClient as MTGmelee
 import Client.MtgMeleeClientV2 as MTGmelee
+import Client.MtgMeleeClient as MTGmeleeold
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
@@ -188,7 +189,8 @@ def main():
     if use_mtg_melee:
         print("Updating MTG Melee...")
         update_folder(cache_folder, MTGmelee, "MTGmelee", start_date, end_date)
-
+        print("Updating MTG Melee using old script...")
+        update_folder(cache_folder, MTGmeleeold, "MTGmelee", start_date, end_date)
     if use_topdeck:
         print("Updating Topdeck...")
         update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)

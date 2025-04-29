@@ -274,8 +274,9 @@ class MtgMeleeClient:
         player_url = player_link_element['href']
         player_raw = player_link_element.select_one("span.text-nowrap").text.strip()
 
-        player_name = self.get_player_name(player_raw, player_url, players)
-
+        player_id = player_url.split("/")[-1]
+        player_name = self.get_player_name(player_raw, player_id, players)
+        
         date_string = deck_soup.select_one('span[data-toggle="date"]')['data-value'].strip()
 
         date_tournament = datetime.strptime(date_string, "%m/%d/%Y %I:%M:%S %p")
@@ -333,11 +334,11 @@ class MtgMeleeClient:
                         if 'Matches' in inner_data and inner_data['Matches']:
                             for match in inner_data['Matches']:
                                 round_name = f"Round {match['Round']}"
-                                opponent_name = match['Opponent'] if match['Opponent'] else "-"
+                                opponent_name =  self.normalize_spaces(match['Opponent']) if match['Opponent'] else "-"
                                 result = match['Result']
 
                                 # Use the existing get_round method with adapted parameters
-                                round_info = self.get_round_from_api(round_name, player_name, opponent_name, result)
+                                round_info = self.get_round_from_api(round_name, player_name, opponent_name, self.normalize_spaces(result))
                                 if round_info:
                                     rounds.append(round_info)
             except Exception as e:
@@ -382,30 +383,8 @@ class MtgMeleeClient:
 
         return MtgMeleeRoundInfo(round_name=round_name, match=item)
 
-    def get_round(self, round_node, player_name, players):
-        """Legacy method for HTML parsing - kept for compatibility"""
-        round_columns = round_node.find_all("td")
-        if len(round_columns) < 4:  # Make sure there are enough columns
-            return None
 
-        if "No matches available" in round_node.text:
-            return None
-
-        round_name = f"Round {self.normalize_spaces(round_columns[0].text.strip())}"
-
-        a_tag = round_columns[1].find("a")
-        round_opponent_url = a_tag.get("href", "") if a_tag else ""
-        round_opponent_raw = a_tag.text if a_tag else ""
-        round_opponent = self.get_player_name(round_opponent_raw, round_opponent_url, players) if round_opponent_raw else "-"
-
-        round_result = self.normalize_spaces(round_columns[3].text.strip())
-
-        return self.get_round_from_api(round_name, player_name, round_opponent, round_result)
-
-    def get_player_name(self, player_name_raw, profile_url, players):
-        player_id = profile_url.split("/")[-1]
-        # p = players[0]
-        # p.username
+    def get_player_name(self, player_name_raw, player_id, players):
         if player_id:
             player_info = next((p for p in players if p.username == player_id), None)
             if player_info:
@@ -648,19 +627,23 @@ class MtgMeleeAnalyzer:
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
         formats = {deck.format for deck in decks}  # Ensemble des formats uniques
 
-        if len(formats) > 1:
-            raise ValueError(f"multiple formats need fix : {formats}")
+        valid_format_tournament = {f for f in formats if f in MtgMeleeAnalyzerSettings.ValidFormats}
+        if len(valid_format_tournament) > 1:
+            raise ValueError(f"multiple formats need fix  : {formats}")
+        elif len(valid_format_tournament) == 1:
+            format_detected = valid_format_tournament.pop()
+        # format_detected = FormatDetector.detect(decks)
         # format_detected = FormatDetector.detect(decks)
         return MtgMeleeTournament(
             uri=tournament.uri,
             date=tournament.date,
             name=tournament.name,
-            formats=formats.pop(),
+            formats=format_detected,
             json_file=FilenameGenerator.generate_file_name(
                 tournament_id=tournament.uri.split("/")[-1],
                 name=tournament.name,
                 date=tournament.date,
-                format=formats.pop(),
+                format=format_detected,
                 valid_formats=MtgMeleeAnalyzerSettings.ValidFormats,
                 offset=offset
             ),
@@ -675,10 +658,11 @@ class MtgMeleeAnalyzer:
         decks = [MtgMeleeClient().get_deck(uri, players, True) for uri in deck_uris]
 
         formats = {deck.format for deck in decks}  
-
-        if len(formats) > 1:
+        valid_format_tournament = {f for f in formats if f in MtgMeleeAnalyzerSettings.ValidFormats}
+        if len(valid_format_tournament) > 1:
             raise ValueError(f"multiple formats need fix  : {formats}")
-        format_detected = formats.pop()
+        elif len(valid_format_tournament) == 1:
+            format_detected = valid_format_tournament.pop()
         # format_detected = FormatDetector.detect(decks)
         return MtgMeleeTournament(
             uri=tournament.uri,
@@ -686,7 +670,6 @@ class MtgMeleeAnalyzer:
             name=tournament.name,
             formats=format_detected,
             json_file=self.generate_file_name(tournament, format_detected, -1),
-            MtgMeleeTournamentInfo_res = tournament,
             deck_offset=0,
             expected_decks=3,
             fix_behavior="UseFirst",
