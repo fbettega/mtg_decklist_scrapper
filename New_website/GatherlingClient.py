@@ -46,23 +46,46 @@ class GatherlingClient:
         response = self.get_client().get(url)
         soup = BeautifulSoup(response.text, 'html.parser')
         tournaments = []
-        rows = soup.select("table tr")[1:] 
+
+        rows = soup.select("table tr")
         for row in rows:
             cols = row.find_all('td')
-            if len(cols) < 4:
+            if len(cols) < 2:
                 continue
 
             try:
-                name = cols[0].text.strip()
-                link = cols[0].find('a')['href']
-                series = cols[1].text.strip()
-                date = cols[2].text.strip()# datetime.strptime(cols[2].text.strip(), "%Y-%m-%d")
-                host = cols[3].text.strip()
-                if start_date <= date <= end_date:
-                    tournaments.append(Tournament(name, series, date, host, "https://gatherling.com/" + link))
+                link_tag = cols[0].find('a')
+                if not link_tag or 'href' not in link_tag.attrs:
+                    continue  # Not a tournament row
+
+                name = link_tag.text.strip()
+                link = link_tag['href']
+                full_link = "https://gatherling.com/" + link
+
+                # Try to extract date from the event name (heuristic)
+                date = None
+                for token in name.split():
+                    try:
+                        date = datetime.strptime(token, "%m.%d").replace(year=datetime.now().year, tzinfo=timezone.utc)
+                        break
+                    except ValueError:
+                        continue
+
+                if not date:
+                    continue  # Can't parse date, skip
+
+                if not (start_date <= date <= end_date):
+                    continue
+
+                # Since the structure is unclear, best-effort extraction:
+                host = cols[1].text.strip() if len(cols) > 1 else "Unknown"
+
+                tournaments.append(Tournament(name, date.strftime("%Y-%m-%d"), host, full_link))
+
             except Exception as e:
                 print(f"Error parsing row: {e}")
                 continue
+
         return tournaments
 
 
