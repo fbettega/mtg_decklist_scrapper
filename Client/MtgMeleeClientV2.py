@@ -674,11 +674,11 @@ class MtgMeleeAnalyzer:
             formats=format_detected,
             json_file=FilenameGenerator.generate_file_name(
                 tournament_id=tournament.uri.split("/")[-1],
-                name=tournament.name,
-                date=tournament.date,
-                format=format_detected,
+                tournament_name=tournament.name,
+                tournament_date=tournament.date,
+                tournament_format=format_detected,
                 valid_formats=MtgMeleeAnalyzerSettings.ValidFormats,
-                offset=offset
+                seat=offset
             ),
             deck_offset=offset,
             expected_decks=expected_decks,
@@ -729,7 +729,7 @@ class TournamentList:
     def get_tournament_details(self,  tournament: MtgMeleeTournament) -> 'CacheItem':
         client = MtgMeleeClient()
         players = client.get_players(tournament)
-        
+
         decks = []
         standings = []
         consolidated_rounds = {}
