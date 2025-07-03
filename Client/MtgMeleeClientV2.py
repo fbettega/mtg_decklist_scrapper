@@ -13,6 +13,7 @@ import os
 import time
 # import sys
 from typing import List, Optional
+from dateutil import parser
 # import html
 from dataclasses import dataclass
 from models.Melee_model import *
@@ -478,7 +479,8 @@ class MtgMeleeClient:
                     tournament_format = match.group(1)
                 tournaments[tournament_id] = {
                     'players': {},  # player_name -> decklist
-                    'date': datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
+                    # 'date': datetime.strptime(item['TournamentStartDate'].rstrip("Z"), "%Y-%m-%dT%H:%M:%S"),
+                    'date':  parser.parse(item['TournamentStartDate']),
                     'name': item.get('TournamentName', 'Unnamed Tournament'),
                     'organizer': item['OrganizationName'],
                     'formats': tournament_format,# item.get('FormatDescription'),
@@ -492,7 +494,8 @@ class MtgMeleeClient:
             if player_name not in tournaments[tournament_id]['players']:
                 tournaments[tournament_id]['players'][player_name] = {}
             tournaments[tournament_id]['players'][player_name][Guid_deck] =  melee_extract_decklist(
-                date = datetime.strptime(item['TournamentStartDate'], "%Y-%m-%dT%H:%M:%S"),
+                # date = datetime.strptime(item['TournamentStartDate'].rstrip("Z"), "%Y-%m-%dT%H:%M:%S"),
+                date =  parser.parse(item['TournamentStartDate']),
                 TournamentId =  tournament_id,
                 Valid = item.get('IsValid'),
                 OwnerDisplayName =  self.normalize_spaces(item.get('OwnerDisplayName')),

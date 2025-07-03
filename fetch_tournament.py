@@ -189,8 +189,8 @@ def main():
     if use_mtg_melee:
         print("Updating MTG Melee...")
         update_folder(cache_folder, MTGmelee, "MTGmelee", start_date, end_date)
-        print("Updating MTG Melee using legacy script...")
-        update_folder(cache_folder, MTGmelee_legacy, "MTGmelee", start_date, end_date)
+        # print("Updating MTG Melee using legacy script...")
+        # update_folder(cache_folder, MTGmelee_legacy, "MTGmelee", start_date, end_date)
     if use_topdeck:
         print("Updating Topdeck...")
         update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)
