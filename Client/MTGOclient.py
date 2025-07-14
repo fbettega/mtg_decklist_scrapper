@@ -75,8 +75,9 @@ class TournamentList:
                 parsed_date = isoparse(date_string).date()
                 url = urljoin(MTGOSettings.ROOT_URL, url)
 
-                format_ite = title.split()[0] 
-                
+                base_format_ite = title.split()[0] 
+                format_ite = 'Commander' if base_format_ite == 'Duel' else base_format_ite
+
                 results.append(Tournament(
                     name=title,
                     date=parsed_date,
@@ -279,8 +280,8 @@ class TournamentLoader:
 
             wins = 0
             losses = 0
-            if player_id in winloss:
-                win_loss = winloss[player_id].split("-")
+            if str(player_id) in winloss:
+                win_loss = winloss[str(player_id)].split("-")
                 wins = int(win_loss[0])
                 losses = int(win_loss[1])
 
