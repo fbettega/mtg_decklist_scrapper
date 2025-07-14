@@ -307,7 +307,7 @@ class TournamentLoader:
         :return: Liste des rounds triés ou None.
         """
         if "brackets" not in json_data:
-            return Noned
+            return None
         # brackets = []
         rounds = []       
         for bracket in json_data["brackets"]:
