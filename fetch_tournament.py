@@ -71,6 +71,9 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
     clean_temp_files(cache_folder)
     print(f"Downloading tournament list for {source_name}")
     tournaments = source.TournamentList.DL_tournaments(start_date, end_date)
+    if tournaments is None:
+        print(f"Failed to download tournaments from {source_name}. Skipping.")
+        return
     tournaments.sort(key=lambda t: t.date)
     
     for tournament in tournaments:
