@@ -425,19 +425,34 @@ class MtgMeleeClient:
             MAX_RETRIES = 3
             DELAY_SECONDS = 2
             for attempt in range(1, MAX_RETRIES + 1):
-                response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)      
+                response = self.get_client(load_cookies = True).post(tournament_list_url,data=payload)
+                if response.status_code == 401:
+                    print(f"Attempt {attempt}: Authentication required (401). Refreshing cookies...")
+                    # Force refresh cookies on authentication failure
+                    client = MtgMeleeClient.get_client(load_cookies=False)
+                    MtgMeleeClient._refresh_cookies(client, force_login=True)
+                    MtgMeleeClient._load_cookies(client)
+                    response = client.post(tournament_list_url, data=payload)
+
                 if response.text.strip():  # vérifie que la réponse n'est pas vide
                     try:
                         tournament_data = json.loads(response.text)
                         break  # succès, on sort de la boucle
                     except json.JSONDecodeError:
-                        print(f"Attempt  {attempt}: Empty response.")
+                        print(f"Attempt {attempt}: Failed to parse JSON response.")
+                        print(f"Status code: {response.status_code}")
+                        print(f"Response headers: {dict(response.headers)}")
+                        print(f"Response (first 200 chars): {response.text[:200]}")
                 else:
-                    print(f"Attempt  ative {attempt}: Failed to parse JSON.")
+                    print(f"Attempt {attempt}: Empty response.")
+                    print(f"Status code: {response.status_code}")
+                    if 'X-Responded-JSON' in response.headers:
+                        print(f"X-Responded-JSON: {response.headers['X-Responded-JSON']}")
 
                 if attempt < MAX_RETRIES:
                     time.sleep(DELAY_SECONDS)
             else:
+                print("All attempts failed. Unable to retrieve tournament data.")
                 return None
             
             
@@ -479,7 +494,7 @@ class MtgMeleeClient:
                     tournament_format = match.group(1)
                 tournaments[tournament_id] = {
                     'players': {},  # player_name -> decklist
-                    # 'date': datetime.strptime(item['TournamentStartDate'].rstrip("Z"), "%Y-%m-%dT%H:%M:%S"),
+
                     'date':  parser.parse(item['TournamentStartDate']),
                     'name': item.get('TournamentName', 'Unnamed Tournament'),
                     'organizer': item['OrganizationName'],
@@ -494,6 +509,7 @@ class MtgMeleeClient:
             if player_name not in tournaments[tournament_id]['players']:
                 tournaments[tournament_id]['players'][player_name] = {}
             tournaments[tournament_id]['players'][player_name][Guid_deck] =  melee_extract_decklist(
+
                 # date = datetime.strptime(item['TournamentStartDate'].rstrip("Z"), "%Y-%m-%dT%H:%M:%S"),
                 date =  parser.parse(item['TournamentStartDate']),
                 TournamentId =  tournament_id,
@@ -803,6 +819,10 @@ class TournamentList:
             client = MtgMeleeClient()
             tournaments = client.get_tournaments(start_date, current_end_date)
             # print(f"end DL tournament")
+            if tournaments is None:
+                print(f"No tournaments retrieved for period {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}")
+                start_date = current_end_date
+                continue
             analyzer = MtgMeleeAnalyzer()
             for tournament in tournaments:
                 melee_tournaments = analyzer.get_scraper_tournaments(tournament)
