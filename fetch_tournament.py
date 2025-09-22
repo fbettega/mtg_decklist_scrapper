@@ -24,7 +24,7 @@ import Client.ManatraderClient as ManatraderClient
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2025-03-30 mtgo keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-03-01 2025-04-26 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 melee keepleague
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2024-12-31 all keepleague
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-04-01 2025-05-09 all keepleague
 # Configure logging to file and console
 def configure_logging(log_file_path):
     class Logger:
@@ -192,8 +192,8 @@ def main():
     if use_mtg_melee:
         print("Updating MTG Melee...")
         update_folder(cache_folder, MTGmelee, "MTGmelee", start_date, end_date)
-        print("Updating MTG Melee using legacy script...")
-        update_folder(cache_folder, MTGmelee_legacy, "MTGmelee", start_date, end_date)
+        # print("Updating MTG Melee using legacy script...")
+        # update_folder(cache_folder, MTGmelee_legacy, "MTGmelee", start_date, end_date)
     if use_topdeck:
         print("Updating Topdeck...")
         update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)

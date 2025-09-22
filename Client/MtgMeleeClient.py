@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import time
 # import sys
+from dateutil import parser
 from typing import List, Optional
 # import html
 from dataclasses import dataclass
@@ -300,6 +301,7 @@ class MtgMeleeClient:
                 tournament = MtgMeleeTournamentInfo(
                     tournament_id=item['ID'],
                     date=datetime.strptime(item['StartDate'], "%Y-%m-%dT%H:%M:%S"), #"%Y-%m-%dT%H:%M:%S%z"
+                    # date =  parser.parse(item['TournamentStartDate']),
                     name=self.normalize_spaces(item['Name']),
                     organizer=self.normalize_spaces(item['OrganizationName']),
                     # formats=[self.normalize_spaces(item['FormatDescription'])],
