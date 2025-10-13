@@ -163,7 +163,7 @@ class MtgMeleeClient:
                     inside_commander = True
                 else:
                     inside_companion = card == 'Companion'
-                    inside_sideboard = card == 'Sideboard'         
+                    inside_sideboard = card == 'Sideboard'
                 if(inside_commander):
                     inside_sideboard = True
                 if(card == 'Deck' and inside_commander):
@@ -171,7 +171,12 @@ class MtgMeleeClient:
                     inside_commander = False
                     inside_companion = False
             else:
+                # Companions should be added to the sideboard
                 if inside_companion and not inside_commander:
+                    count, name = card.split(" ", 1)
+                    count = int(count)
+                    name = CardNameNormalizer.normalize(name)
+                    side_board.append(DeckItem(card_name=name, count=count))
                     continue
                 count, name = card.split(" ", 1)
                 count = int(count)
