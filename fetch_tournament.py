@@ -15,7 +15,7 @@ import time
 import re
 # import Client.MtgMeleeClient as MTGmelee
 import Client.MtgMeleeClientV2 as MTGmelee
-import Client.MtgMeleeClient as MTGmelee_legacy
+# import Client.MtgMeleeClient as MTGmelee_legacy
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
