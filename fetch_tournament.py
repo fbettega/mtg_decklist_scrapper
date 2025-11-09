@@ -64,8 +64,8 @@ def clean_temp_files(cache_folder: str):
                     print(f"Error removing temporary file {temp_file_path}: {e}")
 
 # Update folder function
-def update_folder(cache_root_folder: str, source, source_name:str,start_date: datetime, end_date: Optional[datetime]):
-    
+def update_folder(cache_root_folder: str, source, source_name:str,start_date: datetime, end_date: Optional[datetime], include_leagues: bool = True):
+
     cache_folder = os.path.join(cache_root_folder, source_name)  # Provider is the class name
     # Clean up any leftover temp files
     clean_temp_files(cache_folder)
@@ -74,8 +74,14 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
     if tournaments is None:
         print(f"Failed to download tournaments from {source_name}. Skipping.")
         return
+
+    # Filter out leagues if requested
+    if not include_leagues:
+        tournaments = [t for t in tournaments if "league" not in t.name.lower()]
+        print(f"Filtered out leagues, {len(tournaments)} tournaments remaining")
+
     tournaments.sort(key=lambda t: t.date)
-    
+
     for tournament in tournaments:
         target_folder = os.path.join(cache_folder, str(tournament.date.year), f"{tournament.date.month:02d}", f"{tournament.date.day:02d}")
 
@@ -187,16 +193,18 @@ def main():
     # Update folders based on source
     if use_mtgo:
         print("Updating MTGO...")
-        update_folder(cache_folder, MTGO, "MTGO", start_date, end_date)
+        update_folder(cache_folder, MTGO, "MTGO", start_date, end_date, include_leagues)
 
     if use_mtg_melee:
         print("Updating MTG Melee...")
-        update_folder(cache_folder, MTGmelee, "MTGmelee", start_date, end_date)
+        update_folder(cache_folder, MTGmelee, "MTGmelee", start_date, end_date, include_leagues)
+        # print("Updating MTG Melee using legacy script...")
+        # update_folder(cache_folder, MTGmelee_legacy, "MTGmelee", start_date, end_date, include_leagues)
     if use_topdeck:
         print("Updating Topdeck...")
-        update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date)
+        update_folder(cache_folder, TopDeck, "Topdeck", start_date, end_date, include_leagues)
     if use_manatrader:
         print("Updating Manatrader...")
-        update_folder(cache_folder, ManatraderClient, "Manatrader", start_date, end_date)
+        update_folder(cache_folder, ManatraderClient, "Manatrader", start_date, end_date, include_leagues)
 if __name__ == "__main__":
     main()

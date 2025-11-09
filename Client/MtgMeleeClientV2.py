@@ -574,7 +574,7 @@ class MtgMeleeClient:
 
 # Configuration settings
 class MtgMeleeAnalyzerSettings:
-    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern"] #
+    ValidFormats = ["Standard", "Modern", "Pioneer", "Legacy", "Vintage", "Pauper","Commander","Premodern","Duel Commander"] #
     PlayersLoadedForAnalysis = 25
     DecksLoadedForAnalysis = 16
     BlacklistedTerms = ["Team "]
@@ -686,9 +686,18 @@ class MtgMeleeAnalyzer:
 
         valid_format_tournament = {f for f in formats if f in MtgMeleeAnalyzerSettings.ValidFormats}
         if len(valid_format_tournament) > 1:
-            raise ValueError(f"multiple formats need fix  : {formats}")
+            # Multiple valid formats detected - use the most common one
+            from collections import Counter
+            format_counts = Counter(deck.format for deck in decks if deck.format in MtgMeleeAnalyzerSettings.ValidFormats)
+            if format_counts:
+                format_detected = format_counts.most_common(1)[0][0]
+                print(f"-- Warning: Tournament '{tournament.name}' ({tournament.uri}) has multiple formats {dict(format_counts)}. Using most common: {format_detected}")
+            else:
+                raise ValueError(f"Tournament '{tournament.name}' ({tournament.uri}): multiple formats need fix: {formats}")
         elif len(valid_format_tournament) == 1:
             format_detected = valid_format_tournament.pop()
+        else:
+            raise ValueError(f"Tournament '{tournament.name}' ({tournament.uri}): No valid format found in: {formats}")
         # format_detected = FormatDetector.detect(decks)
         # format_detected = FormatDetector.detect(decks)
         return MtgMeleeTournament(
