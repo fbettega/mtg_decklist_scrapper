@@ -305,8 +305,8 @@ class MtgMeleeClient:
         inside_sideboard = inside_companion = inside_commander = False
         CardNameNormalizer.initialize()
         for card in card_list:
-            if card in ['MainDeck', 'Companion', 'Sideboard','Commander','']:
-                if card == 'Commander':
+            if card in ['MainDeck', 'Companion', 'Sideboard','Commander','Partner','Deck','']:
+                if card == 'Commander' or card == 'Partner':
                     inside_commander = True
                 else:
                     inside_companion = card == 'Companion'
