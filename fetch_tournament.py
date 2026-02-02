@@ -19,6 +19,7 @@ import Client.MtgMeleeClientV2 as MTGmelee
 import Client.MTGOclient as MTGO
 import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
+import Client.CardsrealmClient as CardsrealmClient
 
 
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2025-03-30 mtgo keepleague
@@ -180,6 +181,7 @@ def main():
     use_mtg_melee = args.source.lower() in ["melee", "all"]
     use_topdeck = args.source.lower() in ["topdeck", "all"]
     use_manatrader = args.source.lower() in ["manatrader"] #["manatrader", "all"]
+    use_cardsrealm = args.source.lower() in ["cardsrealm", "all"]
     include_leagues = args.leagues.lower() != "skipleagues"
 
     print(f"Cache folder: {cache_folder}")
@@ -188,6 +190,7 @@ def main():
     print(f"Using MTGO: {use_mtgo}")
     print(f"Using MTG Melee: {use_mtg_melee}")
     print(f"Using Topdeck: {use_topdeck}")
+    print(f"Using Cards Realm: {use_cardsrealm}")
     print(f"Including Leagues: {include_leagues}")
 
     # Update folders based on source
@@ -206,5 +209,8 @@ def main():
     if use_manatrader:
         print("Updating Manatrader...")
         update_folder(cache_folder, ManatraderClient, "Manatrader", start_date, end_date, include_leagues)
+    if use_cardsrealm:
+        print("Updating Cards Realm...")
+        update_folder(cache_folder, CardsrealmClient, "CardsRealm", start_date, end_date, include_leagues)
 if __name__ == "__main__":
     main()
