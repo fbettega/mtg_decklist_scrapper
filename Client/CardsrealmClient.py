@@ -187,7 +187,7 @@ class CardsrealmClient:
             )
 
             target.append(DeckItem(
-                card_name=card["name_of_card"],
+                card_name=CardNameNormalizer.normalize(card["name_of_card"]),
                 count=card["deck_quantity"]
             ))
 
@@ -277,6 +277,9 @@ class CardsrealmClient:
 
 
 class TournamentList:
+    def __init__(self):
+        CardNameNormalizer.initialize()
+
     @classmethod
     def DL_tournaments(cls, start_date: datetime, end_date: datetime = None) -> List[Tournament]:
         """Client entry
