@@ -1,4 +1,3 @@
-import datetime
 import time
 from datetime import timezone
 from pathlib import Path
@@ -16,6 +15,7 @@ class CardsrealmSettings:
     DECKLIST_JSON_URL: str = "https://mtg.cardsrealm.com/en-us/app/getDeckById"
     ROUND_JSON_URL: str = "https://mtg.cardsrealm.com/en-us/tournament/getround"
     DELAY: int = 2
+    MAX_ITERATIONS = 100
     HEADERS = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0)"
@@ -39,9 +39,15 @@ class CardsrealmClient:
         tournaments = []
         page = 1
         last_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        last_date = datetime.now(timezone.utc)
+        i = 0
 
         # Retrieve all tournaments matching the dates
-        while last_date >= start_date.strftime("%Y-%m-%d"):
+        while last_date >= start_date:
+            if i >= CardsrealmSettings.MAX_ITERATIONS:
+                break
+            i += 1
+
             r = self.session.get(
                 CardsrealmSettings.TOURNAMENT_LIST_URL,
                 params={
@@ -57,9 +63,10 @@ class CardsrealmClient:
 
             for tournament_node in tournaments_soup.select("a.tour_grid_banner_a"):
                 date_str = tournament_node.select_one(".tour_datetime_utc_p").text.strip()
-                last_date = date_str
+                tournament_date = datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+                last_date = tournament_date
 
-                if not (start_date.strftime("%Y-%m-%dT00:00:00") <= date_str <= end_date.strftime("%Y-%m-%dT23:59:59")):
+                if not (start_date <= tournament_date <= end_date):
                     continue
 
                 tournament = self.extract_tournament_data(tournament_node)
