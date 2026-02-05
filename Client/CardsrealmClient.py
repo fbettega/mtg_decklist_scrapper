@@ -38,7 +38,6 @@ class CardsrealmClient:
 
         tournaments = []
         page = 1
-        last_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         last_date = datetime.now(timezone.utc)
         i = 0
 
