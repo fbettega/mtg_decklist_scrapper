@@ -26,8 +26,7 @@ class CardsrealmSettings:
 
 
 class CardsrealmClient:
-    def __init__(self, project_dir: Path):
-        self.project_dir = project_dir
+    def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(CardsrealmSettings.HEADERS)
 
@@ -294,7 +293,7 @@ class TournamentList:
 
         print(
             f"\r[Cardsrealm] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-        client = CardsrealmClient(project_dir=Path.cwd())
+        client = CardsrealmClient()
         result = client.get_tournaments(start_date, end_date)
 
         return result
@@ -303,7 +302,7 @@ class TournamentList:
         """
         Get players, decks, standings and rounds
         """
-        client = CardsrealmClient(project_dir=Path.cwd())
+        client = CardsrealmClient()
         result = client.scrape_tournament(tournament)
 
         return result
