@@ -1,6 +1,5 @@
 import time
 from datetime import timezone
-from pathlib import Path
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
@@ -262,14 +261,6 @@ class CardsrealmClient:
         text = re.sub(r'[^a-z0-9]+', '-', text)
         text = re.sub(r'-+', '-', text)
         return text.strip('-')
-
-    @staticmethod
-    def format_platform(platform) -> str:
-        return {
-            "MTGO": "mtgo",
-            "SpellTable": "spelltable",
-            "Arena": "arena",
-        }.get(platform, "paper")
 
     @staticmethod
     def format_result(rank) -> str:
