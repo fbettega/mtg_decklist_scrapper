@@ -141,7 +141,7 @@ class CardsrealmClient:
             deck_id = div_id[5:]
             # print("Deck " + deck_id)
 
-            deck = self.scrape_deck(deck_id, player, rank)
+            deck = self.scrape_deck(deck_id, player, rank, tournament.date)
             decks.append(deck)
 
             time.sleep(CardsrealmSettings.DELAY)
@@ -165,7 +165,7 @@ class CardsrealmClient:
             standings=standings
         )
 
-    def scrape_deck(self, deck_id: str, player: str, rank: int) -> Deck:
+    def scrape_deck(self, deck_id: str, player: str, rank: int, date: datetime | None) -> Deck:
         r = self.session.get(
             CardsrealmSettings.DECKLIST_JSON_URL,
             params={"deck_id": deck_id}
@@ -174,7 +174,7 @@ class CardsrealmClient:
 
         deck = Deck(
             player=player,
-            date=None,
+            date=date,
             anchor_uri="",
             mainboard=[],
             sideboard=[],
