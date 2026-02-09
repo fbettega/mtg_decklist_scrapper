@@ -1,7 +1,7 @@
 # MTG Tournament Fetcher
 
 ## Overview
-This script fetches tournament data from various Magic: The Gathering platforms, including [MTGO](https://www.mtgo.com/decklists), [Melee](https://melee.gg/Decklists) and [Topdeck](https://topdeck.gg). It stores tournament data in a structured folder format for further analysis.
+This script fetches tournament data from various Magic: The Gathering platforms, including [MTGO](https://www.mtgo.com/decklists), [Melee](https://melee.gg/Decklists), [Topdeck](https://topdeck.gg) and [Cards Realm](https://cardsrealm.com). It stores tournament data in a structured folder format for further analysis.
 
 ## Note 
 - [Manatraders](https://www.manatraders.com/tournaments/2) is not fully functional in order to recover standings. The script tries to de-anonymize the masks that replace player names, but this is not always possible (data errors, very large numbers of players in a single mask, etc.).
@@ -51,6 +51,7 @@ python fetch_tournament.py <cache_folder> <start_date> <end_date> <source> <leag
   - `melee`
   - `topdeck`
   - `manatrader`
+  - `cardsrealm`
   - `all` (fetch from all sources)
 - `<leagues>`: Include leagues. Options:
   - `keepleague` (default)
