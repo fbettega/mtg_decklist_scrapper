@@ -1,7 +1,7 @@
 import time
 from datetime import timezone
 from urllib.parse import urljoin
-
+from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup, Tag
 
 from comon_tools.tools import *
@@ -46,17 +46,34 @@ class CardsrealmClient:
                 break
             i += 1
 
-            r = self.session.get(
-                CardsrealmSettings.TOURNAMENT_LIST_URL,
-                params={
-                    "tour_time_select": 3,
-                    "tour_region": 0,
-                    "tour_name": None,
-                    "tour_format": 5,
-                    "page": page
-                }
-            )
-            html = json.loads(r.text)
+
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    r = self.session.get(
+                        CardsrealmSettings.TOURNAMENT_LIST_URL,
+                        params={
+                            "tour_time_select": 3,
+                            "tour_region": 0,
+                            "tour_name": None,
+                            "tour_format": 5,
+                            "page": page
+                        }
+                    )
+                    r.raise_for_status() 
+                    html = r.json()
+                    break  # Succès ! On sort de la boucle de retry
+                except HTTPError as e:
+                    if r.status_code == 500 and attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 5 # Attend 5s, puis 10s...
+                        print(f"Le serveur a crashé (500). Nouvel essai dans {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        # Si c'est une 404, 403 ou que les retries ont échoué
+                        print(f"Erreur fatale : {e}")
+                        raise # On relance l'erreur pour de bon            
+
             tournaments_soup = BeautifulSoup(html, "html.parser")
 
             for tournament_node in tournaments_soup.select("a.tour_grid_banner_a"):
@@ -169,7 +186,14 @@ class CardsrealmClient:
             CardsrealmSettings.DECKLIST_JSON_URL,
             params={"deck_id": deck_id}
         )
-        decklist = json.loads(r.text)
+        # decklist = json.loads(r.text)
+        # 2. Utiliser r.json() qui est plus propre que json.loads(r.text)
+        # try:
+        decklist = r.json()
+        # except json.JSONDecodeError:
+        #     print("Le serveur n'a pas renvoyé de JSON valide.")
+        #     print(f"Contenu brut : {r.text}")
+        #     raise
 
         deck = Deck(
             player=player,
@@ -208,7 +232,11 @@ class CardsrealmClient:
                 CardsrealmSettings.ROUND_JSON_URL,
                 params={"tour_id": tournament_id, "round_number": i}
             )
-            round_html = json.loads(r.text)
+
+            # raise an exception if the request != 200
+            r.raise_for_status()
+
+            round_html = r.json()
             round_soup = BeautifulSoup(round_html, "html.parser")
 
             round = Round(
@@ -243,7 +271,8 @@ class CardsrealmClient:
         if player2_score_node:
             player2_score = player2_score_node.text.strip()
         else:
-            player2_score = 0
+            # fix if you use int results will crash because +  can only concatenate str (not "int") to str
+            player2_score = "0"
 
         player1 = node.select_one("p:nth-of-type(1) a").text.strip()
         player1_score = node.select_one("p.tour_results_p:nth-of-type(2)").text.strip()
