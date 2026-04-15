@@ -6,6 +6,8 @@ log_scraping.txt
 debug/
 tournament_data.pkl
 .vscode/
+.vscode/launch.json
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

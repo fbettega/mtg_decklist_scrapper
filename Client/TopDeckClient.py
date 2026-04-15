@@ -242,30 +242,28 @@ class TournamentList:
                         ]
         client = TopdeckClient()
         result = []
-        while start_date < end_date:
-            current_end_date = start_date + timedelta(days=7)
-            print(f"\r[Topdeck] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {current_end_date.strftime('%Y-%m-%d')}", end='')
+        print(f"\r[Topdeck] Downloading tournaments from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}", end='')
 
-            for format in valid_formats:
-                tournaments = client.get_tournament_list(TopdeckTournamentRequest(
-                    start= start_date.timestamp(),
-                    end= current_end_date.timestamp(),
-                    game= TopDeckConstants.Game.MagicTheGathering,
-                    format=format
-                ))
+        for format in valid_formats:
+            tournaments = client.get_tournament_list(TopdeckTournamentRequest(
+                start= start_date.timestamp(),
+                end= end_date.timestamp(), #current_end_date.timestamp(),
+                game= TopDeckConstants.Game.MagicTheGathering,
+                format=format
+            ))
 
-                for tournament in tournaments:
-                    date = datetime.fromtimestamp(tournament.start_date, tz=timezone.utc)
-                    result.append(Tournament(
-                        name=tournament.name,
-                        date=date,
-                        formats=format,
-                        uri=f"https://topdeck.gg/event/{tournament.id}",
-                        json_file=FilenameGenerator.generate_file_name(
-                            tournament.id, tournament.name, date, format, [f for f in valid_formats], -1
-                        )
-                    ))
+        for tournament in tournaments:
+            date = datetime.fromtimestamp(tournament.start_date, tz=timezone.utc)
+            result.append(Tournament(
+            name=tournament.name,
+            date=date,
+            formats=format,
+            uri=f"https://topdeck.gg/event/{tournament.id}",
+            json_file=FilenameGenerator.generate_file_name(
+                tournament.id, tournament.name, date, format, [f for f in valid_formats], -1
+            )
+            ))
 
-            start_date = start_date + timedelta(days=7)
+
         print("\r[Topdeck] Download finished")
         return result
