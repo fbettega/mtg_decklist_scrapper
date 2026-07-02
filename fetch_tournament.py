@@ -97,7 +97,7 @@ def update_folder(cache_root_folder: str, source, source_name:str,start_date: da
         if os.path.exists(target_file):
             continue
         print(f"- Downloading tournament {sanitize_json_file}")
-        details = run_with_retry(lambda: source.TournamentList().get_tournament_details(tournament), sleep_time, 5)
+        details = run_with_retry(lambda: source.TournamentList().get_tournament_details(tournament), sleep_time, 10)
         if not details:
             print(f"-- Tournament has no data, skipping")
             if not os.listdir(target_folder):  # If folder is empty, remove it
