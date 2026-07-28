@@ -21,7 +21,7 @@ import Client.TopDeckClient as TopDeck
 import Client.ManatraderClient as ManatraderClient
 import Client.CardsrealmClient as CardsrealmClient
 
-# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2026-04-13 CardsRealm keepleague
+# python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2026-04-13 CardsRealm keepleague mtgo melee topdeck manatrader cardsrealm
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2024-01-01 2025-03-30 mtgo keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2025-01-01 2025-02-28 melee keepleague
 # python fetch_tournament.py ./MTG_decklistcache/Tournaments 2026-01-01 2026-04-15 all keepleague
@@ -164,7 +164,7 @@ def main():
         "source",
         type=str,
         nargs="?",
-        help="Source type: 'mtgo', 'melee', 'topdeck','manatrader', or 'all'. Defaults to 'all'.",
+        help="Source type: 'mtgo', 'melee', 'topdeck','manatrader', 'cardsrealm', or 'all'. Defaults to 'all'.",
         default="all",
     )
     arg_parser.add_argument(
