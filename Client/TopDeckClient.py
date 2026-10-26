@@ -1,4 +1,3 @@
-
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -210,7 +209,11 @@ class TournamentList:
     # ------------------------------------------------------------------
     @staticmethod
     def _records_from_rounds(rounds):
-        """Victoires/défaites/nuls par id joueur, recalculés depuis les rondes (bye = victoire)."""
+        """
+        Victoires/défaites/nuls par id joueur, recalculés depuis les rondes.
+        Les byes NE sont PAS comptés : c'est ce que renvoyait l'ancienne colonne 'wins'
+        (vérifié sur les fichiers du cache : 1089/1091 standings identiques).
+        """
         rec = {}
 
         def add(pid, field):
@@ -226,9 +229,8 @@ class TournamentList:
                 winner_id = table.get("winner_id")
                 winner = table.get("winner")
                 if status == "Bye" or table.get("table") == "Byes" or len(players) == 1:
-                    for pid in ids:
-                        add(pid, "wins")
-                elif winner_id == "Draw":
+                    continue
+                elif winner_id == "Draw" or winner == "Draw":
                     for pid in ids:
                         add(pid, "draws")
                 elif winner_id or winner:
@@ -251,7 +253,7 @@ class TournamentList:
                     # comportement historique conservé : bye noté "0-0-1", player2 vide
                     for n in names:
                         items.append(RoundItem(player1=n, player2="", result="0-0-1"))
-                elif winner_id == "Draw":
+                elif winner_id == "Draw" or winner == "Draw":
                     items.append(RoundItem(player1=names[0], player2=names[1], result="0-0-1"))
                 elif winner_id or winner:
                     if (winner_id and players[1].get("id") == winner_id) or (not winner_id and names[1] == winner):
